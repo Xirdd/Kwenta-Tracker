@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'kwenta_data_v1';
+const STORAGE_KEY = "kwenta_data_v1";
 
 export function loadData() {
   try {
@@ -12,7 +12,7 @@ export function loadData() {
       };
     }
   } catch (e) {
-    console.error('Failed to load Kwenta data', e);
+    console.error("Failed to load Kwenta data", e);
   }
   return { salary: {}, transactions: [], budgets: {} };
 }
@@ -24,7 +24,7 @@ export function persist(data) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
-      console.error('Failed to save Kwenta data', e);
+      console.error("Failed to save Kwenta data", e);
     }
   }, 250);
 }
