@@ -1,4 +1,4 @@
-import { state, monthLabel } from "../state.js";
+import { state, monthLabel } from '../state.js';
 
 export function renderMonthNav() {
   return `

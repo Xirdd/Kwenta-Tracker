@@ -11,6 +11,7 @@ import { renderExpenses } from "./components/expenses.js";
 import { renderBudgets, attachBudgetEvents } from "./components/budgets.js";
 import { initSheet, openForm } from "./components/sheet.js";
 import { exportCSV } from "./export.js";
+import { initTheme, toggleTheme } from "./theme.js";
 
 function render() {
   const t = totals();
@@ -59,6 +60,10 @@ function attachEvents() {
   };
 
   document.getElementById("exportBtn").onclick = exportCSV;
+  document.getElementById("themeToggle").onclick = () => {
+    toggleTheme();
+    render();
+  };
 
   attachIncomeEvents();
   attachBudgetEvents();
@@ -74,9 +79,10 @@ function attachEvents() {
 }
 
 (function init() {
+  initTheme();
   initSheet(render); // let the sheet module trigger a re-render after save/delete
   document.getElementById("app").innerHTML =
-    `<div style="padding:60px 10px;text-align:center;color:#8fa093;font-family:Inter,sans-serif;font-size:13px;">Opening the ledger…</div>`;
+    `<div style="padding:60px 10px;text-align:center;color:var(--muted);font-family:Inter,sans-serif;font-size:13px;">Opening the ledger…</div>`;
   initData();
   render();
 })();
