@@ -1,6 +1,14 @@
 import "./style.css";
 
-import { state, DATA, initData, shiftMonth, totals } from "./state.js";
+import {
+  state,
+  DATA,
+  initData,
+  shiftMonth,
+  totals,
+  switchToCloudData,
+  switchToLocalData,
+} from "./state.js";
 import { renderHeader } from "./components/header.js";
 import { renderMonthNav } from "./components/monthNav.js";
 import { renderLedgerCard } from "./components/ledgerCard.js";
@@ -12,12 +20,16 @@ import { renderBudgets, attachBudgetEvents } from "./components/budgets.js";
 import { initSheet, openForm } from "./components/sheet.js";
 import { exportCSV } from "./export.js";
 import { initTheme, toggleTheme } from "./theme.js";
+import { initAuth, getCurrentUser, onAuthChange } from "./auth.js";
+import { openAuthSheet } from "./components/authSheet.js";
+import { openAccountSheet } from "./components/accountSheet.js";
 
 function render() {
   const t = totals();
+  const user = getCurrentUser();
   const app = document.getElementById("app");
   app.innerHTML = `
-    ${renderHeader()}
+    ${renderHeader(user)}
     <div class="side">
       ${renderMonthNav()}
       ${renderLedgerCard(t)}
@@ -65,6 +77,12 @@ function attachEvents() {
     render();
   };
 
+  document.getElementById("accountBtn").onclick = () => {
+    const user = getCurrentUser();
+    if (user) openAccountSheet(user);
+    else openAuthSheet();
+  };
+
   attachIncomeEvents();
   attachBudgetEvents();
 
@@ -78,11 +96,29 @@ function attachEvents() {
   });
 }
 
-(function init() {
+(async function init() {
   initTheme();
-  initSheet(render); // let the sheet module trigger a re-render after save/delete
-  document.getElementById("app").innerHTML =
-    `<div style="padding:60px 10px;text-align:center;color:var(--muted);font-family:Inter,sans-serif;font-size:13px;">Opening the ledger…</div>`;
-  initData();
+  initSheet(render); // let sheets trigger a re-render after save/delete/sign-in/sign-out
+
+  const loadingEl = document.getElementById("app");
+  loadingEl.innerHTML = `<div style="padding:60px 10px;text-align:center;color:var(--muted);font-family:Inter,sans-serif;font-size:13px;">Opening the ledger…</div>`;
+
+  await initAuth();
+
+  // Re-load and re-render whenever the signed-in user changes (sign in, sign out, magic link landing).
+  let lastUserId = getCurrentUser()?.id || null;
+  onAuthChange(async (user) => {
+    const userId = user?.id || null;
+    if (userId === lastUserId) return;
+    lastUserId = userId;
+    if (user) {
+      await switchToCloudData();
+    } else {
+      switchToLocalData();
+    }
+    render();
+  });
+
+  await initData();
   render();
 })();
