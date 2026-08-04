@@ -42,7 +42,7 @@ export function renderIncome() {
         <div class="row" data-edit="${tx.id}" data-type="income">
           <span class="chip" style="background:${c.color}"></span>
           <div class="info">
-            <div class="desc">${escapeHtml(tx.desc || c.label)}</div>
+            <div class="desc">${escapeHtml(tx.desc || c.label)}${tx.recurringId ? ' <span class="recur-badge" title="Repeats monthly">↻</span>' : ""}</div>
             <div class="meta">${c.label} · ${formatDate(tx.date)}</div>
           </div>
           <div class="amt income">+${fmt(tx.amount)}</div>

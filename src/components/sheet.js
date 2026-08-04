@@ -7,6 +7,11 @@ import {
   cloudUpsertTransaction,
   cloudDeleteTransaction,
 } from "../sync.js";
+import {
+  createRecurringRule,
+  updateRecurringTemplate,
+  stopRecurringRule,
+} from "../recurring.js";
 
 let onChange = () => {}; // callback to re-render the main app, set by main.js
 
@@ -23,6 +28,7 @@ export function openForm(type, tx) {
   const dateVal = tx ? tx.date : today;
   const descVal = tx ? tx.desc || "" : "";
   const amtVal = tx ? tx.amount : "";
+  const wasRecurring = !!(tx && tx.recurringId);
   const heading = tx
     ? `Edit ${type === "expense" ? "expense" : "income"}`
     : `Add ${type === "expense" ? "expense" : "income"}`;
@@ -48,6 +54,13 @@ export function openForm(type, tx) {
       <label>Date</label>
       <input id="fDate" type="date" value="${dateVal}"/>
     </div>
+    <div class="field">
+      <label class="checkbox-row">
+        <input type="checkbox" id="fRepeats" ${wasRecurring ? "checked" : ""}/>
+        <span>Repeats every month</span>
+      </label>
+      ${wasRecurring ? `<p class="field-hint">Unchecking this stops future months — this entry stays.</p>` : `<p class="field-hint">Automatically added again next month, using this amount and category.</p>`}
+    </div>
     <div class="sheet-actions">
       ${tx ? `<button class="btn btn-danger" id="deleteBtn">Delete</button>` : ""}
       <button class="btn btn-ghost" id="cancelBtn">Cancel</button>
@@ -72,10 +85,12 @@ export function openForm(type, tx) {
     const desc = document.getElementById("fDesc").value.trim();
     const amount = Number(document.getElementById("fAmount").value);
     const date = document.getElementById("fDate").value || today;
+    const repeatsChecked = document.getElementById("fRepeats").checked;
     if (!amount || amount <= 0) {
       flashField("fAmount");
       return;
     }
+
     let saved;
     if (tx) {
       tx.desc = desc;
@@ -83,10 +98,39 @@ export function openForm(type, tx) {
       tx.category = chosenCat;
       tx.date = date;
       saved = tx;
+
+      if (repeatsChecked && !wasRecurring) {
+        const rule = createRecurringRule({
+          type,
+          desc,
+          amount,
+          category: chosenCat,
+          date,
+        });
+        saved.recurringId = rule.id;
+      } else if (!repeatsChecked && wasRecurring) {
+        stopRecurringRule(tx.recurringId);
+        delete saved.recurringId;
+      } else if (repeatsChecked && wasRecurring) {
+        const rule = DATA.recurring.find((r) => r.id === tx.recurringId);
+        if (rule)
+          updateRecurringTemplate(rule, { desc, amount, category: chosenCat });
+      }
     } else {
       saved = { id: uid(), type, desc, amount, category: chosenCat, date };
+      if (repeatsChecked) {
+        const rule = createRecurringRule({
+          type,
+          desc,
+          amount,
+          category: chosenCat,
+          date,
+        });
+        saved.recurringId = rule.id;
+      }
       DATA.transactions.push(saved);
     }
+
     saveData();
     if (isCloudMode())
       cloudUpsertTransaction(saved).catch((e) =>
@@ -97,7 +141,7 @@ export function openForm(type, tx) {
   };
 
   if (tx) {
-    document.getElementById("deleteBtn").onclick = () => confirmDelete(tx.id);
+    document.getElementById("deleteBtn").onclick = () => confirmDelete(tx);
   }
 }
 
@@ -109,24 +153,30 @@ function flashField(id) {
   }, 700);
 }
 
-function confirmDelete(id) {
+function confirmDelete(tx) {
+  const isRecurring = !!tx.recurringId;
   openModal(`
     <div class="grabber"></div>
     <h3>Remove this entry?</h3>
-    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:-6px;">This can't be undone.</p>
+    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:-6px;">${
+      isRecurring
+        ? "This is a recurring entry — removing it also stops it from repeating next month."
+        : "This can't be undone."
+    }</p>
     <div class="sheet-actions" style="margin-top:18px;">
       <button class="btn btn-ghost" id="cancelDel">Keep it</button>
-      <button class="btn btn-danger" id="confirmDel">Remove</button>
+      <button class="btn btn-danger" id="confirmDel">${isRecurring ? "Remove & stop repeating" : "Remove"}</button>
     </div>
   `);
   document.getElementById("cancelDel").onclick = closeSheet;
   document.getElementById("confirmDel").onclick = () => {
-    DATA.transactions = DATA.transactions.filter((t) => t.id !== id);
+    DATA.transactions = DATA.transactions.filter((t) => t.id !== tx.id);
     saveData();
     if (isCloudMode())
-      cloudDeleteTransaction(id).catch((e) =>
+      cloudDeleteTransaction(tx.id).catch((e) =>
         console.error("Cloud sync failed", e),
       );
+    if (isRecurring) stopRecurringRule(tx.recurringId);
     closeSheet();
     onChange();
   };

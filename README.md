@@ -29,7 +29,8 @@ kwenta/
     ├── theme.js               light/dark mode toggle + persistence
     ├── supabaseClient.js      Supabase client (reads .env)
     ├── auth.js                sign in / sign up / sign out / session state
-    ├── sync.js                loads & writes salary, transactions, budgets to Supabase
+    ├── sync.js                loads & writes salary, transactions, budgets, recurring rules to Supabase
+    ├── recurring.js           recurring rule create/stop + monthly materialization
     └── components/
         ├── header.js          app title, account button, theme toggle, export button
         ├── monthNav.js        month back/forward control
@@ -52,7 +53,15 @@ kwenta/
 - `main.js` is the only place that assembles the full page and re-renders it after any change.
 - `sheet.js` is initialized with a callback (`initSheet(render)`) so it can trigger a re-render after saving or deleting an entry, without importing `main.js` directly.
 - **Signed out:** data lives in `localStorage` (`storage.js`), exactly as before.
-- **Signed in:** `sync.js` reads/writes Supabase directly at each mutation point (salary input, budget input, add/edit/delete transaction). `localStorage` still gets updated too, as an offline cache.
+- **Signed in:** `sync.js` reads/writes Supabase directly at each mutation point (salary input, budget input, add/edit/delete transaction, recurring rules). `localStorage` still gets updated too, as an offline cache.
+
+## Recurring transactions
+
+- Checking "Repeats every month" on an expense or income entry creates a **recurring rule** (`DATA.recurring`) — a template with a category, amount, and day-of-month, separate from the actual transaction rows.
+- Every time the viewed month changes (`main.js` calls `materializeMonth(monthKey)`), each active rule gets checked: if that month doesn't have a matching transaction yet, one is created automatically and linked back to the rule via `recurringId`.
+- Editing a recurring-linked entry and saving updates the *rule* (so future months use the new amount/category too), while editing without touching the checkbox only changes that one occurrence.
+- Deleting a recurring-linked entry also stops the rule — it won't generate future months. Past occurrences already created stay in your history untouched.
+- There's no "skip just this one month, keep future months" option yet — deleting always stops the whole series. If you need that, it's a reasonable follow-up feature.
 - On sign-in, if the cloud account has no data yet, whatever is saved locally on that device is pushed up automatically (`cloudMigrateLocalDataIfEmpty`). If the account already has cloud data, the cloud data wins and is loaded instead.
 
 ## Setting up Supabase (for sign in + cloud sync)

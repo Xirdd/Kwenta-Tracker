@@ -5,7 +5,7 @@ import {
   cloudMigrateLocalDataIfEmpty,
 } from "./sync.js";
 
-export let DATA = { salary: {}, transactions: [], budgets: {} };
+export let DATA = { salary: {}, transactions: [], budgets: {}, recurring: [] };
 
 export const state = {
   monthKey: monthKeyOf(new Date()),
@@ -31,6 +31,7 @@ export async function switchToCloudData() {
     salary: DATA.salary,
     transactions: DATA.transactions,
     budgets: DATA.budgets,
+    recurring: DATA.recurring,
   };
   await cloudMigrateLocalDataIfEmpty(local);
   const cloud = await cloudLoadAll();
@@ -46,6 +47,7 @@ function replaceData(next) {
   DATA.salary = next.salary || {};
   DATA.transactions = next.transactions || [];
   DATA.budgets = next.budgets || {};
+  DATA.recurring = next.recurring || [];
 }
 
 // Always mirrors to localStorage as an offline cache; cloud writes happen

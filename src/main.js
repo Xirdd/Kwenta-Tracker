@@ -9,6 +9,7 @@ import {
   switchToCloudData,
   switchToLocalData,
 } from "./state.js";
+import { materializeMonth } from "./recurring.js";
 import { renderHeader } from "./components/header.js";
 import { renderMonthNav } from "./components/monthNav.js";
 import { renderLedgerCard } from "./components/ledgerCard.js";
@@ -49,14 +50,20 @@ function render() {
   attachEvents();
 }
 
+// Ensures this month's recurring entries exist, then renders.
+function goToMonth() {
+  materializeMonth(state.monthKey);
+  render();
+}
+
 function attachEvents() {
   document.getElementById("prevMonth").onclick = () => {
     shiftMonth(-1);
-    render();
+    goToMonth();
   };
   document.getElementById("nextMonth").onclick = () => {
     shiftMonth(1);
-    render();
+    goToMonth();
   };
 
   document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -116,9 +123,9 @@ function attachEvents() {
     } else {
       switchToLocalData();
     }
-    render();
+    goToMonth();
   });
 
   await initData();
-  render();
+  goToMonth();
 })();

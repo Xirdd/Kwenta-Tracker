@@ -816,6 +816,37 @@ header {
   font-weight: 600;
   font-size: 17px;
 }
+.field label.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--ink);
+}
+.checkbox-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--gold);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.field-hint {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin: 6px 0 0 0;
+  line-height: 1.4;
+}
+.recur-badge {
+  display: inline-block;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 700;
+  vertical-align: middle;
+}
 .cat-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
