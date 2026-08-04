@@ -58,8 +58,39 @@ export async function sendMagicLink(email) {
   if (error) throw error;
 }
 
+const PENDING_PASSWORD_KEY = "kwenta_awaiting_password_setup";
+
+// Marks that the next successful sign-in came from a magic-link *signup*,
+// so the app knows to offer setting a password afterward.
+export function markPendingPasswordSetup() {
+  try {
+    localStorage.setItem(PENDING_PASSWORD_KEY, "1");
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+// Checks (and clears) the flag above. Call once per sign-in.
+export function consumePendingPasswordSetup() {
+  try {
+    const pending = localStorage.getItem(PENDING_PASSWORD_KEY) === "1";
+    localStorage.removeItem(PENDING_PASSWORD_KEY);
+    return pending;
+  } catch (e) {
+    return false;
+  }
+}
+
 export async function signOut() {
   requireSupabase();
   const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+}
+
+// Sets/changes the password on the currently signed-in user (works for
+// accounts that signed up passwordless via magic link, too).
+export async function updateUserPassword(password) {
+  requireSupabase();
+  const { error } = await supabase.auth.updateUser({ password });
   if (error) throw error;
 }

@@ -21,9 +21,15 @@ import { renderBudgets, attachBudgetEvents } from "./components/budgets.js";
 import { initSheet, openForm } from "./components/sheet.js";
 import { exportCSV } from "./export.js";
 import { initTheme, toggleTheme } from "./theme.js";
-import { initAuth, getCurrentUser, onAuthChange } from "./auth.js";
+import {
+  initAuth,
+  getCurrentUser,
+  onAuthChange,
+  consumePendingPasswordSetup,
+} from "./auth.js";
 import { openAuthSheet } from "./components/authSheet.js";
 import { openAccountSheet } from "./components/accountSheet.js";
+import { openSetPasswordSheet } from "./components/setPasswordSheet.js";
 
 function render() {
   const t = totals();
@@ -124,6 +130,9 @@ function attachEvents() {
       switchToLocalData();
     }
     goToMonth();
+    if (user && consumePendingPasswordSetup()) {
+      openSetPasswordSheet();
+    }
   });
 
   await initData();

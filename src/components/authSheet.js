@@ -3,6 +3,7 @@ import {
   signInWithPassword,
   signUpWithPassword,
   sendMagicLink,
+  markPendingPasswordSetup,
 } from "../auth.js";
 
 let mode = "signin"; // 'signin' | 'signup'
@@ -31,7 +32,7 @@ function render(message) {
     ${message ? `<p class="auth-message">${message}</p>` : ""}
     <div class="sheet-actions" style="flex-direction:column;">
       <button class="btn btn-primary" id="authPrimaryBtn">${mode === "signin" ? "Sign in" : "Create account"}</button>
-      <button class="btn btn-ghost" id="authMagicBtn">Email me a magic link</button>
+      <button class="btn btn-ghost" id="authMagicBtn">${mode === "signin" ? "Email me a magic link" : "Email me a magic link to sign up"}</button>
     </div>
   `);
 
@@ -72,6 +73,7 @@ function render(message) {
       return;
     }
     try {
+      if (mode === "signup") markPendingPasswordSetup();
       await sendMagicLink(email);
       render("Check your email for a sign-in link.");
     } catch (e) {
