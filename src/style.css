@@ -908,6 +908,17 @@ header {
   height: 0;
 }
 
+/* Hide the up/down number-input steppers everywhere in the app */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 /* ---------- Desktop layout ---------- */
 @media (min-width: 860px) {
   body {
@@ -940,7 +951,7 @@ header {
   .balance-amount {
     font-size: 40px;
   }
-  .section-title {
+  .content-panel > .section-title:first-child {
     margin-top: 0;
   }
   .fab {
