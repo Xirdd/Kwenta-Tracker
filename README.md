@@ -31,6 +31,7 @@ kwenta/
     ├── auth.js                sign in / sign up / sign out / session state
     ├── sync.js                loads & writes salary, transactions, budgets, recurring rules to Supabase
     ├── recurring.js           recurring rule create/stop + monthly materialization
+    ├── bills.js               bill create/edit/delete, mark paid/undo, due-date math
     └── components/
         ├── header.js          app title, account button, theme toggle, export button
         ├── monthNav.js        month back/forward control
@@ -46,6 +47,8 @@ kwenta/
         └── accountSheet.js    signed-in account view + sign out
 ```
 
+`src/components/billsTab.js` (the Bills tab) and `src/components/billSheet.js` (add/edit a bill, mark paid, undo payment) sit alongside the files above. Note the split between `src/bills.js` (logic — create/edit/delete/mark paid, due-date math) and `src/components/billsTab.js` (UI — renders the tab); they're named differently on purpose so they're never confused with each other.
+
 ## How data flows
 
 - `state.js` holds the single source of truth: `DATA` (salary, transactions, budgets) and `state` (which month/tab is active).
@@ -59,10 +62,20 @@ kwenta/
 
 - Checking "Repeats every month" on an expense or income entry creates a **recurring rule** (`DATA.recurring`) — a template with a category, amount, and day-of-month, separate from the actual transaction rows.
 - Every time the viewed month changes (`main.js` calls `materializeMonth(monthKey)`), each active rule gets checked: if that month doesn't have a matching transaction yet, one is created automatically and linked back to the rule via `recurringId`.
-- Editing a recurring-linked entry and saving updates the *rule* (so future months use the new amount/category too), while editing without touching the checkbox only changes that one occurrence.
+- Editing a recurring-linked entry and saving updates the _rule_ (so future months use the new amount/category too), while editing without touching the checkbox only changes that one occurrence.
 - Deleting a recurring-linked entry also stops the rule — it won't generate future months. Past occurrences already created stay in your history untouched.
 - There's no "skip just this one month, keep future months" option yet — deleting always stops the whole series. If you need that, it's a reasonable follow-up feature.
 - On sign-in, if the cloud account has no data yet, whatever is saved locally on that device is pushed up automatically (`cloudMigrateLocalDataIfEmpty`). If the account already has cloud data, the cloud data wins and is loaded instead.
+
+## Bills (due-date reminders)
+
+Bills are deliberately **not** the same mechanism as recurring transactions — utility bills (Meralco, water, internet) vary in amount every month, so auto-creating a transaction with a guessed amount would just mean editing it later anyway. Instead:
+
+- A bill (`DATA.bills`, table `kwenta_bills`) is just a template: name, category, day-of-month it's due, and an optional estimated amount.
+- Nothing gets logged automatically. The **Bills** tab and the **Overview** tab's "Upcoming bills" widget (bills due within 7 days, or overdue) just show a due-date badge.
+- Tapping a bill opens a "Mark as paid" sheet — enter what you actually paid, and _that_ creates the real expense transaction, linked back to the bill via `billId`. The Overview widget only appears when there's something due soon, so it stays out of the way otherwise.
+- Tapping an already-paid bill shows what was paid and when, with an "Undo payment" option that deletes that transaction.
+- The due-date badge (`Due in Xd` / `Due today` / `Xd overdue`) is only meaningful when viewing the real current month — browsing past/future months just shows "Not paid" instead, since "3 days" doesn't mean anything for a month that isn't the current one.
 
 ## Setting up Supabase (for sign in + cloud sync)
 

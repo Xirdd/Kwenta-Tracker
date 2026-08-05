@@ -10,17 +10,20 @@ export async function cloudLoadAll() {
   const user = getCurrentUser();
   if (!supabase || !user) return null;
 
-  const [salaryRes, txRes, budgetRes, recurringRes] = await Promise.all([
-    supabase.from("kwenta_salary").select("*").eq("user_id", user.id),
-    supabase.from("kwenta_transactions").select("*").eq("user_id", user.id),
-    supabase.from("kwenta_budgets").select("*").eq("user_id", user.id),
-    supabase.from("kwenta_recurring").select("*").eq("user_id", user.id),
-  ]);
+  const [salaryRes, txRes, budgetRes, recurringRes, billsRes] =
+    await Promise.all([
+      supabase.from("kwenta_salary").select("*").eq("user_id", user.id),
+      supabase.from("kwenta_transactions").select("*").eq("user_id", user.id),
+      supabase.from("kwenta_budgets").select("*").eq("user_id", user.id),
+      supabase.from("kwenta_recurring").select("*").eq("user_id", user.id),
+      supabase.from("kwenta_bills").select("*").eq("user_id", user.id),
+    ]);
 
   if (salaryRes.error) throw salaryRes.error;
   if (txRes.error) throw txRes.error;
   if (budgetRes.error) throw budgetRes.error;
   if (recurringRes.error) throw recurringRes.error;
+  if (billsRes.error) throw billsRes.error;
 
   const salary = {};
   (salaryRes.data || []).forEach((r) => {
@@ -35,6 +38,7 @@ export async function cloudLoadAll() {
     category: r.category,
     date: r.date,
     recurringId: r.recurring_id || undefined,
+    billId: r.bill_id || undefined,
   }));
 
   const budgets = {};
@@ -53,7 +57,17 @@ export async function cloudLoadAll() {
     active: r.active,
   }));
 
-  return { salary, transactions, budgets, recurring };
+  const bills = (billsRes.data || []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    category: r.category,
+    dueDay: r.due_day,
+    estimatedAmount:
+      r.estimated_amount === null ? undefined : Number(r.estimated_amount),
+    active: r.active,
+  }));
+
+  return { salary, transactions, budgets, recurring, bills };
 }
 
 export async function cloudUpsertSalary(monthKey, amount) {
@@ -84,6 +98,7 @@ export async function cloudUpsertTransaction(tx) {
     category: tx.category,
     date: tx.date,
     recurring_id: tx.recurringId || null,
+    bill_id: tx.billId || null,
   });
 }
 
@@ -139,6 +154,31 @@ export async function cloudDeleteRecurring(id) {
     .eq("id", id);
 }
 
+export async function cloudUpsertBill(bill) {
+  const user = getCurrentUser();
+  if (!supabase || !user) return;
+  await supabase.from("kwenta_bills").upsert({
+    id: bill.id,
+    user_id: user.id,
+    name: bill.name,
+    category: bill.category,
+    due_day: bill.dueDay,
+    estimated_amount:
+      bill.estimatedAmount === undefined ? null : bill.estimatedAmount,
+    active: bill.active,
+  });
+}
+
+export async function cloudDeleteBill(id) {
+  const user = getCurrentUser();
+  if (!supabase || !user) return;
+  await supabase
+    .from("kwenta_bills")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("id", id);
+}
+
 // Called once, right after a successful sign-in. If the account has no cloud
 // data yet, pushes whatever was saved locally so nothing gets lost. If the
 // account already has cloud data, does nothing (cloud data wins).
@@ -149,7 +189,8 @@ export async function cloudMigrateLocalDataIfEmpty(localData) {
     Object.keys(existing.salary).length === 0 &&
     existing.transactions.length === 0 &&
     Object.keys(existing.budgets).length === 0 &&
-    existing.recurring.length === 0;
+    existing.recurring.length === 0 &&
+    existing.bills.length === 0;
   if (!isEmpty) return false;
 
   const jobs = [];
@@ -165,6 +206,7 @@ export async function cloudMigrateLocalDataIfEmpty(localData) {
   (localData.recurring || []).forEach((rule) =>
     jobs.push(cloudUpsertRecurring(rule)),
   );
+  (localData.bills || []).forEach((bill) => jobs.push(cloudUpsertBill(bill)));
   await Promise.all(jobs);
   return true;
 }

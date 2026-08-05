@@ -7,7 +7,8 @@ import {
   trendTotals,
 } from "../state.js";
 import { catInfo } from "../categories.js";
-import { fmt } from "../format.js";
+import { fmt, escapeHtml } from "../format.js";
+import { upcomingBills, ordinalSuffix, currentRealMonthKey } from "../bills.js";
 
 export function renderOverview() {
   const exp = monthTx("expense");
@@ -20,6 +21,7 @@ export function renderOverview() {
   const totalExp = entries.reduce((s, [, v]) => s + v, 0);
 
   return `
+  ${renderUpcomingBills()}
   <div class="section-title">Where it went <span class="sub">expenses by category</span></div>
   ${
     entries.length === 0
@@ -57,6 +59,41 @@ export function renderOverview() {
   `;
 }
 
+function renderUpcomingBills() {
+  const items = upcomingBills();
+  if (items.length === 0) return "";
+  const monthKey = currentRealMonthKey();
+
+  return `
+  <div class="section-title">Upcoming bills <span class="sub">due soon</span></div>
+  <div class="list" style="margin-bottom:8px;">
+    ${items
+      .map(({ bill, daysLeft }) => {
+        const c = catInfo(bill.category);
+        const badge =
+          daysLeft < 0
+            ? `${Math.abs(daysLeft)}d overdue`
+            : daysLeft === 0
+              ? "Due today"
+              : `Due in ${daysLeft}d`;
+        const badgeClass =
+          daysLeft <= 0 ? "overdue" : daysLeft <= 3 ? "soon" : "later";
+        return `
+      <div class="bill-row" data-bill="${bill.id}" data-month="${monthKey}">
+        <span class="chip" style="background:${c.color}"></span>
+        <div class="info">
+          <div class="desc">${escapeHtml(bill.name)}</div>
+          <div class="meta">${c.label} · due on the ${bill.dueDay}${ordinalSuffix(bill.dueDay)}</div>
+        </div>
+        <div class="bill-right">
+          <span class="bill-badge ${badgeClass}">${badge}</span>
+        </div>
+      </div>`;
+      })
+      .join("")}
+  </div>`;
+}
+
 function renderDonut(entries, total) {
   const r = 58,
     cx = 85,
@@ -81,7 +118,7 @@ function renderTrend() {
   const data = months.map((mk) => ({ mk, ...trendTotals(mk) }));
   const max = Math.max(1, ...data.map((d) => Math.max(d.inc, d.exp)));
   return `
-  <div class="section-title"> 6-month trend <span class="sub">income vs expenses</span></div>
+  <div class="section-title">6-month trend <span class="sub">income vs expenses</span></div>
   <div class="bars">
     <div class="trend-legend">
       <span><i style="background:var(--green)"></i>Income</span>
