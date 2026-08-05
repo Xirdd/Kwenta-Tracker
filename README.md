@@ -32,6 +32,7 @@ kwenta/
     ├── sync.js                loads & writes salary, transactions, budgets, recurring rules to Supabase
     ├── recurring.js           recurring rule create/stop + monthly materialization
     ├── bills.js               bill create/edit/delete, mark paid/undo, due-date math
+    ├── goals.js               goal create/edit/delete, contribute/undo, progress + pace math
     └── components/
         ├── header.js          app title, account button, theme toggle, export button
         ├── monthNav.js        month back/forward control
@@ -47,7 +48,7 @@ kwenta/
         └── accountSheet.js    signed-in account view + sign out
 ```
 
-`src/components/billsTab.js` (the Bills tab) and `src/components/billSheet.js` (add/edit a bill, mark paid, undo payment) sit alongside the files above. Note the split between `src/bills.js` (logic — create/edit/delete/mark paid, due-date math) and `src/components/billsTab.js` (UI — renders the tab); they're named differently on purpose so they're never confused with each other.
+`src/components/billsTab.js` (the Bills tab) and `src/components/billSheet.js` (add/edit a bill, mark paid, undo payment) sit alongside the files above. `src/components/goalsTab.js` and `src/components/goalSheet.js` follow the same pattern for goals. Note the naming convention: logic files live at the top of `src/` (`bills.js`, `goals.js`), UI files live in `src/components/` with a `Tab`/`Sheet` suffix (`billsTab.js`, `goalsTab.js`) — they're never named identically, so there's no ambiguity about which one you're looking at.
 
 ## How data flows
 
@@ -76,6 +77,14 @@ Bills are deliberately **not** the same mechanism as recurring transactions — 
 - Tapping a bill opens a "Mark as paid" sheet — enter what you actually paid, and _that_ creates the real expense transaction, linked back to the bill via `billId`. The Overview widget only appears when there's something due soon, so it stays out of the way otherwise.
 - Tapping an already-paid bill shows what was paid and when, with an "Undo payment" option that deletes that transaction.
 - The due-date badge (`Due in Xd` / `Due today` / `Xd overdue`) is only meaningful when viewing the real current month — browsing past/future months just shows "Not paid" instead, since "3 days" doesn't mean anything for a month that isn't the current one.
+
+## Goals (savings targets)
+
+- A goal (`DATA.goals`, table `kwenta_goals`) is a name, a target amount, and an optional target month (e.g. "₱20,000 by December").
+- "Adding money" to a goal creates a real expense transaction in the `savings` category, linked back to the goal via `goalId` — so contributions count toward your monthly totals and any budget you've set on the Savings category, same as any other expense. Nothing about goals is a separate, hidden ledger.
+- Progress (`saved / target`) is calculated by summing every transaction linked to that goal, across all months — not just the currently viewed one, since goals accumulate over time.
+- If a target month is set and the goal isn't finished yet, a pace hint shows roughly how much to save per month to hit it on time (`paceHint()` in `goals.js`). No hint shows once the goal is reached, or if no target month was set.
+- Undoing a contribution just deletes that transaction; the goal definition itself is untouched.
 
 ## Setting up Supabase (for sign in + cloud sync)
 

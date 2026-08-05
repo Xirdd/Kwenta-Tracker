@@ -11,6 +11,7 @@ export let DATA = {
   budgets: {},
   recurring: [],
   bills: [],
+  goals: [],
 };
 
 export const state = {
@@ -39,6 +40,7 @@ export async function switchToCloudData() {
     budgets: DATA.budgets,
     recurring: DATA.recurring,
     bills: DATA.bills,
+    goals: DATA.goals,
   };
   await cloudMigrateLocalDataIfEmpty(local);
   const cloud = await cloudLoadAll();
@@ -56,6 +58,7 @@ function replaceData(next) {
   DATA.budgets = next.budgets || {};
   DATA.recurring = next.recurring || [];
   DATA.bills = next.bills || [];
+  DATA.goals = next.goals || [];
 }
 
 // Always mirrors to localStorage as an offline cache; cloud writes happen

@@ -11,6 +11,7 @@ import {
 } from "./state.js";
 import { materializeMonth } from "./recurring.js";
 import { getBill } from "./bills.js";
+import { getGoal } from "./goals.js";
 import { renderHeader } from "./components/header.js";
 import { renderMonthNav } from "./components/monthNav.js";
 import { renderLedgerCard } from "./components/ledgerCard.js";
@@ -20,12 +21,18 @@ import { renderIncome, attachIncomeEvents } from "./components/income.js";
 import { renderExpenses } from "./components/expenses.js";
 import { renderBudgets, attachBudgetEvents } from "./components/budgets.js";
 import { renderBills } from "./components/billsTab.js";
+import { renderGoalsTab } from "./components/goalsTab.js";
 import { initSheet, openForm } from "./components/sheet.js";
 import {
   initBillSheets,
   openBillForm,
   openBillPaymentSheet,
 } from "./components/billSheet.js";
+import {
+  initGoalSheets,
+  openGoalForm,
+  openGoalDetail,
+} from "./components/goalSheet.js";
 import { exportCSV } from "./export.js";
 import { initTheme, toggleTheme } from "./theme.js";
 import {
@@ -55,6 +62,7 @@ function render() {
       ${state.tab === "expenses" ? renderExpenses(t) : ""}
       ${state.tab === "budgets" ? renderBudgets(t) : ""}
       ${state.tab === "bills" ? renderBills() : ""}
+      ${state.tab === "goals" ? renderGoalsTab() : ""}
     </div>
   `;
   app.insertAdjacentHTML(
@@ -90,6 +98,8 @@ function attachEvents() {
   document.getElementById("fabBtn").onclick = () => {
     if (state.tab === "bills") {
       openBillForm(null);
+    } else if (state.tab === "goals") {
+      openGoalForm(null);
     } else {
       const type = state.tab === "income" ? "income" : "expense";
       openForm(type, null);
@@ -128,12 +138,20 @@ function attachEvents() {
       if (bill) openBillPaymentSheet(bill, monthKey);
     };
   });
+
+  document.querySelectorAll("[data-goal]").forEach((row) => {
+    row.onclick = () => {
+      const goal = getGoal(row.dataset.goal);
+      if (goal) openGoalDetail(goal);
+    };
+  });
 }
 
 (async function init() {
   initTheme();
   initSheet(render); // let sheets trigger a re-render after save/delete/sign-in/sign-out
   initBillSheets(render);
+  initGoalSheets(render);
 
   const loadingEl = document.getElementById("app");
   loadingEl.innerHTML = `<div style="padding:60px 10px;text-align:center;color:var(--muted);font-family:Inter,sans-serif;font-size:13px;">Opening the ledger…</div>`;

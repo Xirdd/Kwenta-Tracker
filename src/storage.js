@@ -11,6 +11,7 @@ export function loadData() {
         budgets: parsed.budgets || {},
         recurring: parsed.recurring || [],
         bills: parsed.bills || [],
+        goals: parsed.goals || [],
       };
     }
   } catch (e) {
@@ -22,6 +23,7 @@ export function loadData() {
     budgets: {},
     recurring: [],
     bills: [],
+    goals: [],
   };
 }
 
