@@ -8,7 +8,12 @@ import {
 } from "../state.js";
 import { catInfo } from "../categories.js";
 import { fmt, escapeHtml } from "../format.js";
-import { upcomingBills, ordinalSuffix, currentRealMonthKey } from "../bills.js";
+import {
+  upcomingBills,
+  ordinalSuffix,
+  currentRealMonthKey,
+  billCategoryLabel,
+} from "../bills.js";
 
 export function renderOverview() {
   const exp = monthTx("expense");
@@ -83,7 +88,7 @@ function renderUpcomingBills() {
         <span class="chip" style="background:${c.color}"></span>
         <div class="info">
           <div class="desc">${escapeHtml(bill.name)}</div>
-          <div class="meta">${c.label} · due on the ${bill.dueDay}${ordinalSuffix(bill.dueDay)}</div>
+          <div class="meta">${billCategoryLabel(bill, c.label)} · due on the ${bill.dueDay}${ordinalSuffix(bill.dueDay)}</div>
         </div>
         <div class="bill-right">
           <span class="bill-badge ${badgeClass}">${badge}</span>

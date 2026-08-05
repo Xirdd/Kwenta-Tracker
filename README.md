@@ -73,6 +73,8 @@ kwenta/
 Bills are deliberately **not** the same mechanism as recurring transactions — utility bills (Meralco, water, internet) vary in amount every month, so auto-creating a transaction with a guessed amount would just mean editing it later anyway. Instead:
 
 - A bill (`DATA.bills`, table `kwenta_bills`) is just a template: name, category, day-of-month it's due, and an optional estimated amount.
+- The **Add Bill** form has its own category picker (`BILL_CATEGORIES` in `categories.js`) — Electricity, Water, WiFi & Internet, Gadget Installment, and Others — separate from the general expense category grid, even though they're the same underlying categories under the hood (so budgets and the Overview breakdown still work normally for them).
+- Choosing **Others** reveals a free-text field for a custom label (e.g. "Condo dues"), stored as `bill.customCategory`. Anywhere a bill's category is displayed, the custom label is shown instead of the generic "Others" when one was entered (`billCategoryLabel()` in `bills.js`). The linked expense transaction itself still uses the `other` category id, so it stays consistent with the rest of the app's fixed category system.
 - Nothing gets logged automatically. The **Bills** tab and the **Overview** tab's "Upcoming bills" widget (bills due within 7 days, or overdue) just show a due-date badge.
 - Tapping a bill opens a "Mark as paid" sheet — enter what you actually paid, and _that_ creates the real expense transaction, linked back to the bill via `billId`. The Overview widget only appears when there's something due soon, so it stays out of the way otherwise.
 - Tapping an already-paid bill shows what was paid and when, with an "Undo payment" option that deletes that transaction.

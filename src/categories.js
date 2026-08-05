@@ -1,6 +1,10 @@
 export const CATEGORIES = [
   { id: "food", label: "Food & Groceries", color: "#e2604a" },
   { id: "transport", label: "Transport", color: "#d4a72c" },
+  { id: "electricity", label: "Electricity", color: "#f4c430" },
+  { id: "water", label: "Water", color: "#2b8fd6" },
+  { id: "wifi", label: "WiFi & Internet", color: "#8e5fd6" },
+  { id: "gadget", label: "Gadget Installment", color: "#d65a8e" },
   { id: "bills", label: "Bills & Utilities", color: "#3fa377" },
   { id: "rent", label: "Rent", color: "#5b7fde" },
   { id: "load", label: "Load & Internet", color: "#b26fd1" },
@@ -17,6 +21,16 @@ export function catInfo(id) {
     CATEGORIES.find((c) => c.id === id) || CATEGORIES[CATEGORIES.length - 1]
   );
 }
+
+// A focused subset shown in the Bills form specifically — common Philippine
+// household bills, plus "Others" (which prompts for a custom label).
+export const BILL_CATEGORIES = [
+  "electricity",
+  "water",
+  "wifi",
+  "gadget",
+  "other",
+].map(catInfo);
 
 export const INCOME_CATEGORIES = [
   { id: "bonus", label: "Bonus / 13th Month", color: "#d4a72c" },

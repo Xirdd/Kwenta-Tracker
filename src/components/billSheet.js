@@ -1,4 +1,4 @@
-import { CATEGORIES } from "../categories.js";
+import { BILL_CATEGORIES, catInfo } from "../categories.js";
 import { escapeHtml, fmt, formatDate } from "../format.js";
 import { openModal, closeModal } from "./modal.js";
 import {
@@ -20,7 +20,7 @@ export function initBillSheets(rerenderCallback) {
 
 // ── Add / edit a bill's definition (name, category, due day, estimate) ────
 export function openBillForm(bill) {
-  const selectedCat = bill ? bill.category : CATEGORIES[0].id;
+  const selectedCat = bill ? bill.category : BILL_CATEGORIES[0].id;
   const heading = bill ? "Edit bill" : "Add a bill";
 
   openModal(`
@@ -28,13 +28,17 @@ export function openBillForm(bill) {
     <h3>${heading}</h3>
     <div class="field">
       <label>Name</label>
-      <input id="bName" type="text" placeholder="e.g. Meralco, PLDT, Water" value="${escapeHtml(bill?.name || "")}"/>
+      <input id="bName" type="text" placeholder="e.g. Meralco, PLDT, Home Credit" value="${escapeHtml(bill?.name || "")}"/>
     </div>
     <div class="field">
       <label>Category</label>
       <div class="cat-grid" id="bCatGrid">
-        ${CATEGORIES.map((c) => `<div class="cat-opt ${c.id === selectedCat ? "selected" : ""}" data-cat="${c.id}"><span class="chip" style="background:${c.color}"></span>${c.label}</div>`).join("")}
+        ${BILL_CATEGORIES.map((c) => `<div class="cat-opt ${c.id === selectedCat ? "selected" : ""}" data-cat="${c.id}"><span class="chip" style="background:${c.color}"></span>${c.label}</div>`).join("")}
       </div>
+    </div>
+    <div class="field" id="bCustomCatField" style="display:${selectedCat === "other" ? "block" : "none"};">
+      <label>What kind of bill is this?</label>
+      <input id="bCustomCat" type="text" placeholder="e.g. Condo dues, Insurance" value="${escapeHtml(bill?.customCategory || "")}"/>
     </div>
     <div class="field">
       <label>Due day of month</label>
@@ -59,6 +63,8 @@ export function openBillForm(bill) {
         .querySelectorAll("#bCatGrid .cat-opt")
         .forEach((o) => o.classList.remove("selected"));
       el.classList.add("selected");
+      document.getElementById("bCustomCatField").style.display =
+        chosenCat === "other" ? "block" : "none";
     };
   });
 
@@ -66,6 +72,7 @@ export function openBillForm(bill) {
 
   document.getElementById("bSaveBtn").onclick = () => {
     const name = document.getElementById("bName").value.trim();
+    const customCategory = document.getElementById("bCustomCat").value.trim();
     const dueDay = document.getElementById("bDueDay").value;
     const estimatedAmount = document.getElementById("bEstimate").value;
     if (!name) {
@@ -80,6 +87,7 @@ export function openBillForm(bill) {
     const payload = {
       name,
       category: chosenCat,
+      customCategory,
       dueDay: Number(dueDay),
       estimatedAmount:
         estimatedAmount === "" ? undefined : Number(estimatedAmount),
@@ -106,6 +114,10 @@ function flash(id) {
   setTimeout(() => {
     el.style.borderColor = "transparent";
   }, 700);
+}
+
+function displayCategoryLabel(bill) {
+  return bill.customCategory || catInfo(bill.category).label;
 }
 
 // ── Mark a bill paid / view & undo a payment for the currently viewed month ─
@@ -135,7 +147,7 @@ export function openBillPaymentSheet(bill, monthKey) {
   openModal(`
     <div class="grabber"></div>
     <h3>Mark "${escapeHtml(bill.name)}" as paid</h3>
-    <p class="auth-message">Due on the ${bill.dueDay}${ordinalSuffix(bill.dueDay)}. Enter what you actually paid.</p>
+    <p class="auth-message">${displayCategoryLabel(bill)} · due on the ${bill.dueDay}${ordinalSuffix(bill.dueDay)}. Enter what you actually paid.</p>
     <div class="field amount">
       <label>Amount</label>
       <input id="payAmount" type="number" inputmode="decimal" placeholder="0.00" value="${bill.estimatedAmount ?? ""}"/>

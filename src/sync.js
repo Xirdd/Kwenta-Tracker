@@ -64,6 +64,7 @@ export async function cloudLoadAll() {
     id: r.id,
     name: r.name,
     category: r.category,
+    customCategory: r.custom_category || undefined,
     dueDay: r.due_day,
     estimatedAmount:
       r.estimated_amount === null ? undefined : Number(r.estimated_amount),
@@ -174,6 +175,7 @@ export async function cloudUpsertBill(bill) {
     user_id: user.id,
     name: bill.name,
     category: bill.category,
+    custom_category: bill.customCategory || null,
     due_day: bill.dueDay,
     estimated_amount:
       bill.estimatedAmount === undefined ? null : bill.estimatedAmount,

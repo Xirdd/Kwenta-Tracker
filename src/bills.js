@@ -12,11 +12,19 @@ export function getBill(id) {
   return DATA.bills.find((b) => b.id === id);
 }
 
-export function createBill({ name, category, dueDay, estimatedAmount }) {
+export function createBill({
+  name,
+  category,
+  customCategory,
+  dueDay,
+  estimatedAmount,
+}) {
   const bill = {
     id: uid(),
     name,
     category,
+    customCategory:
+      category === "other" ? customCategory || undefined : undefined,
     dueDay: clampDay(dueDay),
     estimatedAmount: estimatedAmount || undefined,
     active: true,
@@ -28,9 +36,14 @@ export function createBill({ name, category, dueDay, estimatedAmount }) {
   return bill;
 }
 
-export function updateBill(bill, { name, category, dueDay, estimatedAmount }) {
+export function updateBill(
+  bill,
+  { name, category, customCategory, dueDay, estimatedAmount },
+) {
   bill.name = name;
   bill.category = category;
+  bill.customCategory =
+    category === "other" ? customCategory || undefined : undefined;
   bill.dueDay = clampDay(dueDay);
   bill.estimatedAmount = estimatedAmount || undefined;
   saveData();
@@ -105,6 +118,10 @@ export function ordinalSuffix(n) {
   if (n % 10 === 2 && n % 100 !== 12) return "nd";
   if (n % 10 === 3 && n % 100 !== 13) return "rd";
   return "th";
+}
+
+export function billCategoryLabel(bill, fallbackLabel) {
+  return bill.customCategory || fallbackLabel;
 }
 
 // Unpaid bills due within the next 7 days (or already overdue), for the Overview widget.

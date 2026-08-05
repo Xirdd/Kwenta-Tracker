@@ -7,6 +7,7 @@ import {
   daysUntil,
   currentRealMonthKey,
   ordinalSuffix,
+  billCategoryLabel,
 } from "../bills.js";
 
 export function renderBills() {
@@ -71,7 +72,7 @@ export function renderBills() {
       <span class="chip" style="background:${c.color}"></span>
       <div class="info">
         <div class="desc">${escapeHtml(bill.name)}</div>
-        <div class="meta">${c.label} · due on the ${bill.dueDay}${ordinalSuffix(bill.dueDay)}</div>
+        <div class="meta">${billCategoryLabel(bill, c.label)} · due on the ${bill.dueDay}${ordinalSuffix(bill.dueDay)}</div>
       </div>
       <div class="bill-right">
         <span class="bill-badge ${badgeClass}">${badge}</span>
