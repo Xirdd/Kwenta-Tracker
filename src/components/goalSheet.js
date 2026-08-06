@@ -1,5 +1,6 @@
 import { escapeHtml, fmt, formatDate } from "../format.js";
 import { openModal, closeModal } from "./modal.js";
+import { renderGoalRing } from "./goalsTab.js";
 import {
   createGoal,
   updateGoal,
@@ -94,12 +95,16 @@ export function openGoalDetail(goal) {
   openModal(`
     <div class="grabber"></div>
     <h3>${escapeHtml(goal.name)}</h3>
-    <div class="goal-amounts" style="margin-bottom:8px;">
-      <span class="goal-saved">${fmt(saved)}</span>
-      <span class="goal-of">of ${fmt(goal.targetAmount)}</span>
+    <div class="goal-row" style="margin-bottom:14px;">
+      ${renderGoalRing(pct, complete)}
+      <div class="goal-info">
+        <div class="goal-amounts">
+          <span class="goal-saved">${fmt(saved)}</span>
+          <span class="goal-of">of ${fmt(goal.targetAmount)}</span>
+        </div>
+        ${hint ? `<div class="goal-pace">${hint}</div>` : ""}
+      </div>
     </div>
-    <div class="bar-track" style="margin-bottom:10px;"><div class="bar-fill" style="width:${Math.max(pct, 2)}%;background:${complete ? "var(--green)" : "var(--gold)"}"></div></div>
-    ${hint ? `<p class="auth-message">${hint}</p>` : ""}
 
     <div class="field amount">
       <label>Add money</label>
