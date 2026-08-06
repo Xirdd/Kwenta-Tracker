@@ -33,6 +33,7 @@ kwenta/
     ├── recurring.js           recurring rule create/stop + monthly materialization
     ├── bills.js               bill create/edit/delete, mark paid/undo, due-date math
     ├── goals.js               goal create/edit/delete, contribute/undo, progress + pace math
+    ├── loans.js               utang create/edit/delete, record/undo repayments, running balances
     └── components/
         ├── header.js          app title, account button, theme toggle, export button
         ├── monthNav.js        month back/forward control
@@ -48,7 +49,7 @@ kwenta/
         └── accountSheet.js    signed-in account view + sign out
 ```
 
-`src/components/billsTab.js` (the Bills tab) and `src/components/billSheet.js` (add/edit a bill, mark paid, undo payment) sit alongside the files above. `src/components/goalsTab.js` and `src/components/goalSheet.js` follow the same pattern for goals. Note the naming convention: logic files live at the top of `src/` (`bills.js`, `goals.js`), UI files live in `src/components/` with a `Tab`/`Sheet` suffix (`billsTab.js`, `goalsTab.js`) — they're never named identically, so there's no ambiguity about which one you're looking at.
+`src/components/billsTab.js` (the Bills tab) and `src/components/billSheet.js` (add/edit a bill, mark paid, undo payment) sit alongside the files above. `src/components/goalsTab.js`/`goalSheet.js` and `src/components/loansTab.js`/`loanSheet.js` follow the same pattern for goals and utang respectively. Note the naming convention: logic files live at the top of `src/` (`bills.js`, `goals.js`, `loans.js`), UI files live in `src/components/` with a `Tab`/`Sheet` suffix (`billsTab.js`, `goalsTab.js`, `loansTab.js`) — they're never named identically, so there's no ambiguity about which one you're looking at.
 
 ## How data flows
 
@@ -87,6 +88,21 @@ Bills are deliberately **not** the same mechanism as recurring transactions — 
 - Progress (`saved / target`) is calculated by summing every transaction linked to that goal, across all months — not just the currently viewed one, since goals accumulate over time.
 - If a target month is set and the goal isn't finished yet, a pace hint shows roughly how much to save per month to hit it on time (`paceHint()` in `goals.js`). No hint shows once the goal is reached, or if no target month was set.
 - Undoing a contribution just deletes that transaction; the goal definition itself is untouched.
+
+## Utang (loan tracker)
+
+- A loan (`DATA.loans`, table `kwenta_loans`) records a person, a direction, an amount, a date, and an optional note. Direction is one of `lent` (they owe you) or `borrowed` (you owe them) — it's fixed once created, since flipping it after repayments exist would be ambiguous; delete and re-add if you pick the wrong one.
+- Creating a loan immediately logs a real transaction — an **expense** if you lent money (it left your wallet) or **income** if you borrowed it (it came in) — tagged `category: 'utang'` and linked via `loanId` with `loanKind: 'principal'`. This is the same principle as bills and goals: the cash movement is real, not a side-ledger.
+- Recording a payment logs the opposite transaction type, linked via the same `loanId` with `loanKind: 'repayment'` — income when someone pays you back, expense when you pay someone back.
+- The remaining balance (`remainingAmount()` in `loans.js`) is just `amount - sum of repayments`, calculated across all time. Once it hits zero, the loan shows as "Settled."
+- The **Utang** tab shows a summary of total owed-to-you vs you-owe at the top, then each person as its own card with a repayment progress bar.
+- Undoing a repayment just deletes that transaction; deleting the loan itself removes it from the tracker but leaves its historical transactions in place (consistent with how deleting a recurring rule or bill works).
+
+## Expense search & filter
+
+- The Expenses tab has a search box (matches against description and category label) and a row of category filter chips — only categories actually used that month show up as chips, to keep the row relevant.
+- Filters live in `state.expenseFilters` (not persisted to storage) and reset automatically when you change months, so a filter from a previous month doesn't silently hide everything in the next one.
+- Typing in the search box only re-renders the list itself (`#expenseListWrap`), not the whole tab, so the input never loses focus mid-keystroke. Clicking a category chip re-renders the whole section instead, since the chip's own active state needs to update too.
 
 ## Setting up Supabase (for sign in + cloud sync)
 

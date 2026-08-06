@@ -12,16 +12,18 @@ import {
 import { materializeMonth } from "./recurring.js";
 import { getBill } from "./bills.js";
 import { getGoal } from "./goals.js";
+import { getLoan } from "./loans.js";
 import { renderHeader } from "./components/header.js";
 import { renderMonthNav } from "./components/monthNav.js";
 import { renderLedgerCard } from "./components/ledgerCard.js";
 import { renderTabs } from "./components/tabs.js";
 import { renderOverview } from "./components/overview.js";
 import { renderIncome, attachIncomeEvents } from "./components/income.js";
-import { renderExpenses } from "./components/expenses.js";
+import { renderExpenses, attachExpenseEvents } from "./components/expenses.js";
 import { renderBudgets, attachBudgetEvents } from "./components/budgets.js";
 import { renderBills } from "./components/billsTab.js";
 import { renderGoalsTab } from "./components/goalsTab.js";
+import { renderLoansTab } from "./components/loansTab.js";
 import { initSheet, openForm } from "./components/sheet.js";
 import {
   initBillSheets,
@@ -33,6 +35,11 @@ import {
   openGoalForm,
   openGoalDetail,
 } from "./components/goalSheet.js";
+import {
+  initLoanSheets,
+  openLoanForm,
+  openLoanDetail,
+} from "./components/loanSheet.js";
 import { exportCSV } from "./export.js";
 import { initTheme, toggleTheme } from "./theme.js";
 import {
@@ -63,6 +70,7 @@ function render() {
       ${state.tab === "budgets" ? renderBudgets(t) : ""}
       ${state.tab === "bills" ? renderBills() : ""}
       ${state.tab === "goals" ? renderGoalsTab() : ""}
+      ${state.tab === "loans" ? renderLoansTab() : ""}
     </div>
   `;
   app.insertAdjacentHTML(
@@ -100,6 +108,8 @@ function attachEvents() {
       openBillForm(null);
     } else if (state.tab === "goals") {
       openGoalForm(null);
+    } else if (state.tab === "loans") {
+      openLoanForm(null);
     } else {
       const type = state.tab === "income" ? "income" : "expense";
       openForm(type, null);
@@ -120,6 +130,7 @@ function attachEvents() {
 
   attachIncomeEvents();
   attachBudgetEvents();
+  attachExpenseEvents();
 
   document.querySelectorAll("[data-edit]").forEach((row) => {
     row.onclick = () => {
@@ -145,6 +156,13 @@ function attachEvents() {
       if (goal) openGoalDetail(goal);
     };
   });
+
+  document.querySelectorAll("[data-loan]").forEach((row) => {
+    row.onclick = () => {
+      const loan = getLoan(row.dataset.loan);
+      if (loan) openLoanDetail(loan);
+    };
+  });
 }
 
 (async function init() {
@@ -152,6 +170,7 @@ function attachEvents() {
   initSheet(render); // let sheets trigger a re-render after save/delete/sign-in/sign-out
   initBillSheets(render);
   initGoalSheets(render);
+  initLoanSheets(render);
 
   const loadingEl = document.getElementById("app");
   loadingEl.innerHTML = `<div style="padding:60px 10px;text-align:center;color:var(--muted);font-family:Inter,sans-serif;font-size:13px;">Opening the ledger…</div>`;

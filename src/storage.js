@@ -12,6 +12,7 @@ export function loadData() {
         recurring: parsed.recurring || [],
         bills: parsed.bills || [],
         goals: parsed.goals || [],
+        loans: parsed.loans || [],
       };
     }
   } catch (e) {
@@ -24,6 +25,7 @@ export function loadData() {
     recurring: [],
     bills: [],
     goals: [],
+    loans: [],
   };
 }
 

@@ -10,15 +10,23 @@ export async function cloudLoadAll() {
   const user = getCurrentUser();
   if (!supabase || !user) return null;
 
-  const [salaryRes, txRes, budgetRes, recurringRes, billsRes, goalsRes] =
-    await Promise.all([
-      supabase.from("kwenta_salary").select("*").eq("user_id", user.id),
-      supabase.from("kwenta_transactions").select("*").eq("user_id", user.id),
-      supabase.from("kwenta_budgets").select("*").eq("user_id", user.id),
-      supabase.from("kwenta_recurring").select("*").eq("user_id", user.id),
-      supabase.from("kwenta_bills").select("*").eq("user_id", user.id),
-      supabase.from("kwenta_goals").select("*").eq("user_id", user.id),
-    ]);
+  const [
+    salaryRes,
+    txRes,
+    budgetRes,
+    recurringRes,
+    billsRes,
+    goalsRes,
+    loansRes,
+  ] = await Promise.all([
+    supabase.from("kwenta_salary").select("*").eq("user_id", user.id),
+    supabase.from("kwenta_transactions").select("*").eq("user_id", user.id),
+    supabase.from("kwenta_budgets").select("*").eq("user_id", user.id),
+    supabase.from("kwenta_recurring").select("*").eq("user_id", user.id),
+    supabase.from("kwenta_bills").select("*").eq("user_id", user.id),
+    supabase.from("kwenta_goals").select("*").eq("user_id", user.id),
+    supabase.from("kwenta_loans").select("*").eq("user_id", user.id),
+  ]);
 
   if (salaryRes.error) throw salaryRes.error;
   if (txRes.error) throw txRes.error;
@@ -26,6 +34,7 @@ export async function cloudLoadAll() {
   if (recurringRes.error) throw recurringRes.error;
   if (billsRes.error) throw billsRes.error;
   if (goalsRes.error) throw goalsRes.error;
+  if (loansRes.error) throw loansRes.error;
 
   const salary = {};
   (salaryRes.data || []).forEach((r) => {
@@ -42,6 +51,8 @@ export async function cloudLoadAll() {
     recurringId: r.recurring_id || undefined,
     billId: r.bill_id || undefined,
     goalId: r.goal_id || undefined,
+    loanId: r.loan_id || undefined,
+    loanKind: r.loan_kind || undefined,
   }));
 
   const budgets = {};
@@ -79,7 +90,17 @@ export async function cloudLoadAll() {
     active: r.active,
   }));
 
-  return { salary, transactions, budgets, recurring, bills, goals };
+  const loans = (loansRes.data || []).map((r) => ({
+    id: r.id,
+    person: r.person,
+    direction: r.direction,
+    amount: Number(r.amount),
+    date: r.date,
+    note: r.note || undefined,
+    active: r.active,
+  }));
+
+  return { salary, transactions, budgets, recurring, bills, goals, loans };
 }
 
 export async function cloudUpsertSalary(monthKey, amount) {
@@ -112,6 +133,8 @@ export async function cloudUpsertTransaction(tx) {
     recurring_id: tx.recurringId || null,
     bill_id: tx.billId || null,
     goal_id: tx.goalId || null,
+    loan_id: tx.loanId || null,
+    loan_kind: tx.loanKind || null,
   });
 }
 
@@ -216,6 +239,31 @@ export async function cloudDeleteGoal(id) {
     .eq("id", id);
 }
 
+export async function cloudUpsertLoan(loan) {
+  const user = getCurrentUser();
+  if (!supabase || !user) return;
+  await supabase.from("kwenta_loans").upsert({
+    id: loan.id,
+    user_id: user.id,
+    person: loan.person,
+    direction: loan.direction,
+    amount: loan.amount,
+    date: loan.date,
+    note: loan.note || null,
+    active: loan.active,
+  });
+}
+
+export async function cloudDeleteLoan(id) {
+  const user = getCurrentUser();
+  if (!supabase || !user) return;
+  await supabase
+    .from("kwenta_loans")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("id", id);
+}
+
 // Called once, right after a successful sign-in. If the account has no cloud
 // data yet, pushes whatever was saved locally so nothing gets lost. If the
 // account already has cloud data, does nothing (cloud data wins).
@@ -228,7 +276,8 @@ export async function cloudMigrateLocalDataIfEmpty(localData) {
     Object.keys(existing.budgets).length === 0 &&
     existing.recurring.length === 0 &&
     existing.bills.length === 0 &&
-    existing.goals.length === 0;
+    existing.goals.length === 0 &&
+    existing.loans.length === 0;
   if (!isEmpty) return false;
 
   const jobs = [];
@@ -246,6 +295,7 @@ export async function cloudMigrateLocalDataIfEmpty(localData) {
   );
   (localData.bills || []).forEach((bill) => jobs.push(cloudUpsertBill(bill)));
   (localData.goals || []).forEach((goal) => jobs.push(cloudUpsertGoal(goal)));
+  (localData.loans || []).forEach((loan) => jobs.push(cloudUpsertLoan(loan)));
   await Promise.all(jobs);
   return true;
 }

@@ -7,6 +7,7 @@ export const TAB_LIST = [
   ["budgets", "Budgets"],
   ["bills", "Bills"],
   ["goals", "Goals"],
+  ["loans", "Utang"],
 ];
 
 export function renderTabs() {

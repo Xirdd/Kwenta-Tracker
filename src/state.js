@@ -12,12 +12,14 @@ export let DATA = {
   recurring: [],
   bills: [],
   goals: [],
+  loans: [],
 };
 
 export const state = {
   monthKey: monthKeyOf(new Date()),
   tab: "overview",
   editingId: null,
+  expenseFilters: { query: "", category: null },
 };
 
 // Loads DATA from the cloud if signed in, otherwise from localStorage.
@@ -41,6 +43,7 @@ export async function switchToCloudData() {
     recurring: DATA.recurring,
     bills: DATA.bills,
     goals: DATA.goals,
+    loans: DATA.loans,
   };
   await cloudMigrateLocalDataIfEmpty(local);
   const cloud = await cloudLoadAll();
@@ -59,6 +62,7 @@ function replaceData(next) {
   DATA.recurring = next.recurring || [];
   DATA.bills = next.bills || [];
   DATA.goals = next.goals || [];
+  DATA.loans = next.loans || [];
 }
 
 // Always mirrors to localStorage as an offline cache; cloud writes happen
@@ -81,6 +85,7 @@ export function shiftMonth(delta) {
   const [y, m] = state.monthKey.split("-").map(Number);
   const d = new Date(y, m - 1 + delta, 1);
   state.monthKey = monthKeyOf(d);
+  state.expenseFilters = { query: "", category: null };
 }
 
 export function monthTx(type) {
