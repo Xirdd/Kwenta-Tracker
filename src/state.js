@@ -17,7 +17,8 @@ export let DATA = {
 
 export const state = {
   monthKey: monthKeyOf(new Date()),
-  tab: "overview",
+  section: "overview", // bottom nav: 'overview' | 'goals' | 'loans'
+  tab: "overview", // sub-tab used only when section === 'overview'
   editingId: null,
   expenseFilters: { query: "", category: null },
 };

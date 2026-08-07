@@ -17,6 +17,7 @@ import { renderHeader } from "./components/header.js";
 import { renderMonthNav } from "./components/monthNav.js";
 import { renderLedgerCard } from "./components/ledgerCard.js";
 import { renderTabs } from "./components/tabs.js";
+import { renderBottomNav } from "./components/bottomNav.js";
 import { renderOverview } from "./components/overview.js";
 import { renderIncome, attachIncomeEvents } from "./components/income.js";
 import { renderExpenses, attachExpenseEvents } from "./components/expenses.js";
@@ -67,23 +68,32 @@ function render() {
     <div class="side">
       ${renderMonthNav()}
       ${renderLedgerCard(t)}
-      ${renderTabs()}
+      ${state.section === "overview" ? renderTabs() : ""}
     </div>
     <div class="content-panel">
-      ${state.tab === "overview" ? renderOverview(t) : ""}
-      ${state.tab === "income" ? renderIncome(t) : ""}
-      ${state.tab === "expenses" ? renderExpenses(t) : ""}
-      ${state.tab === "budgets" ? renderBudgets(t) : ""}
-      ${state.tab === "bills" ? renderBills() : ""}
-      ${state.tab === "goals" ? renderGoalsTab() : ""}
-      ${state.tab === "loans" ? renderLoansTab() : ""}
+      ${renderSectionContent(t)}
     </div>
   `;
   app.insertAdjacentHTML(
     "beforeend",
     `<button class="fab" id="fabBtn">+</button>`,
   );
+  app.insertAdjacentHTML("beforeend", renderBottomNav());
   attachEvents();
+}
+
+// Overview owns the existing sub-tabs (Overview/Income/Expenses/Budgets/Bills).
+// Goals and Utang are full screens with no sub-tabs of their own.
+function renderSectionContent(t) {
+  if (state.section === "goals") return renderGoalsTab();
+  if (state.section === "loans") return renderLoansTab();
+  return `
+    ${state.tab === "overview" ? renderOverview(t) : ""}
+    ${state.tab === "income" ? renderIncome(t) : ""}
+    ${state.tab === "expenses" ? renderExpenses(t) : ""}
+    ${state.tab === "budgets" ? renderBudgets(t) : ""}
+    ${state.tab === "bills" ? renderBills() : ""}
+  `;
 }
 
 // Ensures this month's recurring entries exist, then renders.
@@ -116,13 +126,20 @@ function attachEvents() {
     };
   });
 
+  document.querySelectorAll(".bottom-nav-btn").forEach((btn) => {
+    btn.onclick = () => {
+      state.section = btn.dataset.section;
+      render();
+    };
+  });
+
   document.getElementById("fabBtn").onclick = () => {
-    if (state.tab === "bills") {
-      openBillForm(null);
-    } else if (state.tab === "goals") {
+    if (state.section === "goals") {
       openGoalForm(null);
-    } else if (state.tab === "loans") {
+    } else if (state.section === "loans") {
       openLoanForm(null);
+    } else if (state.tab === "bills") {
+      openBillForm(null);
     } else {
       const type = state.tab === "income" ? "income" : "expense";
       openForm(type, null);

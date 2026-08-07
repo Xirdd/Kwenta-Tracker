@@ -39,7 +39,8 @@ kwenta/
         ├── header.js          app title, account button, theme toggle, export button
         ├── monthNav.js        month back/forward control
         ├── ledgerCard.js      balance summary card
-        ├── tabs.js            Overview / Income / Expenses / Budgets tab bar
+        ├── tabs.js            Overview / Income / Expenses / Budgets / Bills sub-tab bar
+        ├── bottomNav.js       Overview / Goals / Utang bottom nav (primary navigation)
         ├── overview.js        donut chart, category breakdown, 6-month trend
         ├── income.js          monthly salary field + extra income list
         ├── expenses.js        expense list
@@ -130,6 +131,20 @@ This is the biggest architectural feature in the app, so it's documented in more
 **Leaving a household:** just deletes your membership row. Data you shared stays with the household (other members still see it) — you simply lose visibility into it, since your queries go back to "rows I own with no household." This is called out directly in the leave-confirmation dialog so it's never a surprise.
 
 **Known limitation:** there's no real-time sync. If another household member adds an expense right now, you won't see it appear automatically — it'll be there next time you reload the page, change tabs, or navigate months (anything that triggers a fresh `cloudLoadAll()`). Supabase Realtime could close this gap in a future pass, but it's a meaningfully bigger addition (websocket subscriptions, merge-conflict handling) than anything else in this feature.
+
+## Navigation structure
+
+- **Bottom nav** (`components/bottomNav.js`, `state.section`): three top-level destinations — Overview, Goals, Utang. This is the primary navigation.
+- **Overview owns its own sub-tabs** (`components/tabs.js`, `state.tab`): Overview/Income/Expenses/Budgets/Bills — this is the tab bar you see in the sidebar, and it only renders when `state.section === 'overview'`. Goals and Utang are full screens with no sub-tabs.
+- `main.js`'s `renderSectionContent()` is the single place that decides what to show based on both pieces of state — it's a small function, worth reading directly if you want to add a 4th bottom-nav destination later.
+
+## Installable PWA
+
+- Uses `vite-plugin-pwa`, configured in `vite.config.js` — it generates the web manifest and a service worker automatically at build time (`dist/manifest.webmanifest`, `dist/sw.js`), no hand-written service worker code to maintain.
+- App icons live in `public/` — `icon-192.png`, `icon-512.png`, `icon-512-maskable.png` (extra padding so Android's adaptive-icon masking doesn't clip the ₱), `apple-touch-icon.png`, and `favicon-32.png`. All generated to match the app's navy/gold branding — the same colors as the header's ₱ mark.
+- The service worker precaches the app shell (HTML/CSS/JS/icons) so the app still opens with a flaky connection. It does **not** cache anything from Supabase — API calls always go live, so your data is never stale from a cache.
+- **To install:** on Android/desktop Chrome, an install prompt/button appears automatically once the site is served over HTTPS (Vercel gives you this for free). On iOS Safari, there's no automatic prompt — tap Share → **Add to Home Screen**.
+- `registerType: 'autoUpdate'` means the service worker updates itself in the background on each visit — you don't need to manually bump a cache version when you deploy a new build.
 
 ## Setting up Supabase (for sign in + cloud sync)
 
