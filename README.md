@@ -36,19 +36,20 @@ kwenta/
     ├── loans.js               utang create/edit/delete, record/undo repayments, running balances
     ├── household.js           create/join/leave a household, active household state, data migration
     └── components/
-        ├── header.js          app title, account button, theme toggle, export button
+        ├── header.js          app title, household badge, account/profile icon
         ├── monthNav.js        month back/forward control
         ├── ledgerCard.js      balance summary card
         ├── tabs.js            Overview / Income / Expenses / Budgets / Bills sub-tab bar
-        ├── bottomNav.js       Overview / Goals / Utang bottom nav (primary navigation)
+        ├── bottomNav.js       Overview / Goals / Utang / Profile bottom nav (primary navigation)
         ├── overview.js        donut chart, category breakdown, 6-month trend
         ├── income.js          monthly salary field + extra income list
         ├── expenses.js        expense list
         ├── budgets.js         per-category monthly budgets + progress bars
+        ├── profileTab.js      account, household, password, theme, export — all in one place
         ├── sheet.js           add / edit / delete bottom sheet (or modal on desktop)
         ├── modal.js           shared open/close logic used by sheet.js and authSheet.js
         ├── authSheet.js       sign in / sign up form (password optional, magic link)
-        └── accountSheet.js    signed-in account view + sign out
+        └── setPasswordSheet.js  set/change password — auto-prompt after magic-link signup, or manual from Profile
 ```
 
 `src/components/billsTab.js` (the Bills tab) and `src/components/billSheet.js` (add/edit a bill, mark paid, undo payment) sit alongside the files above. `src/components/goalsTab.js`/`goalSheet.js` and `src/components/loansTab.js`/`loanSheet.js` follow the same pattern for goals and utang respectively. `src/components/householdSheet.js` (create/join/leave a household) follows the `Sheet` naming convention too, even though there's no matching `householdTab.js` — household management lives inside the account sheet, not its own tab. Note the naming convention overall: logic files live at the top of `src/` (`bills.js`, `goals.js`, `loans.js`, `household.js`), UI files live in `src/components/` with a `Tab`/`Sheet` suffix (`billsTab.js`, `goalsTab.js`, `loansTab.js`, `householdSheet.js`) — they're never named identically, so there's no ambiguity about which one you're looking at.
@@ -142,10 +143,21 @@ This is the biggest architectural feature in the app, so it's documented in more
 
 ## Navigation structure
 
-- **Bottom nav** (`components/bottomNav.js`, `state.section`): three top-level destinations — Overview, Goals, Utang. This is the primary navigation.
-- **Overview owns its own sub-tabs** (`components/tabs.js`, `state.tab`): Overview/Income/Expenses/Budgets/Bills — this is the tab bar you see in the sidebar, and it only renders when `state.section === 'overview'`. Goals and Utang are full screens with no sub-tabs.
-- `main.js`'s `renderSectionContent()` is the single place that decides what to show based on both pieces of state — it's a small function, worth reading directly if you want to add a 4th bottom-nav destination later.
-- The **sidebar** (month nav / balance card) is also section-aware, via `renderSideContent()` in `main.js` — since Goals and Utang aren't scoped to a month, the Net Balance card only appears for Overview. Goals gets no sidebar at all (the goal cards' own progress rings are the summary). Utang gets a different card in the exact same visual slot — `renderUtangLedgerCard()` in `loansTab.js` — styled identically to the Net Balance card (same `.ledger-card` markup/CSS) but showing "Owed to you" / "You owe" instead.
+- **Bottom nav** (`components/bottomNav.js`, `state.section`): four top-level destinations — Overview, Goals, Utang, Profile. This is the primary navigation.
+- **Overview owns its own sub-tabs** (`components/tabs.js`, `state.tab`): Overview/Income/Expenses/Budgets/Bills — this is the tab bar you see in the sidebar, and it only renders when `state.section === 'overview'`. Goals, Utang, and Profile are full screens with no sub-tabs.
+- `main.js`'s `renderSectionContent()` is the single place that decides what to show based on both pieces of state.
+- The **sidebar** (month nav / balance card) is also section-aware, via `renderSideContent()` in `main.js` — since Goals, Utang, and Profile aren't scoped to a month, the Net Balance card only appears for Overview. Goals and Profile get no sidebar at all. Utang gets a different card in the exact same visual slot — `renderUtangLedgerCard()` in `loansTab.js` — styled identically to the Net Balance card (same `.ledger-card` markup/CSS) but showing "Owed to you" / "You owe" instead.
+- The **floating + button** is hidden entirely on Profile — there's nothing to "add" there (`render()` in `main.js` only inserts it when `state.section !== 'profile'`).
+
+## Profile tab
+
+Account, household, password, theme, and export used to be scattered across header icons and a couple of modals — they now all live in one place (`components/profileTab.js`), each as its own small card:
+
+- **Account** — sign in/out. Tapping the header's account icon (or the Utang/Goals equivalent — there isn't one, it's just the header) jumps straight to this tab now, instead of opening a modal.
+- **Household** — only shown when signed in. Opens the same `householdSheet.js` as before; nothing about household logic changed, just where the button to reach it lives.
+- **Password** — only shown when signed in. Opens `setPasswordSheet.js` in `'manual'` context, so someone who signed up via magic link (and never got the automatic post-signup prompt, or dismissed it) can set one anytime, and anyone can change an existing password the same way. Same sheet, same validation, as the automatic prompt — just a different heading/button copy depending on how it was opened.
+- **Appearance** — the light/dark toggle that used to be a header icon. Clicking it calls `toggleTheme()` then re-renders through the same callback pattern as the other sheets (`initProfileTab(render)` in `main.js`).
+- **Export** — the CSV export that used to be a header icon.
 
 ## Installable PWA
 

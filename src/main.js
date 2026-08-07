@@ -28,6 +28,11 @@ import {
   renderLoansTab,
   renderUtangLedgerCard,
 } from "./components/loansTab.js";
+import {
+  renderProfileTab,
+  attachProfileEvents,
+  initProfileTab,
+} from "./components/profileTab.js";
 import { initSheet, openForm } from "./components/sheet.js";
 import {
   initBillSheets,
@@ -44,8 +49,7 @@ import {
   openLoanForm,
   openLoanDetail,
 } from "./components/loanSheet.js";
-import { exportCSV } from "./export.js";
-import { initTheme, toggleTheme } from "./theme.js";
+import { initTheme } from "./theme.js";
 import {
   initAuth,
   getCurrentUser,
@@ -53,8 +57,6 @@ import {
   consumePendingPasswordSetup,
 } from "./auth.js";
 import { getActiveHousehold, loadActiveHousehold } from "./household.js";
-import { openAuthSheet } from "./components/authSheet.js";
-import { openAccountSheet } from "./components/accountSheet.js";
 import { openSetPasswordSheet } from "./components/setPasswordSheet.js";
 import {
   initHouseholdSheet,
@@ -75,20 +77,24 @@ function render() {
       ${renderSectionContent(t)}
     </div>
   `;
-  app.insertAdjacentHTML(
-    "beforeend",
-    `<button class="fab" id="fabBtn">+</button>`,
-  );
+  // Profile has nothing to "add", so no floating action button there.
+  if (state.section !== "profile") {
+    app.insertAdjacentHTML(
+      "beforeend",
+      `<button class="fab" id="fabBtn">+</button>`,
+    );
+  }
   app.insertAdjacentHTML("beforeend", renderBottomNav());
   attachEvents();
 }
 
 // The sidebar (month nav / balance card / sub-tabs) only makes sense for
-// Overview, which is month-scoped. Goals and Utang aren't, so they get
-// their own sidebar content instead of the Net Balance card.
+// Overview, which is month-scoped. Goals, Utang, and Profile aren't, so they
+// get their own sidebar content (or none) instead of the Net Balance card.
 function renderSideContent(t) {
   if (state.section === "goals") return "";
   if (state.section === "loans") return renderUtangLedgerCard();
+  if (state.section === "profile") return "";
   return `
     ${renderMonthNav()}
     ${renderLedgerCard(t)}
@@ -97,10 +103,11 @@ function renderSideContent(t) {
 }
 
 // Overview owns the existing sub-tabs (Overview/Income/Expenses/Budgets/Bills).
-// Goals and Utang are full screens with no sub-tabs of their own.
+// Goals, Utang, and Profile are full screens with no sub-tabs of their own.
 function renderSectionContent(t) {
   if (state.section === "goals") return renderGoalsTab();
   if (state.section === "loans") return renderLoansTab();
+  if (state.section === "profile") return renderProfileTab();
   return `
     ${state.tab === "overview" ? renderOverview(t) : ""}
     ${state.tab === "income" ? renderIncome(t) : ""}
@@ -151,29 +158,26 @@ function attachEvents() {
     };
   });
 
-  document.getElementById("fabBtn").onclick = () => {
-    if (state.section === "goals") {
-      openGoalForm(null);
-    } else if (state.section === "loans") {
-      openLoanForm(null);
-    } else if (state.tab === "bills") {
-      openBillForm(null);
-    } else {
-      const type = state.tab === "income" ? "income" : "expense";
-      openForm(type, null);
-    }
-  };
+  const fabBtn = document.getElementById("fabBtn");
+  if (fabBtn) {
+    fabBtn.onclick = () => {
+      if (state.section === "goals") {
+        openGoalForm(null);
+      } else if (state.section === "loans") {
+        openLoanForm(null);
+      } else if (state.tab === "bills") {
+        openBillForm(null);
+      } else {
+        const type = state.tab === "income" ? "income" : "expense";
+        openForm(type, null);
+      }
+    };
+  }
 
-  document.getElementById("exportBtn").onclick = exportCSV;
-  document.getElementById("themeToggle").onclick = () => {
-    toggleTheme();
-    render();
-  };
-
+  // The account icon in the header now just jumps to the Profile tab.
   document.getElementById("accountBtn").onclick = () => {
-    const user = getCurrentUser();
-    if (user) openAccountSheet(user);
-    else openAuthSheet();
+    state.section = "profile";
+    render();
   };
 
   const householdBadge = document.getElementById("householdBadge");
@@ -182,6 +186,7 @@ function attachEvents() {
   attachIncomeEvents();
   attachBudgetEvents();
   attachExpenseEvents();
+  attachProfileEvents();
 
   document.querySelectorAll("[data-edit]").forEach((row) => {
     row.onclick = () => {
@@ -223,6 +228,7 @@ function attachEvents() {
   initGoalSheets(render);
   initLoanSheets(render);
   initHouseholdSheet(onHouseholdChanged);
+  initProfileTab(render); // theme toggle inside Profile needs to trigger a re-render too
 
   const loadingEl = document.getElementById("app");
   loadingEl.innerHTML = `<div style="padding:60px 10px;text-align:center;color:var(--muted);font-family:Inter,sans-serif;font-size:13px;">Opening the ledger…</div>`;
@@ -244,10 +250,21 @@ function attachEvents() {
     }
     goToMonth();
     if (user && consumePendingPasswordSetup()) {
-      openSetPasswordSheet();
+      openSetPasswordSheet({ context: "auto" });
     }
   });
 
   await initData();
   goToMonth();
+
+  // Catches the case where THIS page load IS the magic-link landing itself.
+  // By the time initAuth() resolved above, the session may already reflect
+  // the new sign-in — meaning lastUserId was initialized from that same
+  // already-established session, so the SIGNED_IN transition inside
+  // onAuthChange never actually fires (no change to detect). Checking the
+  // flag here too, unconditionally, closes that gap. Safe to call even when
+  // there's nothing pending — it's a no-op in that case.
+  if (getCurrentUser() && consumePendingPasswordSetup()) {
+    openSetPasswordSheet({ context: "auto" });
+  }
 })();

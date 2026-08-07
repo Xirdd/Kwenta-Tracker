@@ -186,12 +186,35 @@ header {
   margin: 0 0 14px 0;
   line-height: 1.4;
 }
-.account-email {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 14px;
+.profile-card {
+  background: var(--paper);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+.profile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.profile-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+.profile-value {
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--ink);
-  margin: -6px 0 12px 0;
+}
+.profile-row .btn-ghost {
+  flex: 0 0 auto;
+  padding: 9px 16px;
+  font-size: 12.5px;
 }
 .invite-code-box {
   display: flex;
