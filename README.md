@@ -145,6 +145,7 @@ This is the biggest architectural feature in the app, so it's documented in more
 - **Bottom nav** (`components/bottomNav.js`, `state.section`): three top-level destinations — Overview, Goals, Utang. This is the primary navigation.
 - **Overview owns its own sub-tabs** (`components/tabs.js`, `state.tab`): Overview/Income/Expenses/Budgets/Bills — this is the tab bar you see in the sidebar, and it only renders when `state.section === 'overview'`. Goals and Utang are full screens with no sub-tabs.
 - `main.js`'s `renderSectionContent()` is the single place that decides what to show based on both pieces of state — it's a small function, worth reading directly if you want to add a 4th bottom-nav destination later.
+- The **sidebar** (month nav / balance card) is also section-aware, via `renderSideContent()` in `main.js` — since Goals and Utang aren't scoped to a month, the Net Balance card only appears for Overview. Goals gets no sidebar at all (the goal cards' own progress rings are the summary). Utang gets a different card in the exact same visual slot — `renderUtangLedgerCard()` in `loansTab.js` — styled identically to the Net Balance card (same `.ledger-card` markup/CSS) but showing "Owed to you" / "You owe" instead.
 
 ## Installable PWA
 

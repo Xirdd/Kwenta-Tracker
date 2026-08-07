@@ -24,7 +24,10 @@ import { renderExpenses, attachExpenseEvents } from "./components/expenses.js";
 import { renderBudgets, attachBudgetEvents } from "./components/budgets.js";
 import { renderBills } from "./components/billsTab.js";
 import { renderGoalsTab } from "./components/goalsTab.js";
-import { renderLoansTab } from "./components/loansTab.js";
+import {
+  renderLoansTab,
+  renderUtangLedgerCard,
+} from "./components/loansTab.js";
 import { initSheet, openForm } from "./components/sheet.js";
 import {
   initBillSheets,
@@ -66,9 +69,7 @@ function render() {
   app.innerHTML = `
     ${renderHeader(user, household)}
     <div class="side">
-      ${renderMonthNav()}
-      ${renderLedgerCard(t)}
-      ${state.section === "overview" ? renderTabs() : ""}
+      ${renderSideContent(t)}
     </div>
     <div class="content-panel">
       ${renderSectionContent(t)}
@@ -80,6 +81,19 @@ function render() {
   );
   app.insertAdjacentHTML("beforeend", renderBottomNav());
   attachEvents();
+}
+
+// The sidebar (month nav / balance card / sub-tabs) only makes sense for
+// Overview, which is month-scoped. Goals and Utang aren't, so they get
+// their own sidebar content instead of the Net Balance card.
+function renderSideContent(t) {
+  if (state.section === "goals") return "";
+  if (state.section === "loans") return renderUtangLedgerCard();
+  return `
+    ${renderMonthNav()}
+    ${renderLedgerCard(t)}
+    ${renderTabs()}
+  `;
 }
 
 // Overview owns the existing sub-tabs (Overview/Income/Expenses/Budgets/Bills).
@@ -110,14 +124,18 @@ async function onHouseholdChanged() {
 }
 
 function attachEvents() {
-  document.getElementById("prevMonth").onclick = () => {
-    shiftMonth(-1);
-    goToMonth();
-  };
-  document.getElementById("nextMonth").onclick = () => {
-    shiftMonth(1);
-    goToMonth();
-  };
+  const prevMonthBtn = document.getElementById("prevMonth");
+  const nextMonthBtn = document.getElementById("nextMonth");
+  if (prevMonthBtn)
+    prevMonthBtn.onclick = () => {
+      shiftMonth(-1);
+      goToMonth();
+    };
+  if (nextMonthBtn)
+    nextMonthBtn.onclick = () => {
+      shiftMonth(1);
+      goToMonth();
+    };
 
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.onclick = () => {

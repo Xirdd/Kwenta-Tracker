@@ -263,6 +263,9 @@ header {
     0 2px 0 rgba(0, 0, 0, 0.08) inset;
   overflow: hidden;
 }
+.side > .ledger-card:first-child {
+  margin-top: 6px;
+}
 .ledger-card::before {
   /* perforated tab edge */
   content: "";
@@ -736,37 +739,6 @@ header {
 }
 
 /* ---------- Utang / loans ---------- */
-.loan-summary {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-.loan-summary-item {
-  flex: 1;
-  background: var(--paper);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-}
-.loan-summary-item .label {
-  font-size: 10.5px;
-  color: var(--ink-soft);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-.loan-summary-item .amt {
-  font-family: "IBM Plex Mono", monospace;
-  font-weight: 600;
-  font-size: 17px;
-  font-variant-numeric: tabular-nums;
-}
-.loan-summary-item .amt.owed {
-  color: var(--green);
-}
-.loan-summary-item .amt.owes {
-  color: var(--coral);
-}
 .loan-card {
   background: var(--paper);
   border-radius: var(--radius);
@@ -1361,8 +1333,7 @@ input[type="number"] {
   .salary-card,
   .empty-state,
   .goal-card,
-  .loan-card,
-  .loan-summary-item {
+  .loan-card {
     box-shadow: 0 20px 44px -26px rgba(0, 0, 0, 0.6);
   }
 }
