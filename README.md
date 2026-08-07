@@ -71,6 +71,14 @@ kwenta/
 - There's no "skip just this one month, keep future months" option yet — deleting always stops the whole series. If you need that, it's a reasonable follow-up feature.
 - On sign-in, if the cloud account has no data yet, whatever is saved locally on that device is pushed up automatically (`cloudMigrateLocalDataIfEmpty`). If the account already has cloud data, the cloud data wins and is loaded instead.
 
+## Goals and Utang are tracked separately from your main balance
+
+Goal contributions and utang principal/repayments are still logged as real transactions (nothing is hidden — it's just not double-counted). `isSeparatelyTracked(tx)` (in `state.js`) flags any transaction with a `goalId` or `loanId`, and `monthTx(type)` excludes those by default.
+
+That default is what everything reads from — `totals()` (the Net Balance card), `trendTotals()` (the 6-month trend chart), the Overview "Where it went" breakdown, the Budgets tab's spent totals, and even the Income/Expenses list views all call `monthTx()` with no extra arguments, so they all get the same exclusion automatically. Practically: adding ₱5,000 to a savings goal or lending money to a friend won't move your Net Balance, your expense total, or show up in your Expenses tab — it only shows up in the Goals or Utang tab, which already have their own dedicated summaries (progress rings, owed-to-you/you-owe totals).
+
+If a future feature needs the _unfiltered_ view (all transactions, goal/utang movements included), `monthTx(type, { excludeSeparatelyTracked: false })` is there for that — nothing currently uses it, but the option exists rather than needing a second, parallel function.
+
 ## Bills (due-date reminders)
 
 Bills are deliberately **not** the same mechanism as recurring transactions — utility bills (Meralco, water, internet) vary in amount every month, so auto-creating a transaction with a guessed amount would just mean editing it later anyway. Instead:
