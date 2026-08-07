@@ -89,10 +89,26 @@ export function shiftMonth(delta) {
   state.expenseFilters = { query: "", category: null };
 }
 
-export function monthTx(type) {
-  return DATA.transactions.filter(
-    (t) => t.type === type && t.date && t.date.startsWith(state.monthKey),
-  );
+// Goal contributions and utang principal/repayments are logged as real
+// transactions (so history stays accurate), but they're tracked separately
+// from the main balance — Goals and Utang already have their own summaries,
+// and mixing them into "Net Balance" makes that number mean something
+// different depending on whether you happened to add to a goal that month.
+export function isSeparatelyTracked(tx) {
+  return !!(tx.goalId || tx.loanId);
+}
+
+// type: 'income' | 'expense'. excludeSeparatelyTracked defaults to true,
+// since almost every use of this (balance, trend, category breakdown,
+// budgets) wants goal/utang movements left out. Pass false only for the
+// raw Expenses/Income list views, which should still show everything.
+export function monthTx(type, { excludeSeparatelyTracked = true } = {}) {
+  return DATA.transactions.filter((t) => {
+    if (t.type !== type || !t.date || !t.date.startsWith(state.monthKey))
+      return false;
+    if (excludeSeparatelyTracked && isSeparatelyTracked(t)) return false;
+    return true;
+  });
 }
 
 export function totals() {
@@ -128,10 +144,22 @@ export function monthsBack(n) {
 export function trendTotals(mk) {
   const salary = Number(DATA.salary[mk]) || 0;
   const extra = DATA.transactions
-    .filter((x) => x.type === "income" && x.date && x.date.startsWith(mk))
+    .filter(
+      (x) =>
+        x.type === "income" &&
+        x.date &&
+        x.date.startsWith(mk) &&
+        !isSeparatelyTracked(x),
+    )
     .reduce((s, x) => s + Number(x.amount || 0), 0);
   const exp = DATA.transactions
-    .filter((x) => x.type === "expense" && x.date && x.date.startsWith(mk))
+    .filter(
+      (x) =>
+        x.type === "expense" &&
+        x.date &&
+        x.date.startsWith(mk) &&
+        !isSeparatelyTracked(x),
+    )
     .reduce((s, x) => s + Number(x.amount || 0), 0);
   return { inc: salary + extra, exp };
 }
