@@ -34,6 +34,7 @@ kwenta/
     ├── bills.js               bill create/edit/delete, mark paid/undo, due-date math
     ├── goals.js               goal create/edit/delete, contribute/undo, progress + pace math
     ├── loans.js               utang create/edit/delete, record/undo repayments, running balances
+    ├── household.js           create/join/leave a household, active household state, data migration
     └── components/
         ├── header.js          app title, account button, theme toggle, export button
         ├── monthNav.js        month back/forward control
@@ -49,7 +50,7 @@ kwenta/
         └── accountSheet.js    signed-in account view + sign out
 ```
 
-`src/components/billsTab.js` (the Bills tab) and `src/components/billSheet.js` (add/edit a bill, mark paid, undo payment) sit alongside the files above. `src/components/goalsTab.js`/`goalSheet.js` and `src/components/loansTab.js`/`loanSheet.js` follow the same pattern for goals and utang respectively. Note the naming convention: logic files live at the top of `src/` (`bills.js`, `goals.js`, `loans.js`), UI files live in `src/components/` with a `Tab`/`Sheet` suffix (`billsTab.js`, `goalsTab.js`, `loansTab.js`) — they're never named identically, so there's no ambiguity about which one you're looking at.
+`src/components/billsTab.js` (the Bills tab) and `src/components/billSheet.js` (add/edit a bill, mark paid, undo payment) sit alongside the files above. `src/components/goalsTab.js`/`goalSheet.js` and `src/components/loansTab.js`/`loanSheet.js` follow the same pattern for goals and utang respectively. `src/components/householdSheet.js` (create/join/leave a household) follows the `Sheet` naming convention too, even though there's no matching `householdTab.js` — household management lives inside the account sheet, not its own tab. Note the naming convention overall: logic files live at the top of `src/` (`bills.js`, `goals.js`, `loans.js`, `household.js`), UI files live in `src/components/` with a `Tab`/`Sheet` suffix (`billsTab.js`, `goalsTab.js`, `loansTab.js`, `householdSheet.js`) — they're never named identically, so there's no ambiguity about which one you're looking at.
 
 ## How data flows
 
@@ -103,6 +104,32 @@ Bills are deliberately **not** the same mechanism as recurring transactions — 
 - The Expenses tab has a search box (matches against description and category label) and a row of category filter chips — only categories actually used that month show up as chips, to keep the row relevant.
 - Filters live in `state.expenseFilters` (not persisted to storage) and reset automatically when you change months, so a filter from a previous month doesn't silently hide everything in the next one.
 - Typing in the search box only re-renders the list itself (`#expenseListWrap`), not the whole tab, so the input never loses focus mid-keystroke. Clicking a category chip re-renders the whole section instead, since the chip's own active state needs to update too.
+
+## Households (shared budgets between multiple people)
+
+This is the biggest architectural feature in the app, so it's documented in more depth than the others.
+
+**What's shared vs. private:** Once you're in a household, **transactions, budgets, recurring rules, bills, goals, and utang** are visible and editable by every member — regardless of who originally logged them. **Salary (`kwenta_salary`) is never shared, under any circumstances** — it has no `household_id` column at all, by design, not just by app logic.
+
+**Joining a household:** no email required, on purpose (Supabase's default mailer is rate-limited, as you've already run into). Instead:
+
+- `create_household(name)` — a Postgres function — creates a household, generates a random 6-character invite code, and adds you as the first member, all in one atomic step.
+- `join_household_by_code(code)` looks up a household by that code and adds you as a member. Both are `security definer` functions, so they can do their job without needing broad table-level `SELECT`/`INSERT` access that would otherwise leak other households' data.
+- The invite code is just a code — share it however you want (text message, Messenger, in person). Whoever has it can join.
+
+**How sharing actually works:** every shareable table (`kwenta_transactions`, `kwenta_recurring`, `kwenta_bills`, `kwenta_goals`, `kwenta_loans`, and `kwenta_budgets`) has a nullable `household_id` column.
+
+- `household_id = null` → personal, only visible to the row's owner (`user_id`) — the exact same behavior as before households existed.
+- `household_id = <id>` → visible and editable by every member of that household, via the `is_household_member()` helper function used in each table's RLS policy.
+- `src/sync.js`'s `cloudLoadAll()` picks one scope or the other based on `getActiveHouseholdId()` (from `src/household.js`) — either "rows I own with no household" or "rows tagged with my active household" — never both mixed together.
+
+**Budgets are a special case.** Every other shareable table already has a unique client-generated `id`, so adding `household_id` as a plain column was enough. Budgets didn't have that — the primary key was `(user_id, category)` — and changing a live table's primary key felt like unnecessary risk for a personal project's database. Instead, `cloudUpsertBudget()` in `sync.js` manually checks whether a household already has a row for that category and updates it, or inserts a fresh one — deduplication lives in application code instead of a database constraint.
+
+**Migrating existing data:** when you create or join a household, `migratePersonalDataToHousehold()` (in `household.js`) re-tags your existing personal rows with the new `household_id` — for budgets specifically, only for categories the household doesn't already have a value for, so joining an existing household never silently overwrites what's already there.
+
+**Leaving a household:** just deletes your membership row. Data you shared stays with the household (other members still see it) — you simply lose visibility into it, since your queries go back to "rows I own with no household." This is called out directly in the leave-confirmation dialog so it's never a surprise.
+
+**Known limitation:** there's no real-time sync. If another household member adds an expense right now, you won't see it appear automatically — it'll be there next time you reload the page, change tabs, or navigate months (anything that triggers a fresh `cloudLoadAll()`). Supabase Realtime could close this gap in a future pass, but it's a meaningfully bigger addition (websocket subscriptions, merge-conflict handling) than anything else in this feature.
 
 ## Setting up Supabase (for sign in + cloud sync)
 

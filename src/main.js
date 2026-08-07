@@ -48,16 +48,22 @@ import {
   onAuthChange,
   consumePendingPasswordSetup,
 } from "./auth.js";
+import { getActiveHousehold, loadActiveHousehold } from "./household.js";
 import { openAuthSheet } from "./components/authSheet.js";
 import { openAccountSheet } from "./components/accountSheet.js";
 import { openSetPasswordSheet } from "./components/setPasswordSheet.js";
+import {
+  initHouseholdSheet,
+  openHouseholdSheet,
+} from "./components/householdSheet.js";
 
 function render() {
   const t = totals();
   const user = getCurrentUser();
+  const household = getActiveHousehold();
   const app = document.getElementById("app");
   app.innerHTML = `
-    ${renderHeader(user)}
+    ${renderHeader(user, household)}
     <div class="side">
       ${renderMonthNav()}
       ${renderLedgerCard(t)}
@@ -84,6 +90,13 @@ function render() {
 function goToMonth() {
   materializeMonth(state.monthKey);
   render();
+}
+
+// Called after creating/joining/leaving a household — the data scope itself
+// changed, so this re-loads from the cloud (not just a re-render).
+async function onHouseholdChanged() {
+  await switchToCloudData();
+  goToMonth();
 }
 
 function attachEvents() {
@@ -128,6 +141,9 @@ function attachEvents() {
     else openAuthSheet();
   };
 
+  const householdBadge = document.getElementById("householdBadge");
+  if (householdBadge) householdBadge.onclick = openHouseholdSheet;
+
   attachIncomeEvents();
   attachBudgetEvents();
   attachExpenseEvents();
@@ -171,11 +187,13 @@ function attachEvents() {
   initBillSheets(render);
   initGoalSheets(render);
   initLoanSheets(render);
+  initHouseholdSheet(onHouseholdChanged);
 
   const loadingEl = document.getElementById("app");
   loadingEl.innerHTML = `<div style="padding:60px 10px;text-align:center;color:var(--muted);font-family:Inter,sans-serif;font-size:13px;">Opening the ledger…</div>`;
 
   await initAuth();
+  await loadActiveHousehold(); // must resolve before the first data load, since it decides what scope to load
 
   // Re-load and re-render whenever the signed-in user changes (sign in, sign out, magic link landing).
   let lastUserId = getCurrentUser()?.id || null;
@@ -183,6 +201,7 @@ function attachEvents() {
     const userId = user?.id || null;
     if (userId === lastUserId) return;
     lastUserId = userId;
+    await loadActiveHousehold();
     if (user) {
       await switchToCloudData();
     } else {

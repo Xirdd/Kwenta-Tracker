@@ -1,14 +1,25 @@
 import { supabase } from "./supabaseClient.js";
 import { getCurrentUser } from "./auth.js";
+import { getActiveHouseholdId } from "./household.js";
 
 export function isCloudMode() {
   return !!supabase && !!getCurrentUser();
+}
+
+// Applies the "personal vs household" scope to a SELECT query for any of the
+// shareable tables (everything except kwenta_salary, which is always personal).
+function scoped(table, user, householdId) {
+  let q = supabase.from(table).select("*");
+  return householdId
+    ? q.eq("household_id", householdId)
+    : q.eq("user_id", user.id).is("household_id", null);
 }
 
 // Loads everything for the signed-in user, shaped like the local DATA object.
 export async function cloudLoadAll() {
   const user = getCurrentUser();
   if (!supabase || !user) return null;
+  const householdId = getActiveHouseholdId();
 
   const [
     salaryRes,
@@ -19,13 +30,13 @@ export async function cloudLoadAll() {
     goalsRes,
     loansRes,
   ] = await Promise.all([
-    supabase.from("kwenta_salary").select("*").eq("user_id", user.id),
-    supabase.from("kwenta_transactions").select("*").eq("user_id", user.id),
-    supabase.from("kwenta_budgets").select("*").eq("user_id", user.id),
-    supabase.from("kwenta_recurring").select("*").eq("user_id", user.id),
-    supabase.from("kwenta_bills").select("*").eq("user_id", user.id),
-    supabase.from("kwenta_goals").select("*").eq("user_id", user.id),
-    supabase.from("kwenta_loans").select("*").eq("user_id", user.id),
+    supabase.from("kwenta_salary").select("*").eq("user_id", user.id), // always personal, never shared
+    scoped("kwenta_transactions", user, householdId),
+    scoped("kwenta_budgets", user, householdId),
+    scoped("kwenta_recurring", user, householdId),
+    scoped("kwenta_bills", user, householdId),
+    scoped("kwenta_goals", user, householdId),
+    scoped("kwenta_loans", user, householdId),
   ]);
 
   if (salaryRes.error) throw salaryRes.error;
@@ -125,6 +136,7 @@ export async function cloudUpsertTransaction(tx) {
   await supabase.from("kwenta_transactions").upsert({
     id: tx.id,
     user_id: user.id,
+    household_id: getActiveHouseholdId(),
     type: tx.type,
     description: tx.desc || "",
     amount: tx.amount,
@@ -148,19 +160,63 @@ export async function cloudDeleteTransaction(id) {
     .eq("id", id);
 }
 
+// Budgets are the one table without a database-level unique constraint on
+// (household_id, category) — the primary key stays (user_id, category) so
+// no schema surgery was needed on an existing table. Instead we look up any
+// existing row for the current scope and update it, or insert a fresh one.
 export async function cloudUpsertBudget(category, amount) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
+  const householdId = getActiveHouseholdId();
+
+  if (householdId) {
+    const { data: existing } = await supabase
+      .from("kwenta_budgets")
+      .select("user_id")
+      .eq("household_id", householdId)
+      .eq("category", category)
+      .maybeSingle();
+
+    if (amount === undefined || amount === null || isNaN(amount)) {
+      if (existing)
+        await supabase
+          .from("kwenta_budgets")
+          .delete()
+          .eq("household_id", householdId)
+          .eq("category", category);
+      return;
+    }
+    if (existing) {
+      await supabase
+        .from("kwenta_budgets")
+        .update({ amount, updated_at: new Date().toISOString() })
+        .eq("household_id", householdId)
+        .eq("category", category);
+    } else {
+      await supabase
+        .from("kwenta_budgets")
+        .insert({
+          user_id: user.id,
+          household_id: householdId,
+          category,
+          amount,
+        });
+    }
+    return;
+  }
+
+  // Personal (no household) — original behavior.
   if (amount === undefined || amount === null || isNaN(amount)) {
     await supabase
       .from("kwenta_budgets")
       .delete()
       .eq("user_id", user.id)
-      .eq("category", category);
+      .eq("category", category)
+      .is("household_id", null);
   } else {
     await supabase
       .from("kwenta_budgets")
-      .upsert({ user_id: user.id, category, amount });
+      .upsert({ user_id: user.id, category, amount, household_id: null });
   }
 }
 
@@ -170,6 +226,7 @@ export async function cloudUpsertRecurring(rule) {
   await supabase.from("kwenta_recurring").upsert({
     id: rule.id,
     user_id: user.id,
+    household_id: getActiveHouseholdId(),
     type: rule.type,
     description: rule.desc || "",
     amount: rule.amount,
@@ -196,6 +253,7 @@ export async function cloudUpsertBill(bill) {
   await supabase.from("kwenta_bills").upsert({
     id: bill.id,
     user_id: user.id,
+    household_id: getActiveHouseholdId(),
     name: bill.name,
     category: bill.category,
     custom_category: bill.customCategory || null,
@@ -222,6 +280,7 @@ export async function cloudUpsertGoal(goal) {
   await supabase.from("kwenta_goals").upsert({
     id: goal.id,
     user_id: user.id,
+    household_id: getActiveHouseholdId(),
     name: goal.name,
     target_amount: goal.targetAmount,
     target_month: goal.targetMonth || null,
@@ -245,6 +304,7 @@ export async function cloudUpsertLoan(loan) {
   await supabase.from("kwenta_loans").upsert({
     id: loan.id,
     user_id: user.id,
+    household_id: getActiveHouseholdId(),
     person: loan.person,
     direction: loan.direction,
     amount: loan.amount,
@@ -265,8 +325,9 @@ export async function cloudDeleteLoan(id) {
 }
 
 // Called once, right after a successful sign-in. If the account has no cloud
-// data yet, pushes whatever was saved locally so nothing gets lost. If the
-// account already has cloud data, does nothing (cloud data wins).
+// data yet for the current scope (personal, or the household it just joined),
+// pushes whatever was saved locally so nothing gets lost. If data already
+// exists there, does nothing (cloud data wins).
 export async function cloudMigrateLocalDataIfEmpty(localData) {
   const existing = await cloudLoadAll();
   if (!existing) return false;
