@@ -18,7 +18,10 @@ function filteredExpenses() {
     items = items.filter((tx) => {
       const desc = (tx.desc || "").toLowerCase();
       const label = catInfo(tx.category).label.toLowerCase();
-      return desc.includes(q) || label.includes(q);
+      const tagsMatch = (tx.tags || []).some((t) =>
+        t.toLowerCase().includes(q),
+      );
+      return desc.includes(q) || label.includes(q) || tagsMatch;
     });
   }
   return items.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
@@ -86,6 +89,7 @@ function renderExpenseList(items, totalCount) {
         <div class="info">
           <div class="desc">${escapeHtml(tx.desc || c.label)}${tx.recurringId ? ' <span class="recur-badge" title="Repeats monthly">↻</span>' : ""}</div>
           <div class="meta">${c.label} · ${formatDate(tx.date)}</div>
+          ${tx.tags && tx.tags.length ? `<div class="tag-pills">${tx.tags.map((t) => `<span class="tag-pill">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
         </div>
         <div class="amt expense">-${fmt(tx.amount)}</div>
       </div>`;

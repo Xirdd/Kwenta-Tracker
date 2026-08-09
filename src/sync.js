@@ -64,6 +64,7 @@ export async function cloudLoadAll() {
     goalId: r.goal_id || undefined,
     loanId: r.loan_id || undefined,
     loanKind: r.loan_kind || undefined,
+    tags: r.tags && r.tags.length ? r.tags : undefined,
   }));
 
   const budgets = {};
@@ -147,6 +148,7 @@ export async function cloudUpsertTransaction(tx) {
     goal_id: tx.goalId || null,
     loan_id: tx.loanId || null,
     loan_kind: tx.loanKind || null,
+    tags: tx.tags && tx.tags.length ? tx.tags : null,
   });
 }
 
