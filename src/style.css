@@ -216,6 +216,24 @@ header {
   padding: 9px 16px;
   font-size: 12.5px;
 }
+.profile-row .btn-ghost.variant-green {
+  background: transparent;
+  border: 1.5px solid var(--green);
+  color: var(--green);
+}
+.profile-row .btn-ghost.variant-green:active {
+  background: var(--green);
+  color: #fff;
+}
+.profile-row .btn-ghost.variant-gold {
+  background: transparent;
+  border: 1.5px solid var(--gold);
+  color: var(--gold);
+}
+.profile-row .btn-ghost.variant-gold:active {
+  background: var(--gold);
+  color: var(--ink);
+}
 .signout-btn {
   display: flex;
   align-items: center;
