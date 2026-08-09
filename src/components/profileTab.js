@@ -29,7 +29,7 @@ export function renderProfileTab() {
         <div class="profile-label">Account</div>
         <div class="profile-value">${user ? escapeHtml(user.email) : "Not signed in"}</div>
       </div>
-      ${user ? "" : `<button class="btn btn-ghost" id="profileAuthBtn">Sign in</button>`}
+      ${user ? "" : `<button class="btn btn-ghost variant-green" id="profileAuthBtn">Sign in</button>`}
     </div>
   </div>
 
@@ -42,7 +42,7 @@ export function renderProfileTab() {
         <div class="profile-label">Household</div>
         <div class="profile-value">${household ? escapeHtml(household.name) : "Personal ledger — nothing shared"}</div>
       </div>
-      <button class="btn btn-ghost" id="profileHouseholdBtn">${household ? "Manage" : "Share budget"}</button>
+      <button class="btn btn-ghost ${household ? "" : "variant-green"}" id="profileHouseholdBtn">${household ? "Manage" : "Share budget"}</button>
     </div>
   </div>
 
@@ -79,7 +79,7 @@ export function renderProfileTab() {
         <div class="profile-label">Export</div>
         <div class="profile-value">Download everything as a CSV file</div>
       </div>
-      <button class="btn btn-ghost" id="profileExportBtn">Export</button>
+      <button class="btn btn-ghost variant-gold" id="profileExportBtn">Export</button>
     </div>
   </div>
 
