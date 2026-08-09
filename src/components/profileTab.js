@@ -6,6 +6,7 @@ import { exportCSV } from "../export.js";
 import { openAuthSheet } from "./authSheet.js";
 import { openHouseholdSheet } from "./householdSheet.js";
 import { openSetPasswordSheet } from "./setPasswordSheet.js";
+import { openDeleteAccountSheet } from "./deleteAccountSheet.js";
 
 let onChange = () => {};
 
@@ -87,6 +88,7 @@ export function renderProfileTab() {
     user
       ? `
   <button class="signout-btn" id="profileSignOutBtn">${SIGNOUT_ICON}<span>Sign out</span></button>
+  <button class="delete-account-link" id="profileDeleteBtn">Delete my account</button>
   `
       : ""
   }
@@ -103,6 +105,9 @@ export function attachProfileEvents() {
       await signOut(); // onAuthChange (main.js) handles the re-render + falling back to local data
     };
   }
+
+  const deleteBtn = document.getElementById("profileDeleteBtn");
+  if (deleteBtn) deleteBtn.onclick = openDeleteAccountSheet;
 
   const householdBtn = document.getElementById("profileHouseholdBtn");
   if (householdBtn) householdBtn.onclick = openHouseholdSheet;

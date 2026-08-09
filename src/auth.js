@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient.js";
+import { clearLocalData } from "./storage.js";
 
 let currentUser = null;
 const listeners = [];
@@ -93,4 +94,18 @@ export async function updateUserPassword(password) {
   requireSupabase();
   const { error } = await supabase.auth.updateUser({ password });
   if (error) throw error;
+}
+
+// Wipes every transaction/budget/goal/loan/bill/recurring rule the current
+// user owns, removes them from any household, clears the local offline
+// cache, and signs out. Does NOT delete the underlying auth.users row —
+// that needs the service-role key, which a client must never hold. See
+// supabase/functions/delete-account/ for the optional server-side piece
+// that removes the account record itself.
+export async function deleteMyAccountData() {
+  requireSupabase();
+  const { error } = await supabase.rpc("delete_my_account_data");
+  if (error) throw error;
+  clearLocalData();
+  await signOut();
 }

@@ -110,6 +110,18 @@ Bills are deliberately **not** the same mechanism as recurring transactions — 
 - The **Utang** tab shows a summary of total owed-to-you vs you-owe at the top, then each person as its own card with a repayment progress bar.
 - Undoing a repayment just deletes that transaction; deleting the loan itself removes it from the tracker but leaves its historical transactions in place (consistent with how deleting a recurring rule or bill works).
 
+## Delete account
+
+Profile → **Delete my account** (a deliberately understated link below Sign out, not a competing button — this is rare and severe enough that it shouldn't be easy to hit by accident) opens a confirmation sheet that requires typing `DELETE` before the button does anything.
+
+**What it actually does today**, via `delete_my_account_data()` in `schema.sql`: erases every transaction, budget, bill, goal, loan, and recurring rule the person owns, and removes their household membership. This works entirely client-side (no extra deployment needed) because it's a security-definer function scoped to `auth.uid()` — the same pattern used everywhere else in this schema.
+
+**What it doesn't do**: delete the actual sign-in record (`auth.users` row) — that requires the service-role key, which must never exist in browser code. `supabase/functions/delete-account/` has the optional Edge Function for that half, with deploy instructions in the file itself. Deploy it via the Supabase CLI if you want "delete account" to also mean the email/password combo stops working entirely, not just the data behind it. Not wired into the app by default.
+
+**A real bug this fix also closed**: `kwenta_households.created_by` used to be `on delete cascade` — meaning if a household's creator's account was ever deleted (whether through this feature, the optional Edge Function, or just clicking delete in the Supabase dashboard directly), the entire household row would cascade-delete too, and every other member's shared data would vanish with it (everything references `kwenta_households.id` with its own cascade). Since `created_by` was never used for anything beyond bookkeeping, this is now `on delete set null` instead — a household survives its creator leaving, full stop.
+
+If someone's in a household when they delete their account, the confirmation sheet says so explicitly: their own contributed rows disappear, but other members keep what they added.
+
 ## Polish pass: sync failures are surfaced, not silent
 
 Every cloud write in the app — 25 call sites across `sheet.js`, `budgets.js`, `income.js`, `loans.js`, `recurring.js`, `bills.js`, and `goals.js` — used to fail silently: `.catch(e => console.error(...))`, nothing shown to the person. That's a real data-loss risk in a budgeting app used somewhere connectivity isn't always solid: add an expense while offline, the sheet closes like normal, and there'd be no sign that entry only exists on this device. If the cloud data gets reloaded later (new session, another device), it's just gone.

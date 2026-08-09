@@ -33,6 +33,7 @@ import {
   attachProfileEvents,
   initProfileTab,
 } from "./components/profileTab.js";
+import { initDeleteAccountSheet } from "./components/deleteAccountSheet.js";
 import { initSheet, openForm } from "./components/sheet.js";
 import {
   initBillSheets,
@@ -245,6 +246,10 @@ function attachEvents() {
   initLoanSheets(render);
   initHouseholdSheet(onHouseholdChanged);
   initProfileTab(render); // theme toggle inside Profile needs to trigger a re-render too
+  initDeleteAccountSheet(() => {
+    state.section = "overview";
+    render();
+  });
 
   const loadingEl = document.getElementById("app");
   loadingEl.innerHTML = `<div style="padding:60px 10px;text-align:center;color:var(--muted);font-family:Inter,sans-serif;font-size:13px;">Opening the ledger…</div>`;

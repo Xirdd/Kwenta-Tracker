@@ -40,3 +40,15 @@ export function persist(data) {
     }
   }, 250);
 }
+
+// Used when deleting an account — without this, the old cached data would
+// still be sitting in localStorage and could reappear (e.g. offline mode)
+// even after the cloud copy is gone.
+export function clearLocalData() {
+  clearTimeout(saveTimer);
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    /* ignore */
+  }
+}
