@@ -110,6 +110,29 @@ Bills are deliberately **not** the same mechanism as recurring transactions — 
 - The **Utang** tab shows a summary of total owed-to-you vs you-owe at the top, then each person as its own card with a repayment progress bar.
 - Undoing a repayment just deletes that transaction; deleting the loan itself removes it from the tracker but leaves its historical transactions in place (consistent with how deleting a recurring rule or bill works).
 
+## Themes
+
+5 total, up from the original Dark/Light — `theme.js` exports a `THEMES` array (id, label, and two preview colors used for the swatch picker) instead of the old binary toggle, so Profile → Appearance renders one circular swatch per theme rather than a single "switch to light/dark" button.
+
+- **Dark** / **Light** — the originals.
+- **Midnight** — a cooler, moodier dark theme: indigo-blue instead of navy-green.
+- **Sepia** — leans further into the "old ledger book" feel — warm, vintage tones.
+- **Slate** — minimal graphite — the most modern, least "vintage" option.
+
+`--gold`, `--green`, and `--coral` are never overridden by any theme — they stay pixel-identical everywhere, since they're semantic (income/positive is always green, expense/negative is always coral, brand accent is always gold) rather than decorative, and changing what "red" means depending on theme would be confusing regardless of how nice it looked. Every theme only touches background/paper/ink-family variables — same pattern the original Light theme already used relative to Dark, just extended to 3 more palettes, with Midnight and Sepia additionally shifting `--paper`/`--ink` (not just background) for more real distinctiveness than a simple background swap.
+
+`initTheme()` still only ever auto-picks between Dark and Light based on system preference for a first-time visitor — there's no meaningful "system preference" for Midnight/Sepia/Slate, so those three are only ever reached by deliberately choosing them in Profile.
+
+## Devices — see where you're signed in
+
+Profile → Devices → **View** (only shown when signed in) lists every active session, via `list_my_sessions()` in `schema.sql` — a security-definer function reading Supabase's internal `auth.sessions` table, scoped to `auth.uid()` so it can only ever return the caller's own sessions.
+
+A couple of honest limitations, both inherent to what Supabase's client SDK actually exposes (not something more code can work around):
+
+- **"Sign out other devices" is all-or-nothing** — there's no way to target one specific other device individually and leave the rest; `supabase.auth.signOut({ scope: 'others' })` is the finest control the client SDK gives without the service-role key, so that's what "Sign out other devices" does — every session except this one, all at once.
+- **`auth.sessions` isn't a stable public API** — it's Supabase's internal table, not a documented, versioned interface, so its exact columns can vary slightly across projects/GoTrue versions. `list_my_sessions()` tries to include `user_agent` (for the "Chrome on Windows" style device label) and falls back to just timestamps if that column isn't present, rather than failing outright — but if the underlying table structure changes more significantly in a future Supabase update, this may need a re-check.
+- **Which session is "this device"** is determined by decoding the `session_id` claim out of the current access token's JWT payload (`decodeJwtSessionId()` in `auth.js`) — the client's `Session` object doesn't expose a session id as a plain field, so this is what's actually reliable to compare against what `list_my_sessions()` returns.
+
 ## Delete account
 
 Profile → **Delete my account** (a deliberately understated link below Sign out, not a competing button — this is rare and severe enough that it shouldn't be easy to hit by accident) opens a confirmation sheet that requires typing `DELETE` before the button does anything.
@@ -173,6 +196,8 @@ This is the biggest architectural feature in the app, so it's documented in more
 **Leaving a household:** just deletes your membership row. Data you shared stays with the household (other members still see it) — you simply lose visibility into it, since your queries go back to "rows I own with no household." This is called out directly in the leave-confirmation dialog so it's never a surprise.
 
 **Real-time sync:** household members see each other's changes live, via `src/realtime.js`. It subscribes to Postgres changes (insert/update/delete) on all six shared tables, filtered to the active household, using Supabase Realtime. Multiple changes arriving close together — like editing a recurring entry, which writes to two tables at once — are debounced (800ms) into a single reload instead of firing repeatedly. The subscription is kept in sync with whatever household is currently active via `refreshRealtimeSubscription()` in `main.js`, called after sign-in/out and after creating, joining, or leaving a household. Realtime needs to be enabled per-table in Supabase — `schema.sql` handles that (`alter publication supabase_realtime add table ...`), written defensively so it's safe to re-run.
+
+**A real bug this caught: deletes weren't syncing, only inserts.** By default, Postgres only includes the primary key in a `DELETE` event's payload — not the row's other columns. Since the realtime subscription filters on `household_id`, and that column simply wasn't present in delete events, the filter couldn't match and the event got silently dropped — so removing a goal contribution, deleting an expense, etc. never reached other devices, even though adding one worked fine (inserts always carry full row data regardless of this setting). Fixed with `alter table ... replica identity full` on each shared table, right alongside the publication setup — also safe to re-run.
 
 A couple of things worth knowing: there's no conflict resolution — if two people edit the exact same entry within the same ~800ms window, whichever write reaches the database last wins, silently. And a realtime-triggered reload happens in the background regardless of what you're doing — if you have the add/edit sheet open when it fires, the screen behind it updates, but the sheet itself isn't affected (its fields are read once when it opens, not live-bound to the data), so nothing you're mid-typing gets disrupted.
 
