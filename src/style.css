@@ -216,6 +216,58 @@ header {
   padding: 9px 16px;
   font-size: 12.5px;
 }
+.signout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  background: var(--paper);
+  border: 1.5px solid var(--coral);
+  color: var(--coral);
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 14px 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+  margin-top: 24px;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.signout-btn:active {
+  background: var(--coral);
+  color: #fff;
+}
+.toast-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%) translateY(12px);
+  max-width: 400px;
+  width: calc(100% - 48px);
+  background: var(--ink);
+  color: var(--paper);
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  padding: 12px 18px;
+  border-radius: 12px;
+  box-shadow: 0 14px 30px -10px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 60;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+}
+.toast-banner.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
 .invite-code-box {
   display: flex;
   align-items: center;
@@ -1232,6 +1284,20 @@ header {
   font-weight: 700;
   vertical-align: middle;
 }
+.tag-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+.tag-pill {
+  background: var(--paper-2);
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
 .cat-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1259,6 +1325,51 @@ header {
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+.tag-input-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  background: var(--paper-2);
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  padding: 9px 10px;
+  transition: border-color 0.15s ease;
+}
+.tag-input-wrap:focus-within {
+  border-color: var(--gold);
+}
+.tag-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 6px 5px 10px;
+  border-radius: 14px;
+}
+.tag-remove {
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px;
+}
+.tag-input-wrap input {
+  flex: 1;
+  min-width: 90px;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: "Inter", sans-serif;
+  font-size: 13.5px;
+  color: var(--ink);
+  padding: 4px 2px;
 }
 .sheet-actions {
   display: flex;

@@ -13,6 +13,8 @@ export function initProfileTab(rerenderCallback) {
   onChange = rerenderCallback;
 }
 
+const SIGNOUT_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>`;
+
 export function renderProfileTab() {
   const user = getCurrentUser();
   const household = getActiveHousehold();
@@ -27,7 +29,7 @@ export function renderProfileTab() {
         <div class="profile-label">Account</div>
         <div class="profile-value">${user ? escapeHtml(user.email) : "Not signed in"}</div>
       </div>
-      <button class="btn btn-ghost" id="profileAuthBtn">${user ? "Sign out" : "Sign in"}</button>
+      ${user ? "" : `<button class="btn btn-ghost" id="profileAuthBtn">Sign in</button>`}
     </div>
   </div>
 
@@ -54,7 +56,11 @@ export function renderProfileTab() {
     </div>
   </div>
   `
-      : ""
+      : `
+  <div class="profile-card">
+    <div class="profile-value" style="font-weight:500;color:var(--ink-soft);">Sign in above to share a household budget or set a password.</div>
+  </div>
+  `
   }
 
   <div class="profile-card">
@@ -76,19 +82,25 @@ export function renderProfileTab() {
       <button class="btn btn-ghost" id="profileExportBtn">Export</button>
     </div>
   </div>
+
+  ${
+    user
+      ? `
+  <button class="signout-btn" id="profileSignOutBtn">${SIGNOUT_ICON}<span>Sign out</span></button>
+  `
+      : ""
+  }
   `;
 }
 
 export function attachProfileEvents() {
   const authBtn = document.getElementById("profileAuthBtn");
-  if (authBtn) {
-    authBtn.onclick = async () => {
-      const user = getCurrentUser();
-      if (user) {
-        await signOut(); // onAuthChange (main.js) handles the re-render + falling back to local data
-      } else {
-        openAuthSheet();
-      }
+  if (authBtn) authBtn.onclick = openAuthSheet;
+
+  const signOutBtn = document.getElementById("profileSignOutBtn");
+  if (signOutBtn) {
+    signOutBtn.onclick = async () => {
+      await signOut(); // onAuthChange (main.js) handles the re-render + falling back to local data
     };
   }
 

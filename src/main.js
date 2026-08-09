@@ -56,7 +56,12 @@ import {
   onAuthChange,
   consumePendingPasswordSetup,
 } from "./auth.js";
-import { getActiveHousehold, loadActiveHousehold } from "./household.js";
+import {
+  getActiveHousehold,
+  getActiveHouseholdId,
+  loadActiveHousehold,
+} from "./household.js";
+import { subscribeToHousehold, unsubscribeRealtime } from "./realtime.js";
 import { openSetPasswordSheet } from "./components/setPasswordSheet.js";
 import {
   initHouseholdSheet,
@@ -123,11 +128,22 @@ function goToMonth() {
   render();
 }
 
+// Keeps the realtime subscription pointed at whichever household is
+// currently active — call this any time that could have changed.
+function refreshRealtimeSubscription() {
+  const id = getActiveHouseholdId();
+  if (id) subscribeToHousehold(id, onHouseholdChanged);
+  else unsubscribeRealtime();
+}
+
 // Called after creating/joining/leaving a household — the data scope itself
-// changed, so this re-loads from the cloud (not just a re-render).
+// changed, so this re-loads from the cloud (not just a re-render). Also used
+// as the realtime callback: another household member's change fires this
+// same reload, debounced, from src/realtime.js.
 async function onHouseholdChanged() {
   await switchToCloudData();
   goToMonth();
+  refreshRealtimeSubscription();
 }
 
 function attachEvents() {
@@ -235,6 +251,7 @@ function attachEvents() {
 
   await initAuth();
   await loadActiveHousehold(); // must resolve before the first data load, since it decides what scope to load
+  refreshRealtimeSubscription();
 
   // Re-load and re-render whenever the signed-in user changes (sign in, sign out, magic link landing).
   let lastUserId = getCurrentUser()?.id || null;
@@ -247,7 +264,9 @@ function attachEvents() {
       await switchToCloudData();
     } else {
       switchToLocalData();
+      unsubscribeRealtime(); // signed out — nothing to subscribe to anymore
     }
+    refreshRealtimeSubscription();
     goToMonth();
     if (user && consumePendingPasswordSetup()) {
       openSetPasswordSheet({ context: "auto" });

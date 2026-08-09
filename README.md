@@ -30,6 +30,7 @@ kwenta/
     ├── supabaseClient.js      Supabase client (reads .env)
     ├── auth.js                sign in / sign up / sign out / session state
     ├── sync.js                loads & writes salary, transactions, budgets, recurring rules to Supabase
+    ├── realtime.js            Supabase Realtime subscription — household members see each other's changes live
     ├── recurring.js           recurring rule create/stop + monthly materialization
     ├── bills.js               bill create/edit/delete, mark paid/undo, due-date math
     ├── goals.js               goal create/edit/delete, contribute/undo, progress + pace math
@@ -109,6 +110,26 @@ Bills are deliberately **not** the same mechanism as recurring transactions — 
 - The **Utang** tab shows a summary of total owed-to-you vs you-owe at the top, then each person as its own card with a repayment progress bar.
 - Undoing a repayment just deletes that transaction; deleting the loan itself removes it from the tracker but leaves its historical transactions in place (consistent with how deleting a recurring rule or bill works).
 
+## Polish pass: sync failures are surfaced, not silent
+
+Every cloud write in the app — 25 call sites across `sheet.js`, `budgets.js`, `income.js`, `loans.js`, `recurring.js`, `bills.js`, and `goals.js` — used to fail silently: `.catch(e => console.error(...))`, nothing shown to the person. That's a real data-loss risk in a budgeting app used somewhere connectivity isn't always solid: add an expense while offline, the sheet closes like normal, and there'd be no sign that entry only exists on this device. If the cloud data gets reloaded later (new session, another device), it's just gone.
+
+`src/toast.js` fixes that — a small `notifySyncError(e)` helper that every one of those 25 call sites now funnels through instead of `console.error` directly. It still logs to the console for debugging, but it also shows a brief toast: _"Couldn't sync to the cloud — this change is only saved on this device right now."_ No retry queue yet (that's a bigger feature — tracking failed writes and re-attempting on reconnect), so the honest framing is "saved locally, you'll want to check your connection," not a false promise that it'll fix itself.
+
+Also added: **busy-state guards** on Sign in / Create account / magic link (`authSheet.js`) and Create / Join household (`householdSheet.js`) — buttons disable and relabel ("Signing in…", "Creating…") while the request is in flight, so a slow connection plus an impatient double-tap can't fire the same request twice (which, for household creation, could otherwise leave someone in two households from one tap).
+
+Every other screen already had a real empty state — Overview, Expenses (both "nothing yet" and "no results for that search" have distinct copy), Income, Bills, Goals, and Utang all had them from when each feature was originally built. Budgets doesn't need one — it always lists all categories with an editable amount, empty or not.
+
+## Tags
+
+Free-form tags sit on top of the fixed category system — a transaction still has exactly one category (for budgets, the donut chart, etc.), but can also have any number of tags for looser, cross-cutting labels a fixed category list can't capture (e.g. "birthday", "work trip", "reimbursable").
+
+- Only available on the regular Add/Edit sheet (`sheet.js`) — bills, goal contributions, and utang entries have their own simpler forms and don't get a tag field, to keep those flows quick.
+- The tag input (`.tag-input-wrap` in `sheet.js`) is a self-built chip input: type and hit Enter or comma to add a tag, Backspace on an empty input removes the last one, and each chip has its own × to remove it directly. It only re-renders the chips themselves, not the whole sheet, so the input never loses focus while typing.
+- Tags are stored as a plain `tags: string[]` array directly on the transaction — always lowercased, deduplicated on entry. Cloud storage uses a native Postgres `text[]` column (`tags` on `kwenta_transactions`).
+- They show up as small pills under the description in both the Expenses and Income lists.
+- The Expenses tab's search box matches tags too, alongside description and category — so searching "birthday" finds every transaction tagged that way, regardless of category.
+
 ## Expense search & filter
 
 - The Expenses tab has a search box (matches against description and category label) and a row of category filter chips — only categories actually used that month show up as chips, to keep the row relevant.
@@ -139,7 +160,9 @@ This is the biggest architectural feature in the app, so it's documented in more
 
 **Leaving a household:** just deletes your membership row. Data you shared stays with the household (other members still see it) — you simply lose visibility into it, since your queries go back to "rows I own with no household." This is called out directly in the leave-confirmation dialog so it's never a surprise.
 
-**Known limitation:** there's no real-time sync. If another household member adds an expense right now, you won't see it appear automatically — it'll be there next time you reload the page, change tabs, or navigate months (anything that triggers a fresh `cloudLoadAll()`). Supabase Realtime could close this gap in a future pass, but it's a meaningfully bigger addition (websocket subscriptions, merge-conflict handling) than anything else in this feature.
+**Real-time sync:** household members see each other's changes live, via `src/realtime.js`. It subscribes to Postgres changes (insert/update/delete) on all six shared tables, filtered to the active household, using Supabase Realtime. Multiple changes arriving close together — like editing a recurring entry, which writes to two tables at once — are debounced (800ms) into a single reload instead of firing repeatedly. The subscription is kept in sync with whatever household is currently active via `refreshRealtimeSubscription()` in `main.js`, called after sign-in/out and after creating, joining, or leaving a household. Realtime needs to be enabled per-table in Supabase — `schema.sql` handles that (`alter publication supabase_realtime add table ...`), written defensively so it's safe to re-run.
+
+A couple of things worth knowing: there's no conflict resolution — if two people edit the exact same entry within the same ~800ms window, whichever write reaches the database last wins, silently. And a realtime-triggered reload happens in the background regardless of what you're doing — if you have the add/edit sheet open when it fires, the screen behind it updates, but the sheet itself isn't affected (its fields are read once when it opens, not live-bound to the data), so nothing you're mid-typing gets disrupted.
 
 ## Navigation structure
 
