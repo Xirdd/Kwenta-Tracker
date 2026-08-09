@@ -33,6 +33,12 @@ export function escapeHtml(s) {
 }
 
 export function csvEscape(v) {
-  const s = String(v ?? "");
+  let s = String(v ?? "");
+  // Formula injection: a field starting with = + - @ (or a tab/CR) gets
+  // executed as a formula by Excel/Sheets when the CSV is opened — a real
+  // risk here since household members can export data others typed. A
+  // leading apostrophe forces "treat as text" and is hidden in the cell
+  // display, so this doesn't change what a human sees.
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
