@@ -109,3 +109,48 @@ export async function deleteMyAccountData() {
   clearLocalData();
   await signOut();
 }
+
+// Returns every active session for the current user, newest-active first,
+// plus which one is the current device (so the UI can label it). The
+// client's Session object doesn't directly expose a session id — it's
+// embedded in the access token's JWT payload as a 'session_id' claim, so
+// that gets decoded out rather than assumed to be a top-level field.
+export async function listMySessions() {
+  requireSupabase();
+  const [
+    { data: sessions, error: listError },
+    { data: sessionData, error: sessionError },
+  ] = await Promise.all([
+    supabase.rpc("list_my_sessions"),
+    supabase.auth.getSession(),
+  ]);
+  if (listError) throw listError;
+  if (sessionError) throw sessionError;
+  return {
+    sessions: sessions || [],
+    currentSessionId: decodeJwtSessionId(sessionData.session?.access_token),
+  };
+}
+
+function decodeJwtSessionId(accessToken) {
+  if (!accessToken) return null;
+  try {
+    const payloadPart = accessToken.split(".")[1];
+    const base64 = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded));
+    return payload.session_id || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Signs out every session except this one — the person stays signed in here,
+// everywhere else gets logged out. There's no way to target one specific
+// other device individually without the service-role key, so "all others"
+// is the finest control available client-side.
+export async function signOutOtherDevices() {
+  requireSupabase();
+  const { error } = await supabase.auth.signOut({ scope: "others" });
+  if (error) throw error;
+}

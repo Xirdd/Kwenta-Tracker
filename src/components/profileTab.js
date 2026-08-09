@@ -1,12 +1,13 @@
 import { getCurrentUser, signOut } from "../auth.js";
 import { getActiveHousehold } from "../household.js";
-import { currentTheme, toggleTheme } from "../theme.js";
+import { currentTheme, setTheme, THEMES } from "../theme.js";
 import { escapeHtml } from "../format.js";
 import { exportCSV } from "../export.js";
 import { openAuthSheet } from "./authSheet.js";
 import { openHouseholdSheet } from "./householdSheet.js";
 import { openSetPasswordSheet } from "./setPasswordSheet.js";
 import { openDeleteAccountSheet } from "./deleteAccountSheet.js";
+import { openDevicesSheet } from "./devicesSheet.js";
 
 let onChange = () => {};
 
@@ -56,6 +57,16 @@ export function renderProfileTab() {
       <button class="btn btn-ghost" id="profilePasswordBtn">Change</button>
     </div>
   </div>
+
+  <div class="profile-card">
+    <div class="profile-row">
+      <div>
+        <div class="profile-label">Devices</div>
+        <div class="profile-value">See where you're signed in</div>
+      </div>
+      <button class="btn btn-ghost" id="profileDevicesBtn">View</button>
+    </div>
+  </div>
   `
       : `
   <div class="profile-card">
@@ -65,12 +76,18 @@ export function renderProfileTab() {
   }
 
   <div class="profile-card">
-    <div class="profile-row">
-      <div>
-        <div class="profile-label">Appearance</div>
-        <div class="profile-value">${theme === "dark" ? "Dark" : "Light"} mode</div>
-      </div>
-      <button class="btn btn-ghost" id="profileThemeBtn">Switch to ${theme === "dark" ? "light" : "dark"}</button>
+    <div class="profile-label" style="margin-bottom:10px;">Appearance</div>
+    <div class="theme-swatch-row">
+      ${THEMES.map(
+        (t) => `
+        <button class="theme-swatch ${theme === t.id ? "active" : ""}" data-theme-id="${t.id}" title="${t.label}">
+          <span class="theme-swatch-circle" style="background:${t.bg};">
+            <span class="theme-swatch-inner" style="background:${t.paper};"></span>
+          </span>
+          <span class="theme-swatch-label">${t.label}</span>
+        </button>
+      `,
+      ).join("")}
     </div>
   </div>
 
@@ -116,12 +133,16 @@ export function attachProfileEvents() {
   if (passwordBtn)
     passwordBtn.onclick = () => openSetPasswordSheet({ context: "manual" });
 
-  const themeBtn = document.getElementById("profileThemeBtn");
-  if (themeBtn)
-    themeBtn.onclick = () => {
-      toggleTheme();
+  const devicesBtn = document.getElementById("profileDevicesBtn");
+  if (devicesBtn) devicesBtn.onclick = openDevicesSheet;
+
+  const themeSwatches = document.querySelectorAll(".theme-swatch");
+  themeSwatches.forEach((btn) => {
+    btn.onclick = () => {
+      setTheme(btn.dataset.themeId);
       onChange();
     };
+  });
 
   const exportBtn = document.getElementById("profileExportBtn");
   if (exportBtn) exportBtn.onclick = exportCSV;
