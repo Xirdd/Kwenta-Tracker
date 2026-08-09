@@ -7,6 +7,7 @@ import {
   cloudUpsertTransaction,
   cloudDeleteTransaction,
 } from "./sync.js";
+import { notifySyncError } from "./toast.js";
 
 const GOAL_CATEGORY = "savings";
 
@@ -24,8 +25,7 @@ export function createGoal({ name, targetAmount, targetMonth }) {
   };
   DATA.goals.push(goal);
   saveData();
-  if (isCloudMode())
-    cloudUpsertGoal(goal).catch((e) => console.error("Cloud sync failed", e));
+  if (isCloudMode()) cloudUpsertGoal(goal).catch((e) => notifySyncError(e));
   return goal;
 }
 
@@ -34,15 +34,13 @@ export function updateGoal(goal, { name, targetAmount, targetMonth }) {
   goal.targetAmount = targetAmount;
   goal.targetMonth = targetMonth || undefined;
   saveData();
-  if (isCloudMode())
-    cloudUpsertGoal(goal).catch((e) => console.error("Cloud sync failed", e));
+  if (isCloudMode()) cloudUpsertGoal(goal).catch((e) => notifySyncError(e));
 }
 
 export function deleteGoal(id) {
   DATA.goals = DATA.goals.filter((g) => g.id !== id);
   saveData();
-  if (isCloudMode())
-    cloudDeleteGoal(id).catch((e) => console.error("Cloud sync failed", e));
+  if (isCloudMode()) cloudDeleteGoal(id).catch((e) => notifySyncError(e));
 }
 
 // All contributions ever made toward a goal, regardless of which month is currently being viewed.
@@ -72,9 +70,7 @@ export function addContribution(goal, { amount, date }) {
   DATA.transactions.push(tx);
   saveData();
   if (isCloudMode())
-    cloudUpsertTransaction(tx).catch((e) =>
-      console.error("Cloud sync failed", e),
-    );
+    cloudUpsertTransaction(tx).catch((e) => notifySyncError(e));
   return tx;
 }
 
@@ -82,9 +78,7 @@ export function removeContribution(tx) {
   DATA.transactions = DATA.transactions.filter((t) => t.id !== tx.id);
   saveData();
   if (isCloudMode())
-    cloudDeleteTransaction(tx.id).catch((e) =>
-      console.error("Cloud sync failed", e),
-    );
+    cloudDeleteTransaction(tx.id).catch((e) => notifySyncError(e));
 }
 
 export function currentRealMonthKey() {

@@ -2,6 +2,7 @@ import { DATA, monthTx, saveData } from "../state.js";
 import { CATEGORIES, catInfo } from "../categories.js";
 import { fmt } from "../format.js";
 import { isCloudMode, cloudUpsertBudget } from "../sync.js";
+import { notifySyncError } from "../toast.js";
 
 export function renderBudgets() {
   const exp = monthTx("expense");
@@ -60,7 +61,7 @@ export function attachBudgetEvents() {
       saveData();
       if (isCloudMode())
         cloudUpsertBudget(cat, DATA.budgets[cat]).catch((err) =>
-          console.error("Cloud sync failed", err),
+          notifySyncError(err),
         );
       const spent = monthTx("expense")
         .filter((x) => x.category === cat)

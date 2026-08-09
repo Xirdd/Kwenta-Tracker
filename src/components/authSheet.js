@@ -63,6 +63,12 @@ function render(message, prefillEmail) {
       return;
     }
 
+    const primaryBtn = document.getElementById("authPrimaryBtn");
+    const defaultLabel = primaryBtn.textContent;
+    primaryBtn.disabled = true;
+    primaryBtn.textContent =
+      mode === "signin" ? "Signing in…" : "Creating account…";
+
     try {
       if (mode === "signin") {
         await signInWithPassword(email, password);
@@ -82,6 +88,14 @@ function render(message, prefillEmail) {
       }
     } catch (e) {
       render(e.message || "Something went wrong. Please try again.", email);
+    } finally {
+      // render() above already rebuilds the whole sheet on the success/no-op
+      // paths that stay open, but restore this defensively in case closeModal()
+      // was somehow skipped — cheap safety net against a permanently stuck button.
+      if (primaryBtn.isConnected) {
+        primaryBtn.disabled = false;
+        primaryBtn.textContent = defaultLabel;
+      }
     }
   };
 
@@ -91,6 +105,10 @@ function render(message, prefillEmail) {
       render("Enter your email first.", email);
       return;
     }
+    const magicBtn = document.getElementById("authMagicBtn");
+    const defaultLabel = magicBtn.textContent;
+    magicBtn.disabled = true;
+    magicBtn.textContent = "Sending…";
     try {
       await sendMagicLink(email);
       if (mode === "signup") markPendingPasswordSetup(); // only mark it once the email actually sent
@@ -100,6 +118,11 @@ function render(message, prefillEmail) {
         e.message || "Could not send the magic link. Please try again.",
         email,
       );
+    } finally {
+      if (magicBtn.isConnected) {
+        magicBtn.disabled = false;
+        magicBtn.textContent = defaultLabel;
+      }
     }
   };
 }

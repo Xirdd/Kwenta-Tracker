@@ -7,6 +7,7 @@ import {
   cloudUpsertTransaction,
   cloudDeleteTransaction,
 } from "./sync.js";
+import { notifySyncError } from "./toast.js";
 
 const LOAN_CATEGORY = "utang";
 
@@ -42,10 +43,8 @@ export function createLoan({ person, direction, amount, date, note }) {
 
   saveData();
   if (isCloudMode()) {
-    cloudUpsertLoan(loan).catch((e) => console.error("Cloud sync failed", e));
-    cloudUpsertTransaction(principalTx).catch((e) =>
-      console.error("Cloud sync failed", e),
-    );
+    cloudUpsertLoan(loan).catch((e) => notifySyncError(e));
+    cloudUpsertTransaction(principalTx).catch((e) => notifySyncError(e));
   }
   return loan;
 }
@@ -67,19 +66,15 @@ export function updateLoan(loan, { person, amount, date, note }) {
     principalTx.amount = amount;
     principalTx.date = date;
     if (isCloudMode())
-      cloudUpsertTransaction(principalTx).catch((e) =>
-        console.error("Cloud sync failed", e),
-      );
+      cloudUpsertTransaction(principalTx).catch((e) => notifySyncError(e));
   }
-  if (isCloudMode())
-    cloudUpsertLoan(loan).catch((e) => console.error("Cloud sync failed", e));
+  if (isCloudMode()) cloudUpsertLoan(loan).catch((e) => notifySyncError(e));
 }
 
 export function deleteLoan(id) {
   DATA.loans = DATA.loans.filter((l) => l.id !== id);
   saveData();
-  if (isCloudMode())
-    cloudDeleteLoan(id).catch((e) => console.error("Cloud sync failed", e));
+  if (isCloudMode()) cloudDeleteLoan(id).catch((e) => notifySyncError(e));
 }
 
 export function transactionsFor(loanId) {
@@ -118,9 +113,7 @@ export function addRepayment(loan, { amount, date }) {
   DATA.transactions.push(tx);
   saveData();
   if (isCloudMode())
-    cloudUpsertTransaction(tx).catch((e) =>
-      console.error("Cloud sync failed", e),
-    );
+    cloudUpsertTransaction(tx).catch((e) => notifySyncError(e));
   return tx;
 }
 
@@ -128,9 +121,7 @@ export function removeRepayment(tx) {
   DATA.transactions = DATA.transactions.filter((t) => t.id !== tx.id);
   saveData();
   if (isCloudMode())
-    cloudDeleteTransaction(tx.id).catch((e) =>
-      console.error("Cloud sync failed", e),
-    );
+    cloudDeleteTransaction(tx.id).catch((e) => notifySyncError(e));
 }
 
 // Named loanTotals (not totals) to avoid clashing with state.js's totals().

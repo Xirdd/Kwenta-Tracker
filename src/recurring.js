@@ -6,6 +6,7 @@ import {
   cloudUpsertRecurring,
   cloudDeleteRecurring,
 } from "./sync.js";
+import { notifySyncError } from "./toast.js";
 
 function dayFromDate(dateStr) {
   const day = Number(dateStr.split("-")[2]);
@@ -34,9 +35,7 @@ export function createRecurringRule({ type, desc, amount, category, date }) {
   DATA.recurring.push(rule);
   saveData();
   if (isCloudMode())
-    cloudUpsertRecurring(rule).catch((e) =>
-      console.error("Cloud sync failed", e),
-    );
+    cloudUpsertRecurring(rule).catch((e) => notifySyncError(e));
   return rule;
 }
 
@@ -46,18 +45,13 @@ export function updateRecurringTemplate(rule, { desc, amount, category }) {
   rule.category = category;
   saveData();
   if (isCloudMode())
-    cloudUpsertRecurring(rule).catch((e) =>
-      console.error("Cloud sync failed", e),
-    );
+    cloudUpsertRecurring(rule).catch((e) => notifySyncError(e));
 }
 
 export function stopRecurringRule(id) {
   DATA.recurring = DATA.recurring.filter((r) => r.id !== id);
   saveData();
-  if (isCloudMode())
-    cloudDeleteRecurring(id).catch((e) =>
-      console.error("Cloud sync failed", e),
-    );
+  if (isCloudMode()) cloudDeleteRecurring(id).catch((e) => notifySyncError(e));
 }
 
 // Makes sure every active recurring rule has a real transaction for the given
@@ -84,9 +78,7 @@ export function materializeMonth(monthKey) {
     DATA.transactions.push(tx);
     changed = true;
     if (isCloudMode())
-      cloudUpsertTransaction(tx).catch((e) =>
-        console.error("Cloud sync failed", e),
-      );
+      cloudUpsertTransaction(tx).catch((e) => notifySyncError(e));
   });
   if (changed) saveData();
   return changed;

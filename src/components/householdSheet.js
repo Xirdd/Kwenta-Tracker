@@ -109,6 +109,9 @@ function renderJoinOrCreate(message) {
       flash("hNewName");
       return;
     }
+    const btn = document.getElementById("hCreateBtn");
+    btn.disabled = true;
+    btn.textContent = "Creating…";
     try {
       await createHousehold(name);
       closeModal();
@@ -126,6 +129,9 @@ function renderJoinOrCreate(message) {
       flash("hJoinCode");
       return;
     }
+    const btn = document.getElementById("hJoinBtn");
+    btn.disabled = true;
+    btn.textContent = "Joining…";
     try {
       await joinHousehold(code);
       closeModal();

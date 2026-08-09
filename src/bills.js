@@ -7,6 +7,7 @@ import {
   cloudUpsertTransaction,
   cloudDeleteTransaction,
 } from "./sync.js";
+import { notifySyncError } from "./toast.js";
 
 export function getBill(id) {
   return DATA.bills.find((b) => b.id === id);
@@ -31,8 +32,7 @@ export function createBill({
   };
   DATA.bills.push(bill);
   saveData();
-  if (isCloudMode())
-    cloudUpsertBill(bill).catch((e) => console.error("Cloud sync failed", e));
+  if (isCloudMode()) cloudUpsertBill(bill).catch((e) => notifySyncError(e));
   return bill;
 }
 
@@ -47,15 +47,13 @@ export function updateBill(
   bill.dueDay = clampDay(dueDay);
   bill.estimatedAmount = estimatedAmount || undefined;
   saveData();
-  if (isCloudMode())
-    cloudUpsertBill(bill).catch((e) => console.error("Cloud sync failed", e));
+  if (isCloudMode()) cloudUpsertBill(bill).catch((e) => notifySyncError(e));
 }
 
 export function deleteBill(id) {
   DATA.bills = DATA.bills.filter((b) => b.id !== id);
   saveData();
-  if (isCloudMode())
-    cloudDeleteBill(id).catch((e) => console.error("Cloud sync failed", e));
+  if (isCloudMode()) cloudDeleteBill(id).catch((e) => notifySyncError(e));
 }
 
 function clampDay(day) {
@@ -82,9 +80,7 @@ export function markBillPaid(bill, monthKey, { amount, date }) {
   DATA.transactions.push(tx);
   saveData();
   if (isCloudMode())
-    cloudUpsertTransaction(tx).catch((e) =>
-      console.error("Cloud sync failed", e),
-    );
+    cloudUpsertTransaction(tx).catch((e) => notifySyncError(e));
   return tx;
 }
 
@@ -92,9 +88,7 @@ export function undoBillPayment(tx) {
   DATA.transactions = DATA.transactions.filter((t) => t.id !== tx.id);
   saveData();
   if (isCloudMode())
-    cloudDeleteTransaction(tx.id).catch((e) =>
-      console.error("Cloud sync failed", e),
-    );
+    cloudDeleteTransaction(tx.id).catch((e) => notifySyncError(e));
 }
 
 export function dueDateStr(monthKey, dueDay) {
