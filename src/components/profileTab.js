@@ -8,6 +8,7 @@ import { openHouseholdSheet } from "./householdSheet.js";
 import { openSetPasswordSheet } from "./setPasswordSheet.js";
 import { openDeleteAccountSheet } from "./deleteAccountSheet.js";
 import { openDevicesSheet } from "./devicesSheet.js";
+import { openMfaSetupSheet } from "./mfaSetupSheet.js";
 
 let onChange = () => {};
 
@@ -65,6 +66,16 @@ export function renderProfileTab() {
         <div class="profile-value">See where you're signed in</div>
       </div>
       <button class="btn btn-ghost" id="profileDevicesBtn">View</button>
+    </div>
+  </div>
+
+  <div class="profile-card">
+    <div class="profile-row">
+      <div>
+        <div class="profile-label">Two-factor authentication</div>
+        <div class="profile-value">Add a code from an authenticator app</div>
+      </div>
+      <button class="btn btn-ghost" id="profileMfaBtn">Manage</button>
     </div>
   </div>
   `
@@ -135,6 +146,9 @@ export function attachProfileEvents() {
 
   const devicesBtn = document.getElementById("profileDevicesBtn");
   if (devicesBtn) devicesBtn.onclick = openDevicesSheet;
+
+  const mfaBtn = document.getElementById("profileMfaBtn");
+  if (mfaBtn) mfaBtn.onclick = openMfaSetupSheet;
 
   const themeSwatches = document.querySelectorAll(".theme-swatch");
   themeSwatches.forEach((btn) => {

@@ -68,6 +68,8 @@ import {
   initHouseholdSheet,
   openHouseholdSheet,
 } from "./components/householdSheet.js";
+import { requireMfaIfNeeded } from "./components/mfaChallengeSheet.js";
+import { initMfaSetupSheet } from "./components/mfaSetupSheet.js";
 
 function render() {
   const t = totals();
@@ -250,6 +252,7 @@ function attachEvents() {
     state.section = "overview";
     render();
   });
+  initMfaSetupSheet(render);
 
   const loadingEl = document.getElementById("app");
   loadingEl.innerHTML = `<div style="padding:60px 10px;text-align:center;color:var(--muted);font-family:Inter,sans-serif;font-size:13px;">Opening the ledger…</div>`;
@@ -273,8 +276,16 @@ function attachEvents() {
     }
     refreshRealtimeSubscription();
     goToMonth();
-    if (user && consumePendingPasswordSetup()) {
-      openSetPasswordSheet({ context: "auto" });
+    if (user) {
+      // If this account has 2FA enabled and this particular session hasn't
+      // completed it yet, this shows a non-dismissible code prompt on top
+      // of the (already-rendered) app. It resolves immediately as a no-op
+      // when 2FA isn't enabled — the common case — so there's no added
+      // friction for most sign-ins.
+      await requireMfaIfNeeded(() => {});
+      if (consumePendingPasswordSetup()) {
+        openSetPasswordSheet({ context: "auto" });
+      }
     }
   });
 
@@ -285,10 +296,14 @@ function attachEvents() {
   // By the time initAuth() resolved above, the session may already reflect
   // the new sign-in — meaning lastUserId was initialized from that same
   // already-established session, so the SIGNED_IN transition inside
-  // onAuthChange never actually fires (no change to detect). Checking the
-  // flag here too, unconditionally, closes that gap. Safe to call even when
-  // there's nothing pending — it's a no-op in that case.
-  if (getCurrentUser() && consumePendingPasswordSetup()) {
-    openSetPasswordSheet({ context: "auto" });
+  // onAuthChange never actually fires (no change to detect). Checking both
+  // the MFA challenge and the pending-password flag here too,
+  // unconditionally, closes that gap. Safe to call even when there's
+  // nothing pending — both are no-ops in that case.
+  if (getCurrentUser()) {
+    await requireMfaIfNeeded(() => {});
+    if (consumePendingPasswordSetup()) {
+      openSetPasswordSheet({ context: "auto" });
+    }
   }
 })();

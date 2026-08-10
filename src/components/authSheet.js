@@ -6,6 +6,7 @@ import {
   markPendingPasswordSetup,
 } from "../auth.js";
 import { escapeHtml } from "../format.js";
+import { requireMfaIfNeeded } from "./mfaChallengeSheet.js";
 
 let mode = "signin"; // 'signin' | 'signup'
 
@@ -72,7 +73,9 @@ function render(message, prefillEmail) {
     try {
       if (mode === "signin") {
         await signInWithPassword(email, password);
-        closeModal(); // onAuthChange will re-render the app and pull/sync the data
+        // If 2FA is enabled, this swaps the sheet into a code-entry step
+        // and only closes once that's verified — otherwise closes right away.
+        await requireMfaIfNeeded(closeModal);
       } else {
         const data = await signUpWithPassword(email, password);
         if (data.session) {
