@@ -83,3 +83,37 @@ export async function getChallengeFactor() {
   const factors = await listTotpFactors();
   return factors[0] || null;
 }
+
+// Called right after 2FA is successfully enabled — replaces any existing
+// codes and returns the new set in plain text, the only moment they're ever
+// visible anywhere (the database only ever stores a bcrypt hash of each).
+export async function generateRecoveryCodes() {
+  requireSupabase();
+  const { data, error } = await supabase.rpc("generate_mfa_recovery_codes");
+  if (error) throw error;
+  return data || [];
+}
+
+// True if the code matched one of this account's unused recovery codes —
+// and, if so, it's now been consumed (one-time use). The caller is
+// responsible for actually disabling 2FA when this returns true; using a
+// recovery code doesn't upgrade the session to aal2 (there's no real TOTP
+// proof happening), it just verifies enough identity to remove the second
+// factor and let the person back in — same pattern GitHub/Google use.
+export async function verifyRecoveryCode(code) {
+  requireSupabase();
+  const { data, error } = await supabase.rpc("verify_mfa_recovery_code", {
+    input_code: code.trim().toUpperCase(),
+  });
+  if (error) throw error;
+  return !!data;
+}
+
+export async function countRemainingRecoveryCodes() {
+  requireSupabase();
+  const { data, error } = await supabase.rpc(
+    "count_remaining_mfa_recovery_codes",
+  );
+  if (error) throw error;
+  return data || 0;
+}
