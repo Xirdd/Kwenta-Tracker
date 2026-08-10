@@ -1,9 +1,24 @@
 import { openModal, closeModal } from "./modal.js";
 import { updateUserPassword } from "../auth.js";
+import { requirePasswordConfirmation } from "./reauthSheet.js";
 
 // context: 'auto' (shown automatically right after a magic-link signup) or
 // 'manual' (opened deliberately from Profile → Change password).
 export function openSetPasswordSheet({ context = "auto" } = {}) {
+  if (context === "manual") {
+    // The auto flow skips this gate on purpose — signing up via magic link
+    // *is* the fresh authentication, so re-confirming right after would just
+    // be friction with no real security benefit. Manually changing an
+    // existing password later is a different situation: someone with access
+    // to an already-open session (not necessarily the account owner) could
+    // otherwise silently lock the real owner out by changing it.
+    requirePasswordConfirmation(() => render(undefined, context), {
+      title: "Confirm your current password",
+      message:
+        "Changing your password is worth double-checking it's really you.",
+    });
+    return;
+  }
   render(undefined, context);
 }
 

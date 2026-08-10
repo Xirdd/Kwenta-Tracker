@@ -2,6 +2,7 @@ import { openModal, closeModal } from "./modal.js";
 import { deleteMyAccountData } from "../auth.js";
 import { getActiveHousehold } from "../household.js";
 import { escapeHtml } from "../format.js";
+import { requirePasswordConfirmation } from "./reauthSheet.js";
 
 let onDone = () => {};
 
@@ -10,7 +11,11 @@ export function initDeleteAccountSheet(onDoneCallback) {
 }
 
 export function openDeleteAccountSheet() {
-  render();
+  requirePasswordConfirmation(() => render(), {
+    title: "Confirm your password",
+    message:
+      "Deleting your account is permanent — confirm it's really you before continuing.",
+  });
 }
 
 function render(message) {
