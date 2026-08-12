@@ -172,7 +172,7 @@ function renderScanStep(enrollment, error) {
     <div class="grabber"></div>
     <h3>Scan with your authenticator app</h3>
     <p class="auth-message">Works with Google Authenticator, Microsoft Authenticator, Authy, 1Password, your iPhone's built-in authenticator (Settings → Passwords → Set Up Verification Code), or any similar app — then enter the 6-digit code it shows.</p>
-    <div class="mfa-qr-wrap">${enrollment.qrCodeSvg}</div>
+    <div class="mfa-qr-wrap"><img src="${enrollment.qrCodeSvg}" alt="2FA setup QR code" class="mfa-qr-img"/></div>
     <p class="mfa-secret-fallback">Can't scan? Enter this code manually: <code>${enrollment.secret}</code></p>
     <div class="field">
       <label>6-digit code</label>

@@ -378,9 +378,10 @@ header {
   justify-content: center;
   margin: 14px 0 10px 0;
 }
-.mfa-qr-wrap svg {
+.mfa-qr-img {
   width: 180px;
   height: 180px;
+  display: block;
 }
 .mfa-secret-fallback {
   font-size: 12px;
