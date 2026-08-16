@@ -4,7 +4,6 @@ import {
   getChallengeFactor,
   challengeAndVerifyTotp,
   verifyRecoveryCode,
-  unenrollTotp,
 } from "../mfa.js";
 import { signOut } from "../auth.js";
 
@@ -144,28 +143,11 @@ function renderRecoveryStep(factorId, onPassed, error) {
         );
         return;
       }
-      // A recovery code isn't real TOTP proof, so there's no way to upgrade
-      // this session to aal2 — instead, this removes the second factor
-      // entirely (same pattern GitHub/Google use), which naturally means no
-      // more challenge is needed to proceed.
-      try {
-        await unenrollTotp(factorId);
-      } catch (unenrollError) {
-        // The code was valid and is now consumed, but removing the factor
-        // itself failed — most likely Supabase requires a fully-verified
-        // (aal2) session to unenroll, which this recovery-code path can't
-        // reach on its own. Being explicit about this rather than pretending
-        // it worked: the person's identity was confirmed, but they'll need
-        // to sign in again and reach out for help clearing the old factor.
-        renderRecoveryStep(
-          factorId,
-          onPassed,
-          "Your code was verified, but removing 2FA didn't go through (" +
-            (unenrollError.message || "unknown error") +
-            "). Please try signing in again, or contact support if this keeps happening.",
-        );
-        return;
-      }
+      // verifyRecoveryCode() removes the factor directly at the database
+      // level as part of the same call — Supabase's client-side unenroll()
+      // requires aal2, which a lost authenticator makes impossible to
+      // reach, so that removal can't happen through the normal client API
+      // here. See verify_mfa_recovery_code() in schema.sql.
       closeModal();
       onPassed();
     } catch (e) {

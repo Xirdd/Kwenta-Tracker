@@ -4,6 +4,7 @@ import {
   verifyTotpEnrollment,
   listTotpFactors,
   unenrollTotp,
+  challengeAndVerifyTotp,
   generateRecoveryCodes,
   countRemainingRecoveryCodes,
 } from "../mfa.js";
@@ -134,18 +135,63 @@ function confirmDisable(factor, error) {
     closeModal,
   );
   document.getElementById("mfaKeepBtn").onclick = closeModal;
-  document.getElementById("mfaConfirmDisableBtn").onclick = async () => {
-    const btn = document.getElementById("mfaConfirmDisableBtn");
+  document.getElementById("mfaConfirmDisableBtn").onclick = () =>
+    renderDisableCodeStep(factor);
+}
+
+// Supabase requires the session to actually be at aal2 (a completed 2FA
+// challenge) to remove a factor — being signed in normally isn't enough on
+// its own, since a session can be perfectly valid at aal1 without ever
+// having proven the second factor in this particular login. This step gets
+// a fresh code and completes that challenge before attempting to unenroll,
+// which also doubles as a sensible safeguard: proving you still have your
+// authenticator before removing it.
+function renderDisableCodeStep(factor, error) {
+  openModal(
+    `
+    <div class="grabber"></div>
+    <h3>Confirm with your authenticator</h3>
+    <p class="auth-message">Enter your current 6-digit code to finish disabling 2FA.</p>
+    <div class="field">
+      <label>Code</label>
+      <input id="mfaDisableCode" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" autocomplete="one-time-code" class="mfa-code-input"/>
+    </div>
+    ${error ? `<p class="auth-message" style="color:var(--coral);">${error}</p>` : ""}
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="mfaDisableCancelBtn">Cancel</button>
+      <button class="btn btn-danger" id="mfaDisableVerifyBtn">Disable 2FA</button>
+    </div>
+  `,
+    closeModal,
+  );
+
+  const codeInput = document.getElementById("mfaDisableCode");
+  codeInput.focus();
+
+  document.getElementById("mfaDisableCancelBtn").onclick = closeModal;
+
+  document.getElementById("mfaDisableVerifyBtn").onclick = async () => {
+    const code = codeInput.value.trim();
+    if (!/^\d{6}$/.test(code)) {
+      renderDisableCodeStep(
+        factor,
+        "Enter the 6-digit code from your authenticator app.",
+      );
+      return;
+    }
+    const btn = document.getElementById("mfaDisableVerifyBtn");
     btn.disabled = true;
     btn.textContent = "Disabling…";
     try {
-      await unenrollTotp(factor.id);
+      await challengeAndVerifyTotp(factor.id, code); // reaches aal2
+      await unenrollTotp(factor.id); // now allowed
       closeModal();
       onChange();
     } catch (e) {
-      confirmDisable(
+      renderDisableCodeStep(
         factor,
-        e.message || "Could not disable 2FA. Please try again.",
+        e.message ||
+          "That code was incorrect, or something went wrong. Please try again.",
       );
     }
   };
