@@ -218,7 +218,7 @@ function renderScanStep(enrollment, error) {
     <div class="grabber"></div>
     <h3>Scan with your authenticator app</h3>
     <p class="auth-message">Works with Google Authenticator, Microsoft Authenticator, Authy, 1Password, your iPhone's built-in authenticator (Settings → Passwords → Set Up Verification Code), or any similar app — then enter the 6-digit code it shows.</p>
-    <div class="mfa-qr-wrap"><img src="${enrollment.qrCodeSvg}" alt="2FA setup QR code" class="mfa-qr-img"/></div>
+    <div class="mfa-qr-wrap"><img id="mfaQrImg" alt="2FA setup QR code" class="mfa-qr-img"/></div>
     <p class="mfa-secret-fallback">Can't scan? Enter this code manually: <code>${enrollment.secret}</code></p>
     <div class="field">
       <label>6-digit code</label>
@@ -232,6 +232,15 @@ function renderScanStep(enrollment, error) {
   `,
     closeModal,
   );
+
+  // Set the QR code via a real JS property instead of embedding it in the
+  // HTML string above. The data URI Supabase returns contains raw SVG
+  // markup, which has its own double-quoted attributes (xmlns="...", etc.)
+  // — embedding that inside src="${...}" meant the first quote *inside* the
+  // data URI closed the HTML attribute early, corrupting the tag and
+  // spilling the rest out as visible text. Setting .src as a property never
+  // parses the string as markup at all, so this can't happen.
+  document.getElementById("mfaQrImg").src = enrollment.qrCodeSvg;
 
   document.getElementById("mfaCancelBtn").onclick = closeModal;
 
