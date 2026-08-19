@@ -1737,3 +1737,40 @@ input[type="number"] {
     display: none;
   }
 }
+
+/* ---------- Smart spending insights ---------- */
+.insights-card {
+  background: var(--paper);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.insights-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin-bottom: 12px;
+}
+.insight-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line-dark);
+}
+.insight-row:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+.insight-icon {
+  font-size: 16px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+.insight-text {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink);
+}

@@ -14,6 +14,7 @@ import {
   currentRealMonthKey,
   billCategoryLabel,
 } from "../bills.js";
+import { renderInsightsCard } from "../insights.js";
 
 export function renderOverview() {
   const exp = monthTx("expense");
@@ -60,6 +61,7 @@ export function renderOverview() {
     </div>`
   }
 
+  ${renderInsightsCard()}
   ${renderTrend()}
   `;
 }

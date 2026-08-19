@@ -1,80 +1,70 @@
-// Optional: deploy this only if you want "Delete account" to also remove the
-// actual sign-in (auth.users row), not just the financial data. The app's
-// delete_my_account_data() RPC (see schema.sql) already handles erasing every
-// transaction/budget/goal/loan/bill someone owns — that part works today,
-// with no deployment needed. This function is the other half: it needs the
-// service-role key, which can only ever run on a server, never in the
-// browser, so it has to live here instead of in the app itself.
+// This is the piece that actually sends a push notification — everything in
+// push_notifications.sql just calls this over HTTP, using pg_net, whenever a
+// budget gets crossed or a bill is coming due. Without this deployed, those
+// triggers/cron jobs run but have nothing to actually deliver the message.
 //
-// Deploy with the Supabase CLI (https://supabase.com/docs/guides/cli):
+// Deploy with the Supabase CLI:
 //   supabase login
 //   supabase link --project-ref <your-project-ref>
-//   supabase functions deploy delete-account
+//   supabase secrets set VAPID_PUBLIC_KEY=<the public key from setup>
+//   supabase secrets set VAPID_PRIVATE_KEY=<the private key from setup>
+//   supabase secrets set VAPID_SUBJECT=mailto:you@example.com
+//   supabase secrets set PUSH_FUNCTION_SECRET=<same random string you set in push_notifications.sql>
+//   supabase functions deploy send-push --no-verify-jwt
 //
-// SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are injected automatically by
-// Supabase into every Edge Function's environment — nothing to configure.
-//
-// Once deployed, the client can call it with:
-//   const { data: { session } } = await supabase.auth.getSession();
-//   await fetch(`${SUPABASE_URL}/functions/v1/delete-account`, {
-//     method: 'POST',
-//     headers: { Authorization: `Bearer ${session.access_token}` },
-//   });
-// (Not wired into the app by default — deploy this first, then ask to have
-// that call added to the Delete Account flow alongside the data-wipe RPC.)
+// --no-verify-jwt matters here: this function is called by Postgres (via
+// pg_net), not by a signed-in user's browser, so there's no user JWT to
+// verify. Instead, it's protected by the shared secret header below —
+// anyone calling this without the right x-push-secret gets rejected.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import webpush from "npm:web-push@3.6.7";
+
+const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY")!;
+const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY")!;
+const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT")!;
+const PUSH_FUNCTION_SECRET = Deno.env.get("PUSH_FUNCTION_SECRET")!;
+
+webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
 Deno.serve(async (req) => {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing Authorization header" }),
-        {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    // Scoped to the caller's own token — used only to confirm who they are,
-    // never given the service-role key.
-    const callerClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
-    const {
-      data: { user },
-      error: userError,
-    } = await callerClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Not authenticated" }), {
+    const providedSecret = req.headers.get("x-push-secret");
+    if (!PUSH_FUNCTION_SECRET || providedSecret !== PUSH_FUNCTION_SECRET) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    // Only this admin client — server-side only, never sent to the browser —
-    // can actually delete a user. Cascades through every table automatically
-    // (see the "on delete cascade" foreign keys in schema.sql), covering
-    // anything the data-wipe RPC might have missed.
-    const adminClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-    const { error: deleteError } = await adminClient.auth.admin.deleteUser(
-      user.id,
-    );
-    if (deleteError) {
-      return new Response(JSON.stringify({ error: deleteError.message }), {
-        status: 500,
+    const { subscription, title, body, url } = await req.json();
+    if (!subscription?.endpoint || !subscription?.keys) {
+      return new Response(JSON.stringify({ error: "Missing subscription" }), {
+        status: 400,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    const payload = JSON.stringify({ title, body, url: url || "/" });
+
+    try {
+      await webpush.sendNotification(subscription, payload);
+    } catch (pushError) {
+      // A 404/410 from the push service means that specific subscription is
+      // dead (browser data cleared, uninstalled, etc.) — not a real error,
+      // just a stale endpoint. Anything else is worth surfacing.
+      if (pushError.statusCode === 404 || pushError.statusCode === 410) {
+        return new Response(
+          JSON.stringify({ ok: true, note: "Subscription expired, skipped" }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      throw pushError;
+    }
+
+    return new Response(JSON.stringify({ ok: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });

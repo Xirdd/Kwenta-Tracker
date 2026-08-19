@@ -9,6 +9,17 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: "autoUpdate",
+      // injectManifest (rather than the default generateSW) means the
+      // service worker at src/sw.js is used as-is, with the precache
+      // manifest injected into it at build time — needed because push
+      // notifications require a custom `push` event listener, which
+      // generateSW's auto-generated worker has no way to add.
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.js",
+      injectManifest: {
+        globPatterns: ["**/*.{js,css,html,png,svg}"],
+      },
       includeAssets: ["favicon-32.png", "apple-touch-icon.png"],
       manifest: {
         name: "Kwenta — Budget Ledger",
@@ -38,24 +49,6 @@ export default defineConfig({
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable",
-          },
-        ],
-      },
-      workbox: {
-        // Cache the app shell so it opens even with a flaky connection; API
-        // calls to Supabase are never cached, only the static app itself.
-        globPatterns: ["**/*.{js,css,html,png,svg}"],
-        navigateFallback: "/index.html",
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) =>
-              url.origin === "https://fonts.googleapis.com" ||
-              url.origin === "https://fonts.gstatic.com",
-            handler: "CacheFirst",
-            options: {
-              cacheName: "google-fonts",
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
-            },
           },
         ],
       },
