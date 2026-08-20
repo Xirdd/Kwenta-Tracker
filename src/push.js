@@ -12,12 +12,22 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
+// Distinguishes *why* push might not work, rather than lumping every cause
+// into one generic "not supported" — a missing VITE_VAPID_PUBLIC_KEY looks
+// identical to genuinely unsupported iOS Safari otherwise, and those need
+// completely different fixes (one's a code/config issue, the other is a
+// real platform limitation with no workaround).
+//
+// 'ok' | 'no-service-worker' | 'no-vapid-key' | 'no-push-api'
+export function pushCapability() {
+  if (!("serviceWorker" in navigator)) return "no-service-worker";
+  if (!VAPID_PUBLIC_KEY) return "no-vapid-key";
+  if (!("PushManager" in window)) return "no-push-api";
+  return "ok";
+}
+
 export function pushSupported() {
-  return (
-    "serviceWorker" in navigator &&
-    "PushManager" in window &&
-    !!VAPID_PUBLIC_KEY
-  );
+  return pushCapability() === "ok";
 }
 
 // 'default' (not asked yet) | 'granted' | 'denied' | 'unsupported'
