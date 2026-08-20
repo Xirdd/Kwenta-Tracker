@@ -1,6 +1,6 @@
 import { openModal, closeModal } from "./modal.js";
 import {
-  pushSupported,
+  pushCapability,
   pushPermissionState,
   isPushSubscribed,
   enablePush,
@@ -13,12 +13,13 @@ export async function openNotificationsSheet() {
     closeModal,
   );
 
-  if (!pushSupported()) {
+  const capability = pushCapability();
+  if (capability !== "ok") {
     openModal(
       `
       <div class="grabber"></div>
       <h3>Notifications</h3>
-      <p class="auth-message">Push notifications aren't available in this browser. On iPhone, add Kwenta to your Home Screen first (Share → Add to Home Screen) and open it from there — iOS only allows push notifications for installed apps, not Safari tabs.</p>
+      <p class="auth-message">${capabilityMessage(capability)}</p>
       <div class="sheet-actions"><button class="btn btn-ghost" id="notifCloseBtn">Close</button></div>
     `,
       closeModal,
@@ -30,6 +31,16 @@ export async function openNotificationsSheet() {
   const permission = pushPermissionState();
   const subscribed = await isPushSubscribed();
   render(permission, subscribed);
+}
+
+function capabilityMessage(capability) {
+  if (capability === "no-vapid-key") {
+    return "Notifications aren't set up yet on this deployment — VITE_VAPID_PUBLIC_KEY is missing from the app's environment variables. This is a configuration step, not a browser limitation — add it to your .env file (or your host's environment variable settings if this is a live deployment) and rebuild.";
+  }
+  if (capability === "no-push-api") {
+    return "This browser doesn't support push notifications. On iPhone, make sure you've added Kwenta to your Home Screen (Share → Add to Home Screen) and are opening it from that icon, not from Safari directly — and that you're on iOS 16.4 or later, which is required for installed web apps to receive push notifications.";
+  }
+  return "Push notifications aren't available in this browser.";
 }
 
 function render(permission, subscribed, error) {
