@@ -10,6 +10,7 @@ import { openDeleteAccountSheet } from "./deleteAccountSheet.js";
 import { openDevicesSheet } from "./devicesSheet.js";
 import { openMfaSetupSheet } from "./mfaSetupSheet.js";
 import { openNotificationsSheet } from "./notificationsSheet.js";
+import { openBackupSheet } from "./backupSheet.js";
 
 let onChange = () => {};
 
@@ -123,6 +124,16 @@ export function renderProfileTab() {
     </div>
   </div>
 
+  <div class="profile-card">
+    <div class="profile-row">
+      <div>
+        <div class="profile-label">Backup</div>
+        <div class="profile-value">Full backup you can restore from later</div>
+      </div>
+      <button class="btn btn-ghost variant-gold" id="profileBackupBtn">Manage</button>
+    </div>
+  </div>
+
   ${
     user
       ? `
@@ -174,4 +185,7 @@ export function attachProfileEvents() {
 
   const exportBtn = document.getElementById("profileExportBtn");
   if (exportBtn) exportBtn.onclick = exportCSV;
+
+  const backupBtn = document.getElementById("profileBackupBtn");
+  if (backupBtn) backupBtn.onclick = openBackupSheet;
 }
