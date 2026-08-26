@@ -1,5 +1,15 @@
 import { DATA, saveData } from "./state.js";
-import { isCloudMode } from "./sync.js";
+import { supabase } from "./supabaseClient.js";
+import {
+  isCloudMode,
+  cloudUpsertSalary,
+  cloudUpsertTransaction,
+  cloudUpsertBudget,
+  cloudUpsertRecurring,
+  cloudUpsertBill,
+  cloudUpsertGoal,
+  cloudUpsertLoan,
+} from "./sync.js";
 
 const BACKUP_VERSION = 1;
 
@@ -68,16 +78,8 @@ export function parseBackupFile(file) {
   });
 }
 
-// Applies a validated backup, replacing everything currently in DATA.
-// Local storage is fully handled here — safe, no external dependencies
-// beyond what's already known (state.js, storage.js).
-//
-// Cloud sync is NOT yet wired in here — restoring while signed in currently
-// only updates the local copy, not what's stored in Supabase. Completing
-// that needs sync.js's existing per-item cloud-upsert functions (reusing
-// their already-correct field-name mapping — e.g. the transaction "desc"
-// field maps to a "description" column in the database, a detail that
-// already lives correctly in sync.js and shouldn't be re-guessed here).
+// Applies a validated backup, replacing everything currently in DATA — and,
+// when signed in, replacing what's stored in Supabase too.
 export async function restoreBackup(backup) {
   const d = backup.data || {};
   DATA.salary = d.salary || {};
@@ -91,10 +93,37 @@ export async function restoreBackup(backup) {
   saveData();
 
   if (isCloudMode()) {
-    // TODO: push the restored data to Supabase too, once wired up — right
-    // now this only affects the local copy. See the note above.
-    console.warn(
-      "[Kwenta] Backup restored locally. Cloud sync for restore is not yet implemented — see backup.js.",
-    );
+    await restoreToCloud(DATA);
   }
+}
+
+// Wipes every cloud table for the current user (wipe_my_data(), from
+// backup_restore.sql — separate from account deletion, since restoring
+// shouldn't touch household membership), then pushes the restored data back
+// up using sync.js's own upsert functions. Reusing those rather than
+// writing new raw inserts means the already-correct field mapping (e.g.
+// the transaction "desc" field maps to a "description" column) doesn't
+// need to be re-derived here — same job-list-then-Promise.all pattern
+// sync.js already uses for cloudMigrateLocalDataIfEmpty.
+async function restoreToCloud(data) {
+  const { error: wipeError } = await supabase.rpc("wipe_my_data");
+  if (wipeError) throw wipeError;
+
+  const jobs = [];
+  Object.entries(data.salary || {}).forEach(([mk, amt]) => {
+    if (amt) jobs.push(cloudUpsertSalary(mk, amt));
+  });
+  (data.transactions || []).forEach((tx) =>
+    jobs.push(cloudUpsertTransaction(tx)),
+  );
+  Object.entries(data.budgets || {}).forEach(([cat, amt]) => {
+    if (amt) jobs.push(cloudUpsertBudget(cat, amt));
+  });
+  (data.recurring || []).forEach((rule) =>
+    jobs.push(cloudUpsertRecurring(rule)),
+  );
+  (data.bills || []).forEach((bill) => jobs.push(cloudUpsertBill(bill)));
+  (data.goals || []).forEach((goal) => jobs.push(cloudUpsertGoal(goal)));
+  (data.loans || []).forEach((loan) => jobs.push(cloudUpsertLoan(loan)));
+  await Promise.all(jobs);
 }

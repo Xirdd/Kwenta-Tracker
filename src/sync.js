@@ -195,14 +195,12 @@ export async function cloudUpsertBudget(category, amount) {
         .eq("household_id", householdId)
         .eq("category", category);
     } else {
-      await supabase
-        .from("kwenta_budgets")
-        .insert({
-          user_id: user.id,
-          household_id: householdId,
-          category,
-          amount,
-        });
+      await supabase.from("kwenta_budgets").insert({
+        user_id: user.id,
+        household_id: householdId,
+        category,
+        amount,
+      });
     }
     return;
   }
