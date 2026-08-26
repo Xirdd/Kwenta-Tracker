@@ -1739,10 +1739,12 @@ input[type="number"] {
 }
 
 /* ---------- Smart spending insights ---------- */
+/* ---------- Smart spending insights ---------- */
 .insights-card {
   background: var(--paper);
   border-radius: var(--radius);
   padding: 18px 20px;
+  margin-top: 16px;
   margin-bottom: 16px;
 }
 .insights-title {
