@@ -69,6 +69,7 @@ import {
   openHouseholdSheet,
 } from "./components/householdSheet.js";
 import { requireMfaIfNeeded } from "./components/mfaChallengeSheet.js";
+import { needsMfaChallenge } from "./mfa.js";
 import { initMfaSetupSheet } from "./components/mfaSetupSheet.js";
 
 function render() {
@@ -268,40 +269,60 @@ function attachEvents() {
     if (userId === lastUserId) return;
     lastUserId = userId;
     await loadActiveHousehold();
+
     if (user) {
-      await switchToCloudData();
-    } else {
-      switchToLocalData();
-      unsubscribeRealtime(); // signed out — nothing to subscribe to anymore
-    }
-    refreshRealtimeSubscription();
-    goToMonth();
-    if (user) {
-      // If this account has 2FA enabled and this particular session hasn't
-      // completed it yet, this shows a non-dismissible code prompt on top
-      // of the (already-rendered) app. It resolves immediately as a no-op
-      // when 2FA isn't enabled — the common case — so there's no added
-      // friction for most sign-ins.
-      await requireMfaIfNeeded(() => {});
+      // Waits for any required 2FA challenge to complete BEFORE fetching
+      // cloud data. With aal2-enforced RLS, fetching any earlier — while
+      // still at aal1 — would silently return zero rows (RLS just filters
+      // them out, it doesn't error), and the app would render as if the
+      // account were empty. If no challenge is needed (the common case,
+      // no 2FA enabled), this callback fires immediately, so there's no
+      // added delay for most sign-ins.
+      await requireMfaIfNeeded(async () => {
+        await switchToCloudData();
+        refreshRealtimeSubscription();
+        goToMonth();
+      });
       if (consumePendingPasswordSetup()) {
         openSetPasswordSheet({ context: "auto" });
       }
+    } else {
+      switchToLocalData();
+      unsubscribeRealtime(); // signed out — nothing to subscribe to anymore
+      refreshRealtimeSubscription();
+      goToMonth();
     }
   });
 
+  // Signed-out page loads (or ones where MFA isn't relevant) still need
+  // their initial data loaded — the branch above only covers the
+  // *signed-in* path, since only that one can hit the aal2 gate.
   await initData();
   goToMonth();
 
-  // Catches the case where THIS page load IS the magic-link landing itself.
-  // By the time initAuth() resolved above, the session may already reflect
-  // the new sign-in — meaning lastUserId was initialized from that same
+  // Catches the case where THIS page load IS the magic-link landing itself,
+  // or a returning session that's still short of aal2. By the time
+  // initAuth() resolved above, the session may already reflect the new
+  // sign-in — meaning lastUserId was initialized from that same
   // already-established session, so the SIGNED_IN transition inside
-  // onAuthChange never actually fires (no change to detect). Checking both
-  // the MFA challenge and the pending-password flag here too,
-  // unconditionally, closes that gap. Safe to call even when there's
-  // nothing pending — both are no-ops in that case.
+  // onAuthChange never actually fires (no change to detect).
+  //
+  // Checking needsMfaChallenge() directly first, rather than always calling
+  // requireMfaIfNeeded() and re-fetching inside its callback regardless: for
+  // the common case — no 2FA enabled, or a returning session already at
+  // aal2 — initData() above already fetched correctly, so re-fetching again
+  // here would just double the cloud calls on every normal app open. Only
+  // when a challenge is genuinely outstanding does this re-fetch after it
+  // completes, since that's the one case initData()'s earlier fetch would
+  // have returned empty (RLS filtering at aal1).
   if (getCurrentUser()) {
-    await requireMfaIfNeeded(() => {});
+    const stillNeedsChallenge = await needsMfaChallenge().catch(() => false);
+    if (stillNeedsChallenge) {
+      await requireMfaIfNeeded(async () => {
+        await switchToCloudData();
+        goToMonth();
+      });
+    }
     if (consumePendingPasswordSetup()) {
       openSetPasswordSheet({ context: "auto" });
     }
