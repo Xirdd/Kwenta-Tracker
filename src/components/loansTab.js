@@ -51,24 +51,25 @@ export function renderLoansTab() {
   `;
 }
 
-// Shown in the sidebar in place of the month Net Balance hero, since Utang
+// Shown in the sidebar in place of the month Net Balance card, since Utang
 // isn't scoped to a month — this is the running "who owes who" position.
-// Same borderless treatment as renderLedgerCard(), for consistency.
 export function renderUtangLedgerCard() {
   const t = loanTotals();
   const net = t.owedToYou - t.youOwe;
   const neg = net < 0;
 
   return `
-  <div class="balance-hero">
-    <div class="eyebrow">Utang · net position</div>
+  <div class="ledger-card">
+    <span class="tab">UTANG</span>
+    <div class="eyebrow">Net position</div>
     <div class="balance-amount ${neg ? "negative" : ""}">${neg ? "-" : ""}${fmt(Math.abs(net))}</div>
-    <div class="hero-stats-row">
-      <div class="hero-stat-inline">
+    <hr class="ledger-rule"/>
+    <div class="mini-stats">
+      <div class="mini-stat">
         <div class="label"><span class="dot" style="background:var(--green)"></span>Owed to you</div>
         <div class="amt">${fmt(t.owedToYou)}</div>
       </div>
-      <div class="hero-stat-inline">
+      <div class="mini-stat">
         <div class="label"><span class="dot" style="background:var(--coral)"></span>You owe</div>
         <div class="amt">${fmt(t.youOwe)}</div>
       </div>
