@@ -1,5 +1,5 @@
 import { DATA, monthTx, saveData } from "../state.js";
-import { CATEGORIES, catInfo } from "../categories.js";
+import { CATEGORIES, catInfo, categoryIconBadge } from "../categories.js";
 import { fmt } from "../format.js";
 import { isCloudMode, cloudUpsertBudget } from "../sync.js";
 import { notifySyncError } from "../toast.js";
@@ -37,7 +37,7 @@ export function renderBudgets() {
       return `
       <div class="budget-row">
         <div class="budget-top">
-          <div class="budget-name"><span class="chip" style="background:${c.color}"></span>${c.label}</div>
+          <div class="budget-name">${categoryIconBadge(c, 28)}${c.label}</div>
           <div class="budget-input-wrap">
             <span>₱</span>
             <input type="number" inputmode="decimal" class="budgetInput" data-cat="${c.id}" placeholder="0" value="${budget || ""}"/>

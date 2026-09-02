@@ -1,5 +1,9 @@
 import { DATA, saveData } from "../state.js";
-import { CATEGORIES, INCOME_CATEGORIES } from "../categories.js";
+import {
+  CATEGORIES,
+  INCOME_CATEGORIES,
+  categoryIconBadge,
+} from "../categories.js";
 import { uid, escapeHtml } from "../format.js";
 import { openModal, closeModal } from "./modal.js";
 import {
@@ -49,7 +53,7 @@ export function openForm(type, tx) {
     <div class="field">
       <label>Category</label>
       <div class="cat-grid" id="catGrid">
-        ${cats.map((c) => `<div class="cat-opt ${c.id === selectedCat ? "selected" : ""}" data-cat="${c.id}"><span class="chip" style="background:${c.color}"></span>${c.label}</div>`).join("")}
+        ${cats.map((c) => `<div class="cat-opt ${c.id === selectedCat ? "selected" : ""}" data-cat="${c.id}">${categoryIconBadge(c, 32)}${c.label}</div>`).join("")}
       </div>
     </div>
     <div class="field">

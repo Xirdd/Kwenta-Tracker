@@ -1,5 +1,5 @@
 import { state, DATA, monthTx, monthLabel } from "../state.js";
-import { CATEGORIES, catInfo } from "../categories.js";
+import { CATEGORIES, catInfo, categoryIconBadge } from "../categories.js";
 import { fmt, formatDate, escapeHtml } from "../format.js";
 import { openForm } from "./sheet.js";
 
@@ -56,7 +56,7 @@ function renderSearchBar(cats) {
       ? `
   <div class="cat-filter-row">
     <button class="cat-filter-chip ${!category ? "active" : ""}" data-filter-cat="">All</button>
-    ${cats.map((c) => `<button class="cat-filter-chip ${category === c.id ? "active" : ""}" data-filter-cat="${c.id}"><span class="chip" style="background:${c.color}"></span>${c.label}</button>`).join("")}
+    ${cats.map((c) => `<button class="cat-filter-chip ${category === c.id ? "active" : ""}" data-filter-cat="${c.id}">${categoryIconBadge(c, 18)}${c.label}</button>`).join("")}
   </div>`
       : ""
   }
@@ -85,7 +85,7 @@ function renderExpenseList(items, totalCount) {
         const c = catInfo(tx.category);
         return `
       <div class="row" data-edit="${tx.id}" data-type="expense">
-        <span class="chip" style="background:${c.color}"></span>
+        ${categoryIconBadge(c, 36)}
         <div class="info">
           <div class="desc">${escapeHtml(tx.desc || c.label)}${tx.recurringId ? ' <span class="recur-badge" title="Repeats monthly">↻</span>' : ""}</div>
           <div class="meta">${c.label} · ${formatDate(tx.date)}</div>

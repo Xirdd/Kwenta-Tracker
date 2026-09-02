@@ -1,5 +1,5 @@
 import { state, DATA } from "../state.js";
-import { catInfo } from "../categories.js";
+import { catInfo, categoryIconBadge } from "../categories.js";
 import { fmt, escapeHtml } from "../format.js";
 import {
   findPaymentTx,
@@ -69,7 +69,7 @@ export function renderBills() {
 
       return `
     <div class="bill-row" data-bill="${bill.id}" data-month="${state.monthKey}">
-      <span class="chip" style="background:${c.color}"></span>
+      ${categoryIconBadge(c, 36)}
       <div class="info">
         <div class="desc">${escapeHtml(bill.name)}</div>
         <div class="meta">${escapeHtml(billCategoryLabel(bill, c.label))} · due on the ${bill.dueDay}${ordinalSuffix(bill.dueDay)}</div>

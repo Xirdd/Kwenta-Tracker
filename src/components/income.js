@@ -6,7 +6,7 @@ import {
   totals,
   saveData,
 } from "../state.js";
-import { incCatInfo } from "../categories.js";
+import { incCatInfo, categoryIconBadge } from "../categories.js";
 import { fmt, formatDate, escapeHtml } from "../format.js";
 import { isCloudMode, cloudUpsertSalary } from "../sync.js";
 import { notifySyncError } from "../toast.js";
@@ -41,7 +41,7 @@ export function renderIncome() {
           const c = incCatInfo(tx.category);
           return `
         <div class="row" data-edit="${tx.id}" data-type="income">
-          <span class="chip" style="background:${c.color}"></span>
+          ${categoryIconBadge(c, 36)}
           <div class="info">
             <div class="desc">${escapeHtml(tx.desc || c.label)}${tx.recurringId ? ' <span class="recur-badge" title="Repeats monthly">↻</span>' : ""}</div>
             <div class="meta">${c.label} · ${formatDate(tx.date)}</div>
@@ -56,7 +56,11 @@ export function renderIncome() {
   `;
 }
 
-// Live-updates the salary field and the balance card without a full re-render (keeps input focus)
+// Live-updates the salary field and the balance hero without a full re-render
+// (keeps input focus). Selectors here match the borderless hero markup in
+// ledgerCard.js (.hero-stat-inline .amt) — .balance-amount itself kept its
+// name across that redesign, but .mini-stat was renamed to .hero-stat-inline,
+// so this had to be updated to match or it would silently stop updating.
 export function attachIncomeEvents() {
   const salaryInput = document.getElementById("salaryInput");
   if (!salaryInput) return;
@@ -71,10 +75,10 @@ export function attachIncomeEvents() {
     const t = totals();
     document.querySelector(".balance-amount").textContent =
       (t.balance < 0 ? "-" : "") + fmt(Math.abs(t.balance));
-    document.querySelectorAll(".mini-stat .amt")[0].textContent = fmt(
+    document.querySelectorAll(".hero-stat-inline .amt")[0].textContent = fmt(
       t.totalIncome,
     );
-    document.querySelectorAll(".mini-stat .amt")[1].textContent = fmt(
+    document.querySelectorAll(".hero-stat-inline .amt")[1].textContent = fmt(
       t.totalExpense,
     );
   };
