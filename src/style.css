@@ -1780,7 +1780,7 @@ input[type="number"] {
   font-size: 13px;
   line-height: 1.4;
   color: var(--ink);
-}/* ---------- Borderless hero balance (replaces the boxed ledger-card
+} /* ---------- Borderless hero balance (replaces the boxed ledger-card
    treatment for Overview's Net Balance and Utang's Net position) ---------- */
 .balance-hero {
   padding: 8px 2px 28px 2px;
