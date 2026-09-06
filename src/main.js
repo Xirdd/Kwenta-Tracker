@@ -18,6 +18,7 @@ import { renderMonthNav } from "./components/monthNav.js";
 import { renderLedgerCard } from "./components/ledgerCard.js";
 import { renderTabs } from "./components/tabs.js";
 import { renderBottomNav } from "./components/bottomNav.js";
+import { renderFab, attachFabEvents } from "./components/fabMenu.js";
 import { renderOverview } from "./components/overview.js";
 import { renderIncome, attachIncomeEvents } from "./components/income.js";
 import { renderExpenses, attachExpenseEvents } from "./components/expenses.js";
@@ -35,6 +36,7 @@ import {
 } from "./components/profileTab.js";
 import { initDeleteAccountSheet } from "./components/deleteAccountSheet.js";
 import { initSheet, openForm } from "./components/sheet.js";
+import { attachQuickAddEvents } from "./components/quickAddBar.js";
 import {
   initBillSheets,
   openBillForm,
@@ -86,13 +88,7 @@ function render() {
       ${renderSectionContent(t)}
     </div>
   `;
-  // Profile has nothing to "add", so no floating action button there.
-  if (state.section !== "profile") {
-    app.insertAdjacentHTML(
-      "beforeend",
-      `<button class="fab" id="fabBtn">+</button>`,
-    );
-  }
+  app.insertAdjacentHTML("beforeend", renderFab(state.section, state.tab));
   app.insertAdjacentHTML("beforeend", renderBottomNav());
   attachEvents();
 }
@@ -112,7 +108,7 @@ function renderSideContent(t) {
 }
 
 // Overview owns the existing sub-tabs (Overview/Income/Expenses/Budgets/Bills).
-// Goals, Utang, and Profile are full screens with no sub-tabs of their own.
+// Goals, Utang, and Profile are full screens with no sub-tabs.
 function renderSectionContent(t) {
   if (state.section === "goals") return renderGoalsTab();
   if (state.section === "loans") return renderLoansTab();
@@ -178,21 +174,22 @@ function attachEvents() {
     };
   });
 
-  const fabBtn = document.getElementById("fabBtn");
-  if (fabBtn) {
-    fabBtn.onclick = () => {
+  // The FAB is either a single-action button (Goals/Utang/Bills tab) or an
+  // expanding Expense/Income/Bill stack (everything else in Overview).
+  attachFabEvents(state.section, state.tab, {
+    onDefault: () => {
       if (state.section === "goals") {
         openGoalForm(null);
       } else if (state.section === "loans") {
         openLoanForm(null);
       } else if (state.tab === "bills") {
         openBillForm(null);
-      } else {
-        const type = state.tab === "income" ? "income" : "expense";
-        openForm(type, null);
       }
-    };
-  }
+    },
+    onExpense: () => openForm("expense", null),
+    onIncome: () => openForm("income", null),
+    onBill: () => openBillForm(null),
+  });
 
   // The account icon in the header now just jumps to the Profile tab.
   document.getElementById("accountBtn").onclick = () => {
@@ -207,6 +204,7 @@ function attachEvents() {
   attachBudgetEvents();
   attachExpenseEvents();
   attachProfileEvents();
+  attachQuickAddEvents();
 
   document.querySelectorAll("[data-edit]").forEach((row) => {
     row.onclick = () => {
@@ -237,6 +235,21 @@ function attachEvents() {
     row.onclick = () => {
       const loan = getLoan(row.dataset.loan);
       if (loan) openLoanDetail(loan);
+    };
+  });
+
+  // Dashboard "Quick actions" row (Overview tab only) — shortcuts straight
+  // into the expense/income/bill/goal-contribution flows.
+  document.querySelectorAll("[data-quick-action]").forEach((el) => {
+    el.onclick = () => {
+      const action = el.dataset.quickAction;
+      if (action === "expense") openForm("expense", null);
+      else if (action === "income") openForm("income", null);
+      else if (action === "bill") openBillForm(null);
+      else if (action === "goal") {
+        if (DATA.goals.length) openGoalDetail(DATA.goals[0]);
+        else openGoalForm(null);
+      }
     };
   });
 }

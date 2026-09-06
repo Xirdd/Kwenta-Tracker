@@ -26,9 +26,16 @@ export function initSheet(rerenderCallback) {
 
 export const closeSheet = closeModal;
 
-export function openForm(type, tx) {
+// defaultCategory is only used for brand-new entries (tx is null) — it lets
+// callers like the quick-add chip row pre-select a category so the person
+// only has to enter an amount and save, instead of picking a category too.
+export function openForm(type, tx, defaultCategory) {
   const cats = type === "expense" ? CATEGORIES : INCOME_CATEGORIES;
-  const selectedCat = tx ? tx.category : cats[0].id;
+  const validDefault =
+    defaultCategory && cats.some((c) => c.id === defaultCategory)
+      ? defaultCategory
+      : null;
+  const selectedCat = tx ? tx.category : validDefault || cats[0].id;
   const today = new Date().toISOString().slice(0, 10);
   const dateVal = tx ? tx.date : today;
   const descVal = tx ? tx.desc || "" : "";
@@ -44,7 +51,7 @@ export function openForm(type, tx) {
     <h3>${heading}</h3>
     <div class="field">
       <label>Description</label>
-      <input id="fDesc" type="text" placeholder="${type === "expense" ? "e.g. Jeepney fare, Meralco bill" : "e.g. 13th month pay"}" value="${escapeHtml(descVal)}"/>
+      <input id="fDesc" type="text" placeholder="${type === "expense" ? "e.g. Jeepney fare, Meralco bill" : "e.g. 13th month pay"}" value="${escapeHtml(descVal)}" autofocus/>
     </div>
     <div class="field amount">
       <label>Amount</label>
@@ -79,6 +86,13 @@ export function openForm(type, tx) {
       <button class="btn btn-primary" id="saveBtn">Save</button>
     </div>
   `);
+
+  // Quick-add entries jump straight to the amount field, since the category
+  // is already picked — one less tap before typing a number.
+  if (validDefault && !tx) {
+    const amountInput = document.getElementById("fAmount");
+    if (amountInput) amountInput.focus();
+  }
 
   let chosenCat = selectedCat;
   document.querySelectorAll("#catGrid .cat-opt").forEach((el) => {
