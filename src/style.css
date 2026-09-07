@@ -110,6 +110,12 @@ html {
 }
 * {
   box-sizing: border-box;
+  /* Stops the browser from interpreting a quick double-tap (e.g. tapping the
+     FAB, a quick-add chip, a tab) as "double-tap to zoom". Pinch-zoom and
+     normal scrolling/panning still work fine — this only removes that one
+     gesture, which has no purpose in an app UI like this anyway. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 html,
 body {
