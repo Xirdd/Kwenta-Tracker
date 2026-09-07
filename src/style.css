@@ -2018,23 +2018,32 @@ input[type="number"] {
     0 24px 48px -24px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 color-mix(in srgb, var(--ink) 10%, transparent);
   overflow: hidden;
+  /* Safari/WebKit has a bug where overflow:hidden + border-radius fails to
+     clip a child that has filter:blur() applied — the blur's bounding box
+     escapes the rounded corner as a hard rectangle. Forcing clipping via a
+     mask (instead of relying on overflow alone) works around it, and is a
+     no-op everywhere else. */
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: radial-gradient(white, black);
 }
-/* A soft blurred color blob bleeding off the top-right corner for depth —
-   the classic glass-card glow, tinted with the theme's accent color. */
+/* A soft color glow bleeding off the top-right corner for depth — built as
+   a naturally-fading gradient rather than a blurred solid circle, so there's
+   no filter effect for Safari to mis-clip (see the mask-image note above). */
 .balance-hero::before {
   content: "";
   position: absolute;
-  top: -60px;
-  right: -60px;
-  width: 180px;
-  height: 180px;
+  top: -70px;
+  right: -70px;
+  width: 220px;
+  height: 220px;
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    color-mix(in srgb, var(--gold) 55%, transparent) 0%,
-    transparent 70%
+    color-mix(in srgb, var(--gold) 45%, transparent) 0%,
+    color-mix(in srgb, var(--gold) 22%, transparent) 35%,
+    color-mix(in srgb, var(--gold) 6%, transparent) 55%,
+    transparent 72%
   );
-  filter: blur(20px);
   pointer-events: none;
 }
 /* A thin diagonal light streak across the glass, like a reflection. */
