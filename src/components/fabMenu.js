@@ -9,21 +9,12 @@ const BILL_ICON = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" s
 
 let expanded = false;
 
-// The + button is hidden only on the Overview section's own "Overview" tab —
-// that screen is meant to be a clean, read-only summary. It's visible on
-// every other screen: Income, Expenses, Budgets, Bills, Goals, and Utang.
-export function shouldShowFab(section, tab) {
-  if (section === "profile") return false;
-  if (section === "overview" && tab === "overview") return false;
-  return true;
-}
-
 export function isFabExpandable(section, tab) {
   return section === "overview" && tab !== "bills";
 }
 
 export function renderFab(section, tab) {
-  if (!shouldShowFab(section, tab)) return "";
+  if (section === "profile") return "";
 
   if (!isFabExpandable(section, tab)) {
     // Single-action FAB — no scrim, no stack, just the button, same as before.
@@ -55,7 +46,6 @@ export function renderFab(section, tab) {
 // onDefault fires for the non-expandable single-action FAB (goals/loans/bills tab).
 export function attachFabEvents(section, tab, handlers) {
   expanded = false;
-  if (!shouldShowFab(section, tab)) return;
   const fabBtn = document.getElementById("fabBtn");
   if (!fabBtn) return;
 
