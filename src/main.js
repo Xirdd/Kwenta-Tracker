@@ -174,21 +174,15 @@ function attachEvents() {
     };
   });
 
-  // The FAB is either a single-action button (Goals/Utang/Bills tab) or an
-  // expanding Expense/Income/Bill stack (everything else in Overview).
+  // The FAB is a single, non-expanding + button. Which action it triggers
+  // depends entirely on the active tab/section (see fabMenu.js) — it isn't
+  // rendered at all on Overview or Budgets.
   attachFabEvents(state.section, state.tab, {
-    onDefault: () => {
-      if (state.section === "goals") {
-        openGoalForm(null);
-      } else if (state.section === "loans") {
-        openLoanForm(null);
-      } else if (state.tab === "bills") {
-        openBillForm(null);
-      }
-    },
     onExpense: () => openForm("expense", null),
     onIncome: () => openForm("income", null),
     onBill: () => openBillForm(null),
+    onGoal: () => openGoalForm(null),
+    onLoan: () => openLoanForm(null),
   });
 
   // The account icon in the header now just jumps to the Profile tab.
@@ -235,21 +229,6 @@ function attachEvents() {
     row.onclick = () => {
       const loan = getLoan(row.dataset.loan);
       if (loan) openLoanDetail(loan);
-    };
-  });
-
-  // Dashboard "Quick actions" row (Overview tab only) — shortcuts straight
-  // into the expense/income/bill/goal-contribution flows.
-  document.querySelectorAll("[data-quick-action]").forEach((el) => {
-    el.onclick = () => {
-      const action = el.dataset.quickAction;
-      if (action === "expense") openForm("expense", null);
-      else if (action === "income") openForm("income", null);
-      else if (action === "bill") openBillForm(null);
-      else if (action === "goal") {
-        if (DATA.goals.length) openGoalDetail(DATA.goals[0]);
-        else openGoalForm(null);
-      }
     };
   });
 }

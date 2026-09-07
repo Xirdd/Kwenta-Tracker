@@ -1401,89 +1401,7 @@ header {
   font-weight: 600;
 }
 
-/* ---------- FAB (expanding stack) ---------- */
-.fab-scrim {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(2px);
-  z-index: 39;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-}
-.fab-scrim.show {
-  opacity: 1;
-  pointer-events: auto;
-}
-.fab-stack {
-  position: fixed;
-  bottom: 118px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: center;
-  gap: 14px;
-  z-index: 40;
-  max-width: 460px;
-}
-.fab-mini-list {
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: flex-end;
-  gap: 12px;
-  margin-bottom: 4px;
-}
-.fab-mini {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  opacity: 0;
-  transform: translateY(10px) scale(0.9);
-  transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
-  pointer-events: none;
-}
-.fab-stack.open .fab-mini {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
-}
-.fab-mini-label {
-  background: var(--paper);
-  color: var(--ink);
-  border: 1px solid var(--line);
-  font-size: 12.5px;
-  font-weight: 600;
-  padding: 7px 14px;
-  border-radius: 20px;
-  box-shadow: var(--shadow-card);
-  white-space: nowrap;
-}
-.fab-mini-btn {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
-  border: none;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: var(--shadow-card);
-  flex-shrink: 0;
-}
-.fab-mini-btn.expense {
-  background: linear-gradient(135deg, var(--coral) 0%, #d63f5c 100%);
-}
-.fab-mini-btn.income {
-  background: linear-gradient(135deg, var(--green) 0%, var(--gold-soft) 100%);
-}
-.fab-mini-btn.bill {
-  background: linear-gradient(135deg, #ffb020 0%, #e6952a 100%);
-}
+/* ---------- FAB (single action button) ---------- */
 .fab {
   position: fixed;
   left: 50%;
@@ -1506,76 +1424,8 @@ header {
   max-width: 460px;
   transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1);
 }
-/* Inside the expanding stack, position is inherited from .fab-stack instead. */
-.fab-stack .fab {
-  position: relative;
-  left: auto;
-  bottom: auto;
-  transform: none;
-}
-.fab-stack.open .fab {
-  transform: rotate(45deg);
-}
 .fab:active {
   transform: translateX(-50%) scale(0.94);
-}
-.fab-stack .fab:active {
-  transform: scale(0.94);
-}
-.fab-stack.open .fab:active {
-  transform: rotate(45deg) scale(0.94);
-}
-
-/* ---------- Quick actions (dashboard shortcuts) ---------- */
-.quick-actions-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  margin-bottom: 8px;
-}
-.quick-action-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  background: var(--gradient-card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 14px 6px;
-  cursor: pointer;
-  box-shadow: var(--shadow-card);
-  transition: transform 0.12s ease;
-}
-.quick-action-card:active {
-  transform: scale(0.95);
-}
-.quick-action-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-}
-.quick-action-icon.expense {
-  background: linear-gradient(135deg, var(--coral) 0%, #d63f5c 100%);
-}
-.quick-action-icon.income {
-  background: linear-gradient(135deg, var(--green) 0%, var(--gold-soft) 100%);
-}
-.quick-action-icon.bill {
-  background: linear-gradient(135deg, #ffb020 0%, #e6952a 100%);
-}
-.quick-action-icon.goal {
-  background: linear-gradient(135deg, #8e5fd6 0%, #6d43ad 100%);
-}
-.quick-action-label {
-  font-size: 10.5px;
-  font-weight: 600;
-  color: var(--ink);
-  text-align: center;
-  line-height: 1.2;
 }
 
 /* ---------- Quick-add category chips ---------- */
@@ -1905,19 +1755,6 @@ input[type="number"] {
   .content-panel > .section-title:first-child {
     margin-top: 0;
   }
-  .fab-stack {
-    left: auto;
-    right: 40px;
-    bottom: 118px;
-    transform: none;
-  }
-  .fab-stack .fab {
-    transform: none;
-  }
-  .fab-stack.open .fab {
-    transform: rotate(45deg);
-  }
-  /* Standalone (non-expanding) FAB, e.g. Goals/Utang/Bills tab */
   .fab {
     left: auto;
     right: 40px;
