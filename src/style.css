@@ -1405,7 +1405,7 @@ header {
 .fab {
   position: fixed;
   left: 50%;
-  bottom: 118px;
+  bottom: calc(118px + env(safe-area-inset-bottom, 0));
   transform: translateX(-50%);
   width: 60px;
   height: 60px;
@@ -1977,7 +1977,7 @@ input[type="number"] {
   position: fixed;
   left: 14px;
   right: 14px;
-  bottom: 14px;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0));
   max-width: 432px;
   margin: 0 auto;
   display: flex;
@@ -1986,7 +1986,7 @@ input[type="number"] {
   background: var(--gradient-card);
   border: 1px solid var(--line-dark);
   border-radius: var(--radius-lg);
-  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0)) 8px;
+  padding: 10px 8px;
   z-index: 38;
   box-shadow: var(--shadow-card);
 }
