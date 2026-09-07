@@ -15,12 +15,6 @@ import {
   billCategoryLabel,
 } from "../bills.js";
 import { renderInsightsCard } from "../insights.js";
-import { renderQuickAddBar } from "./quickAddBar.js";
-
-const QA_EXPENSE_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
-const QA_INCOME_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
-const QA_BILL_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
-const QA_GOAL_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/></svg>`;
 
 export function renderOverview() {
   const exp = monthTx("expense");
@@ -33,8 +27,6 @@ export function renderOverview() {
   const totalExp = entries.reduce((s, [, v]) => s + v, 0);
 
   return `
-  ${renderQuickActions()}
-  ${renderQuickAddBar()}
   ${renderUpcomingBills()}
   <div class="section-title">Where it went <span class="sub">expenses by category</span></div>
   ${
@@ -72,31 +64,6 @@ export function renderOverview() {
   ${renderInsightsCard()}
   ${renderTrend()}
   `;
-}
-
-// Four one-tap shortcuts into the most common actions — sits above
-// everything else on the dashboard so the fastest path to "add something"
-// never requires scrolling or picking a sub-tab first.
-function renderQuickActions() {
-  return `
-  <div class="quick-actions-grid">
-    <div class="quick-action-card" data-quick-action="expense">
-      <span class="quick-action-icon expense">${QA_EXPENSE_ICON}</span>
-      <span class="quick-action-label">Expense</span>
-    </div>
-    <div class="quick-action-card" data-quick-action="income">
-      <span class="quick-action-icon income">${QA_INCOME_ICON}</span>
-      <span class="quick-action-label">Income</span>
-    </div>
-    <div class="quick-action-card" data-quick-action="bill">
-      <span class="quick-action-icon bill">${QA_BILL_ICON}</span>
-      <span class="quick-action-label">Pay bill</span>
-    </div>
-    <div class="quick-action-card" data-quick-action="goal">
-      <span class="quick-action-icon goal">${QA_GOAL_ICON}</span>
-      <span class="quick-action-label">Goal</span>
-    </div>
-  </div>`;
 }
 
 function renderUpcomingBills() {
