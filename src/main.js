@@ -237,21 +237,6 @@ function attachEvents() {
       if (loan) openLoanDetail(loan);
     };
   });
-
-  // Dashboard "Quick actions" row (Overview tab only) — shortcuts straight
-  // into the expense/income/bill/goal-contribution flows.
-  document.querySelectorAll("[data-quick-action]").forEach((el) => {
-    el.onclick = () => {
-      const action = el.dataset.quickAction;
-      if (action === "expense") openForm("expense", null);
-      else if (action === "income") openForm("income", null);
-      else if (action === "bill") openBillForm(null);
-      else if (action === "goal") {
-        if (DATA.goals.length) openGoalDetail(DATA.goals[0]);
-        else openGoalForm(null);
-      }
-    };
-  });
 }
 
 (async function init() {

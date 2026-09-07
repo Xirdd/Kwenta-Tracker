@@ -2,6 +2,7 @@ import { state, DATA, monthTx, monthLabel } from "../state.js";
 import { CATEGORIES, catInfo, categoryIconBadge } from "../categories.js";
 import { fmt, formatDate, escapeHtml } from "../format.js";
 import { openForm } from "./sheet.js";
+import { renderQuickAddBar, attachQuickAddEvents } from "./quickAddBar.js";
 
 function isFiltering() {
   return (
@@ -40,6 +41,7 @@ export function renderExpenses() {
 
   return `
   <div class="section-title">Expenses <span class="sub">${all.length} ${all.length === 1 ? "entry" : "entries"}</span></div>
+  ${renderQuickAddBar()}
   ${all.length > 0 ? renderSearchBar(cats) : ""}
   <div id="expenseListWrap">${renderExpenseList(items, all.length)}</div>
   `;
@@ -68,7 +70,7 @@ function renderExpenseList(items, totalCount) {
     return `
     <div class="empty-state">
       <div class="glyph">₱</div>
-      <p>Nothing logged for ${monthLabel(state.monthKey)}.<br/>Tap + to add an expense.</p>
+      <p>Nothing logged for ${monthLabel(state.monthKey)}.<br/>Tap a category above, or the + button, to add an expense.</p>
     </div>`;
   }
   if (items.length === 0) {
@@ -128,6 +130,10 @@ export function attachExpenseEvents() {
   });
 
   wireRows();
+  // The quick-add chip row is part of this tab's markup now, so its taps
+  // need to be (re)wired any time this tab renders or re-renders — including
+  // the partial re-render above when a filter chip is tapped.
+  attachQuickAddEvents();
 }
 
 function wireRows() {
