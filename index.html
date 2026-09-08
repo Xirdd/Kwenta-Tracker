@@ -41,6 +41,18 @@
     </script>
   </head>
   <body>
+    <!-- Splash screen: plain inline HTML/CSS (styled via style.css once it
+         loads) so this paints immediately, before the JS bundle has even
+         been fetched — main.js removes it once the first real screen is
+         ready to show (see hideSplash() in src/main.js). -->
+    <div id="splash" class="splash-screen">
+      <div class="splash-glow"></div>
+      <div class="splash-logo">₱</div>
+      <div class="splash-title">Kwenta</div>
+      <div class="splash-tagline">sulit sa bawat piso</div>
+      <div class="splash-loader"><span></span><span></span><span></span></div>
+    </div>
+
     <div class="app" id="app"></div>
     <div class="scrim" id="scrim"></div>
     <div class="sheet" id="sheet"></div>

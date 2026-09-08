@@ -233,7 +233,24 @@ function attachEvents() {
   });
 }
 
+// Fades out and removes the branded splash screen (markup lives in
+// index.html so it's visible instantly on first paint, before this bundle
+// even finishes loading). Called once, right after the first real render —
+// see the end of init() below — so there's no gap between "splash gone" and
+// "actual app visible".
+function hideSplash() {
+  const splash = document.getElementById("splash");
+  if (!splash) return;
+  splash.classList.add("hide");
+  setTimeout(() => splash.remove(), 450); // matches the CSS fade duration
+}
+
 (async function init() {
+  // Safety net: hideSplash() is idempotent (no-ops if already removed), so
+  // this just guarantees the splash can't get stuck forever if something
+  // in the auth/data chain below throws before reaching the normal call.
+  setTimeout(hideSplash, 6000);
+
   initTheme();
   initSheet(render); // let sheets trigger a re-render after save/delete/sign-in/sign-out
   initBillSheets(render);
@@ -246,9 +263,6 @@ function attachEvents() {
     render();
   });
   initMfaSetupSheet(render);
-
-  const loadingEl = document.getElementById("app");
-  loadingEl.innerHTML = `<div style="padding:60px 10px;text-align:center;color:var(--muted);font-family:Inter,sans-serif;font-size:13px;">Opening the ledger…</div>`;
 
   await initAuth();
   await loadActiveHousehold(); // must resolve before the first data load, since it decides what scope to load
@@ -291,6 +305,7 @@ function attachEvents() {
   // *signed-in* path, since only that one can hit the aal2 gate.
   await initData();
   goToMonth();
+  hideSplash(); // first real content is on screen now — safe to reveal it
 
   // Catches the case where THIS page load IS the magic-link landing itself,
   // or a returning session that's still short of aal2. By the time
