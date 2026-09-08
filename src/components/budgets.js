@@ -4,6 +4,8 @@ import { fmt } from "../format.js";
 import { isCloudMode, cloudUpsertBudget } from "../sync.js";
 import { notifySyncError } from "../toast.js";
 
+const CHEVRON_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+
 export function renderBudgets() {
   const exp = monthTx("expense");
   const spentByCat = {};
@@ -35,23 +37,29 @@ export function renderBudgets() {
       const pct = budget ? Math.min(100, (spent / budget) * 100) : 0;
       const over = budget > 0 && spent > budget;
       return `
-      <div class="budget-row">
-        <div class="budget-top">
-          <div class="budget-name">${categoryIconBadge(c, 28)}${c.label}</div>
-          <div class="budget-input-wrap">
-            <span>₱</span>
-            <input type="number" inputmode="decimal" class="budgetInput" data-cat="${c.id}" placeholder="0" value="${budget || ""}"/>
+      <div class="budget-row" data-cat-row="${c.id}">
+        <div class="budget-header" data-toggle="${c.id}">
+          <div class="budget-name">${categoryIconBadge(c, 32)}${c.label}</div>
+          <span class="budget-chevron">${CHEVRON_ICON}</span>
+        </div>
+        <div class="budget-detail">
+          <div class="budget-detail-inner">
+            <div class="budget-input-wrap">
+              <span>₱</span>
+              <input type="number" inputmode="decimal" class="budgetInput" data-cat="${c.id}" placeholder="0" value="${budget || ""}"/>
+            </div>
+            <div class="bar-track"><div class="bar-fill" style="width:${budget ? Math.max(pct, 2) : 0}%;background:${over ? "var(--coral)" : c.color}"></div></div>
+            <div class="budget-meta ${over ? "over" : ""}">${fmt(spent)} of ${budget ? fmt(budget) : "no limit set"}${over ? " · over budget" : ""}</div>
           </div>
         </div>
-        <div class="bar-track"><div class="bar-fill" style="width:${budget ? Math.max(pct, 2) : 0}%;background:${over ? "var(--coral)" : c.color}"></div></div>
-        <div class="budget-meta ${over ? "over" : ""}">${fmt(spent)} of ${budget ? fmt(budget) : "no limit set"}${over ? " · over budget" : ""}</div>
       </div>`;
     }).join("")}
   </div>
   `;
 }
 
-// Live-updates a budget row's progress bar without a full re-render (keeps input focus)
+// Live-updates a budget row's progress bar without a full re-render (keeps
+// input focus). Also wires the tap-to-reveal toggle on each row's header.
 export function attachBudgetEvents() {
   document.querySelectorAll(".budgetInput").forEach((inp) => {
     inp.oninput = (e) => {
@@ -76,6 +84,15 @@ export function attachBudgetEvents() {
       const meta = row.querySelector(".budget-meta");
       meta.textContent = `${fmt(spent)} of ${budget ? fmt(budget) : "no limit set"}${over ? " · over budget" : ""}`;
       meta.classList.toggle("over", over);
+    };
+    // Typing shouldn't collapse the row it's inside — only the header toggles it.
+    inp.onclick = (e) => e.stopPropagation();
+  });
+
+  document.querySelectorAll("[data-toggle]").forEach((header) => {
+    header.onclick = () => {
+      const row = header.closest(".budget-row");
+      row.classList.toggle("open");
     };
   });
 }
