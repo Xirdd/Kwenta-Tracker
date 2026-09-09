@@ -37,6 +37,13 @@
     rgba(0, 214, 143, 0.16) 0%,
     rgba(0, 214, 143, 0) 60%
   );
+  /* Text/icon color for anything sitting on top of --gradient-accent (the
+     FAB, active tab, primary button, peso-mark, etc). Defaults to --bg,
+     which is near-black in every dark theme — good contrast against a
+     bright accent. Light theme overrides this below, since ITS --bg is
+     near-white and would otherwise put low-contrast white-on-medium-green
+     text on those same surfaces (measured ~2.4:1, fails WCAG AA's 4.5:1). */
+  --on-accent: var(--bg);
 }
 /* Light: soft off-white background, white cards with a gentle mint glow */
 [data-theme="light"] {
@@ -55,6 +62,10 @@
   --bg-glow: #ffffff;
   --shadow-card: 0 18px 40px -24px rgba(20, 20, 26, 0.22);
   --shadow-pop: 0 20px 40px -16px rgba(0, 179, 119, 0.28);
+  /* Light's own --bg is near-white, so text-on-accent needs to be dark
+     instead — its --ink is already dark and gives 6.7-9.6:1 contrast
+     against --gold/--green (vs. ~1.7-2.4:1 with --bg). */
+  --on-accent: var(--ink);
 }
 /* Midnight: deep indigo-blue, cooler electric-blue accent */
 [data-theme="midnight"] {
@@ -193,7 +204,7 @@ header {
   font-family: "Inter", sans-serif;
   font-weight: 800;
   font-size: 20px;
-  color: var(--bg);
+  color: var(--on-accent);
   background: var(--gradient-accent);
   width: 44px;
   height: 44px;
@@ -233,7 +244,7 @@ header {
 }
 .icon-btn-account {
   background: var(--gradient-accent);
-  color: var(--bg);
+  color: var(--on-accent);
   border-color: transparent;
   font-family: "IBM Plex Mono", monospace;
   font-weight: 700;
@@ -339,7 +350,7 @@ header {
 }
 .profile-row .btn-ghost.variant-green:active {
   background: var(--green);
-  color: var(--bg);
+  color: var(--on-accent);
 }
 .profile-row .btn-ghost.variant-gold {
   background: transparent;
@@ -348,7 +359,7 @@ header {
 }
 .profile-row .btn-ghost.variant-gold:active {
   background: var(--gold);
-  color: var(--bg);
+  color: var(--on-accent);
 }
 .signout-btn {
   display: flex;
@@ -497,7 +508,7 @@ header {
 .device-badge {
   display: inline-block;
   background: var(--gradient-accent);
-  color: var(--bg);
+  color: var(--on-accent);
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
@@ -667,7 +678,7 @@ header {
 }
 .btn-copy {
   background: var(--gradient-accent);
-  color: var(--bg);
+  color: var(--on-accent);
   border: none;
   font-size: 11.5px;
   font-weight: 700;
@@ -844,7 +855,7 @@ header {
 }
 .tab-btn.active {
   background: var(--gradient-accent);
-  color: var(--bg);
+  color: var(--on-accent);
   box-shadow: 0 8px 18px -10px rgba(0, 214, 143, 0.5);
 }
 
@@ -985,7 +996,7 @@ header {
 .cat-filter-chip.active {
   background: var(--gradient-accent);
   border-color: transparent;
-  color: var(--bg);
+  color: var(--on-accent);
 }
 .cat-filter-chip .chip {
   width: 7px;
@@ -1131,19 +1142,77 @@ header {
   flex-direction: column;
   gap: 14px;
 }
+@keyframes goalCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
 .goal-card {
+  position: relative;
+  overflow: hidden;
   background: var(--gradient-card);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--line);
+  border: 1px solid
+    color-mix(in srgb, var(--goal-accent, var(--gold)) 25%, var(--line));
   border-radius: var(--radius);
   padding: 18px 20px;
   cursor: pointer;
   box-shadow: var(--shadow-card);
   transition: transform 0.12s ease;
+  animation: goalCardIn 0.45s cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
 }
 .goal-card:active {
   transform: scale(0.99);
+}
+.goal-card > * {
+  position: relative;
+  z-index: 1;
+}
+/* A soft color blob bleeding off the top-right corner, tinted with this
+   goal's own accent color — same trick as the balance-hero glow, giving
+   each goal its own bit of personality instead of every card looking
+   identical. */
+.goal-glow {
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--goal-accent) 45%, transparent) 0%,
+    color-mix(in srgb, var(--goal-accent) 15%, transparent) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+/* Goals at 80%+ (but not finished) get a subtle pulsing halo — a little
+   nudge that says "you're almost there" without being obnoxious about it. */
+@keyframes goalPulse {
+  0%,
+  100% {
+    box-shadow: var(--shadow-card);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--goal-accent) 35%, transparent),
+      var(--shadow-card);
+  }
+}
+.goal-card.hot {
+  animation:
+    goalCardIn 0.45s cubic-bezier(0.2, 0.9, 0.3, 1) backwards,
+    goalPulse 2.2s ease-in-out infinite;
+}
+.goal-card.complete {
+  border-color: color-mix(in srgb, var(--green) 45%, var(--line));
 }
 .goal-row {
   display: flex;
@@ -1168,11 +1237,6 @@ header {
   font-size: 14.5px;
   font-weight: 700;
   color: var(--ink);
-}
-.goal-done {
-  color: var(--green);
-  font-size: 12px;
-  font-weight: 700;
 }
 .goal-target-badge {
   font-family: "IBM Plex Mono", monospace;
@@ -1207,6 +1271,57 @@ header {
   color: var(--ink-soft);
   margin-top: 8px;
   line-height: 1.4;
+}
+.goal-done-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: color-mix(in srgb, var(--green) 18%, transparent);
+  color: var(--green);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 20px;
+  margin-top: 8px;
+}
+/* Motivational strip above the goal list — total saved + a nudge toward
+   whichever goal is closest to done. */
+.goals-summary-banner {
+  background: var(--gradient-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-card);
+}
+.goals-summary-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.goals-summary-label {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.goals-summary-amount {
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.goals-summary-hint {
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+.goals-summary-hint strong {
+  color: var(--ink);
+  font-weight: 700;
 }
 .btn-undo {
   background: var(--paper-2);
@@ -1561,7 +1676,7 @@ header {
   height: 60px;
   border-radius: 20px;
   background: var(--gradient-accent);
-  color: var(--bg);
+  color: var(--on-accent);
   border: none;
   font-size: 28px;
   font-weight: 400;
@@ -1846,7 +1961,7 @@ header {
 }
 .btn-primary {
   background: var(--gradient-accent);
-  color: var(--bg);
+  color: var(--on-accent);
   box-shadow: var(--shadow-pop);
 }
 .btn-danger {
@@ -2225,7 +2340,7 @@ input[type="number"] {
   height: 84px;
   border-radius: 26px;
   background: var(--gradient-accent);
-  color: var(--bg);
+  color: var(--on-accent);
   font-family: "Inter", sans-serif;
   font-weight: 800;
   font-size: 38px;

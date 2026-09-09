@@ -1,6 +1,6 @@
 import { escapeHtml, fmt, formatDate } from "../format.js";
 import { openModal, closeModal } from "./modal.js";
-import { renderGoalRing } from "./goalsTab.js";
+import { renderGoalRing, goalAccentColor } from "./goalsTab.js";
 import {
   createGoal,
   updateGoal,
@@ -91,18 +91,19 @@ export function openGoalDetail(goal) {
   const hint = paceHint(goal);
   const recent = contributionsFor(goal.id).slice(0, 5);
   const today = new Date().toISOString().slice(0, 10);
+  const color = goalAccentColor(goal.id); // same accent as this goal's card in the list
 
   openModal(`
     <div class="grabber"></div>
     <h3>${escapeHtml(goal.name)}</h3>
     <div class="goal-row" style="margin-bottom:14px;">
-      ${renderGoalRing(pct, complete)}
+      ${renderGoalRing(pct, complete, color, goal.id)}
       <div class="goal-info">
         <div class="goal-amounts">
           <span class="goal-saved">${fmt(saved)}</span>
           <span class="goal-of">of ${fmt(goal.targetAmount)}</span>
         </div>
-        ${hint ? `<div class="goal-pace">${hint}</div>` : ""}
+        ${complete ? `<div class="goal-done-pill">🎉 Goal reached!</div>` : hint ? `<div class="goal-pace">${hint}</div>` : ""}
       </div>
     </div>
 
