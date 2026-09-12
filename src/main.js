@@ -1,4 +1,5 @@
 import "./style.css";
+import { initSyncQueue } from "./syncQueue.js";
 
 import {
   state,
@@ -250,6 +251,8 @@ function hideSplash() {
   // this just guarantees the splash can't get stuck forever if something
   // in the auth/data chain below throws before reaching the normal call.
   setTimeout(hideSplash, 6000);
+
+  initSyncQueue(); // retries any cloud writes that failed in a previous offline session
 
   initTheme();
   initSheet(render); // let sheets trigger a re-render after save/delete/sign-in/sign-out

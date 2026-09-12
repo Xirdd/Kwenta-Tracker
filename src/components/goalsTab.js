@@ -147,6 +147,6 @@ export function renderGoalRing(
       stroke-linecap="round"
       stroke-dasharray="${dash.toFixed(2)} ${(circ - dash).toFixed(2)}"
       transform="rotate(-90 ${cx} ${cy})"/>
-    <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="12.5" font-weight="800" fill="var(--ink)" font-family="'IBM Plex Mono', monospace">${complete ? "✓" : Math.round(pct) + "%"}</text>
+    <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="12.5" font-weight="800" fill="var(--ink)" font-family="'IBM Plex Mono', 'SF Mono', 'Menlo', 'Roboto Mono', 'Consolas', monospace">${complete ? "✓" : Math.round(pct) + "%"}</text>
   </svg>`;
 }
