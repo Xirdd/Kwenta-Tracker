@@ -3,6 +3,7 @@ import { getActiveHousehold } from "../household.js";
 import { currentTheme, setTheme, THEMES } from "../theme.js";
 import { escapeHtml } from "../format.js";
 import { exportCSV } from "../export.js";
+import { exportMonthlyStatementPDF } from "../pdfExport.js";
 import { openAuthSheet } from "./authSheet.js";
 import { openHouseholdSheet } from "./householdSheet.js";
 import { openSetPasswordSheet } from "./setPasswordSheet.js";
@@ -119,6 +120,13 @@ export function renderProfileTab() {
     buttonClass: "variant-gold",
   })}
   ${settingsRow({
+    id: "profileStatementBtn",
+    label: "Statement",
+    value: `A shareable PDF summary for the current month`,
+    buttonLabel: "Download",
+    buttonClass: "variant-gold",
+  })}
+  ${settingsRow({
     id: "profileBackupBtn",
     label: "Backup",
     value: "Full backup you can restore from later",
@@ -219,6 +227,9 @@ export function attachProfileEvents() {
 
   const exportBtn = document.getElementById("profileExportBtn");
   if (exportBtn) exportBtn.onclick = exportCSV;
+
+  const statementBtn = document.getElementById("profileStatementBtn");
+  if (statementBtn) statementBtn.onclick = exportMonthlyStatementPDF;
 
   const backupBtn = document.getElementById("profileBackupBtn");
   if (backupBtn) backupBtn.onclick = openBackupSheet;

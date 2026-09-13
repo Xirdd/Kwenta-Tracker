@@ -1,5 +1,6 @@
 import { openModal, closeModal } from "./modal.js";
 import { exportBackup, parseBackupFile, restoreBackup } from "../backup.js";
+import { DATA } from "../state.js";
 
 let onChange = () => {};
 
@@ -20,7 +21,7 @@ function render(message) {
 
     <div class="profile-card" style="margin-bottom:12px;">
       <div class="profile-row">
-        <div>
+        <div class="profile-row-text">
           <div class="profile-label">Export</div>
           <div class="profile-value">Download a full backup file</div>
         </div>
@@ -30,7 +31,7 @@ function render(message) {
 
     <div class="profile-card">
       <div class="profile-row">
-        <div>
+        <div class="profile-row-text">
           <div class="profile-label">Restore</div>
           <div class="profile-value">Replace everything with a backup file</div>
         </div>
@@ -67,8 +68,37 @@ function render(message) {
   };
 }
 
+// Counts the things a person actually cares about seeing change — not just
+// "25 transactions" in isolation, but what that means relative to what's
+// already here right now. Budgets are counted as "categories with a limit
+// set" rather than a raw object size, since that's what the number means to
+// a person reading it.
+function summarize(data) {
+  return {
+    transactions: (data.transactions || []).length,
+    budgetedCategories: Object.keys(data.budgets || {}).filter(
+      (k) => data.budgets[k] != null && data.budgets[k] !== "",
+    ).length,
+    bills: (data.bills || []).length,
+    goals: (data.goals || []).length,
+    loans: (data.loans || []).length,
+  };
+}
+
+function diffRow(label, before, after) {
+  const changed = before !== after;
+  return `
+  <div class="backup-diff-row">
+    <span class="backup-diff-label">${label}</span>
+    <span class="backup-diff-values ${changed ? "changed" : ""}">
+      ${before} <span class="backup-diff-arrow">→</span> ${after}
+    </span>
+  </div>`;
+}
+
 function renderConfirm(backup, error) {
-  const count = (backup.data.transactions || []).length;
+  const before = summarize(DATA);
+  const after = summarize(backup.data || {});
   const date = backup.exportedAt
     ? new Date(backup.exportedAt).toLocaleDateString("en-US", {
         month: "long",
@@ -81,8 +111,17 @@ function renderConfirm(backup, error) {
     `
     <div class="grabber"></div>
     <h3>Restore this backup?</h3>
-    <p class="auth-message">This backup is from <strong>${date}</strong> and contains <strong>${count} transaction${count === 1 ? "" : "s"}</strong>.</p>
-    <p class="auth-message" style="color:var(--coral);font-weight:700;">Everything currently in Kwenta — all transactions, budgets, bills, goals, and utang — will be replaced with what's in this file. This can't be undone.</p>
+    <p class="auth-message">This backup is from <strong>${date}</strong>.</p>
+
+    <div class="backup-diff-card">
+      ${diffRow("Transactions", before.transactions, after.transactions)}
+      ${diffRow("Budgeted categories", before.budgetedCategories, after.budgetedCategories)}
+      ${diffRow("Bills", before.bills, after.bills)}
+      ${diffRow("Goals", before.goals, after.goals)}
+      ${diffRow("Utang entries", before.loans, after.loans)}
+    </div>
+
+    <p class="auth-message" style="color:var(--coral);font-weight:700;margin-top:14px;">Everything currently in Kwenta — all transactions, budgets, bills, goals, and utang — will be replaced with what's in this file. This can't be undone.</p>
     <div class="field">
       <label>Type RESTORE to confirm</label>
       <input id="restoreConfirmInput" type="text" placeholder="RESTORE" autocomplete="off"/>

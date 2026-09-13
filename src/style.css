@@ -2437,3 +2437,40 @@ input[type="number"] {
   z-index: 45;
   pointer-events: none;
 }
+
+/* ---------- Backup restore diff preview ---------- */
+.backup-diff-card {
+  background: var(--paper-2);
+  border-radius: var(--radius);
+  padding: 6px 16px;
+}
+.backup-diff-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-dark);
+}
+.backup-diff-row:last-child {
+  border-bottom: none;
+}
+.backup-diff-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.backup-diff-values {
+  font-family:
+    "IBM Plex Mono", "SF Mono", "Menlo", "Roboto Mono", "Consolas", monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.backup-diff-values.changed {
+  color: var(--ink);
+}
+.backup-diff-arrow {
+  color: var(--gold);
+  margin: 0 2px;
+}
