@@ -1,10 +1,13 @@
+import { currentCurrencyConfig } from "./currency.js";
+
 export function fmt(n) {
   const num = Number(n) || 0;
+  const { symbol, locale, decimals = 2 } = currentCurrencyConfig();
   return (
-    "₱" +
-    num.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+    symbol +
+    num.toLocaleString(locale, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
     })
   );
 }

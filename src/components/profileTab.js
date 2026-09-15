@@ -1,6 +1,7 @@
 import { getCurrentUser, signOut } from "../auth.js";
 import { getActiveHousehold } from "../household.js";
 import { currentTheme, setTheme, THEMES } from "../theme.js";
+import { currentCurrencyId, setCurrency, CURRENCIES } from "../currency.js";
 import { escapeHtml } from "../format.js";
 import { exportCSV } from "../export.js";
 import { exportMonthlyStatementPDF } from "../pdfExport.js";
@@ -112,6 +113,12 @@ export function renderProfileTab() {
     ${renderThemeGroup("Dark", theme)}
   </div>
 
+  <div class="profile-card">
+    <div class="profile-label" style="margin-bottom:4px;">Currency</div>
+    <div class="profile-value" style="font-weight:500;color:var(--ink-soft);margin-bottom:12px;font-size:12px;">Changes how amounts are displayed only — doesn't convert anything.</div>
+    ${renderCurrencyChips()}
+  </div>
+
   ${settingsRow({
     id: "profileExportBtn",
     label: "Export",
@@ -162,6 +169,23 @@ export function renderProfileTab() {
 // Renders one labeled group ("Light" or "Dark") with only the themes that
 // belong to it — kept as two clearly separate rows rather than one mixed
 // row, so it's never ambiguous which mode a swatch actually is.
+// A scrollable row of currency chips — same visual pattern as the theme
+// swatches, but simpler (just symbol + label, no color circle).
+function renderCurrencyChips() {
+  const activeId = currentCurrencyId();
+  return `
+  <div class="currency-chip-row">
+    ${CURRENCIES.map(
+      (c) => `
+      <button class="currency-chip ${activeId === c.id ? "active" : ""}" data-currency-id="${c.id}">
+        <span class="currency-chip-symbol">${c.symbol}</span>
+        <span class="currency-chip-label">${c.label}</span>
+      </button>
+    `,
+    ).join("")}
+  </div>`;
+}
+
 function renderThemeGroup(groupLabel, activeTheme) {
   const mode = groupLabel.toLowerCase();
   const themes = THEMES.filter((t) => t.mode === mode);
@@ -222,6 +246,14 @@ export function attachProfileEvents() {
     btn.onclick = () => {
       setTheme(btn.dataset.themeId);
       onChange();
+    };
+  });
+
+  const currencyChips = document.querySelectorAll(".currency-chip");
+  currencyChips.forEach((btn) => {
+    btn.onclick = () => {
+      setCurrency(btn.dataset.currencyId);
+      onChange(); // re-render so every amount on screen updates immediately
     };
   });
 
