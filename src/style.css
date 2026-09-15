@@ -2474,3 +2474,100 @@ input[type="number"] {
   color: var(--gold);
   margin: 0 2px;
 }
+
+/* ---------- Household activity feed ---------- */
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.activity-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--line-dark);
+}
+.activity-row:last-child {
+  border-bottom: none;
+}
+.activity-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--paper-2);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.activity-info {
+  flex: 1;
+  min-width: 0;
+}
+.activity-summary {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.activity-summary strong {
+  font-weight: 700;
+}
+.activity-time {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 3px;
+}
+
+/* ---------- Currency chips ---------- */
+.currency-chip-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.currency-chip-row::-webkit-scrollbar {
+  display: none;
+}
+.currency-chip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--paper-2);
+  border: 1.5px solid transparent;
+  border-radius: 20px;
+  padding: 8px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    border-color 0.15s ease,
+    transform 0.12s ease;
+}
+.currency-chip:active {
+  transform: scale(0.96);
+}
+.currency-chip.active {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 14%, var(--paper-2));
+}
+.currency-chip-symbol {
+  font-family:
+    "IBM Plex Mono", "SF Mono", "Menlo", "Roboto Mono", "Consolas", monospace;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--gold);
+}
+.currency-chip-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}

@@ -6,6 +6,7 @@ import {
   joinHousehold,
   leaveHousehold,
 } from "../household.js";
+import { openHouseholdActivitySheet } from "./householdActivitySheet.js";
 
 let onChange = () => {};
 
@@ -33,10 +34,14 @@ function renderCurrent(household, message) {
     </div>
     ${message ? `<p class="auth-message">${message}</p>` : ""}
     <div class="sheet-actions" style="flex-direction:column;">
+      <button class="btn btn-ghost" id="hActivityBtn">View activity</button>
       <button class="btn btn-ghost" id="hCloseBtn">Close</button>
       <button class="btn btn-danger" id="hLeaveBtn">Leave household</button>
     </div>
   `);
+
+  document.getElementById("hActivityBtn").onclick = () =>
+    openHouseholdActivitySheet(household.id);
 
   document.getElementById("hCloseBtn").onclick = closeModal;
 
