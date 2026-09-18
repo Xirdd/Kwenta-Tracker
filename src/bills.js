@@ -1,4 +1,4 @@
-import { DATA, saveData, monthKeyOf } from "./state.js";
+import { DATA, saveData } from "./state.js";
 import { uid } from "./format.js";
 import {
   isCloudMode,
@@ -60,6 +60,17 @@ function clampDay(day) {
   return Math.min(Math.max(Number(day) || 1, 1), 28); // valid in every month, including February
 }
 
+// Bills stay scoped to a plain calendar month ("YYYY-MM"), never a
+// semi-monthly period — a monthly obligation like Meralco or rent doesn't
+// naturally split into two cutoffs, so this is deliberately its own,
+// independent month-key logic rather than reusing state.js's monthKeyOf
+// (which now returns period keys like "2026-09-1" for Overview/Income/
+// Expenses/Budgets). Mixing the two up here would silently break both
+// findPaymentTx's month-prefix match and dueDateStr's date concatenation.
+function billMonthKeyOf(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export function findPaymentTx(billId, monthKey) {
   return DATA.transactions.find(
     (t) => t.billId === billId && t.date && t.date.startsWith(monthKey),
@@ -103,8 +114,11 @@ export function daysUntil(dateStr) {
   return Math.round((due - today) / 86400000);
 }
 
+// Kept name for compatibility with billsTab.js/overview.js, but now
+// self-contained (see billMonthKeyOf above) — does NOT call state.js's
+// monthKeyOf, which returns a semi-monthly period key now, not a month key.
 export function currentRealMonthKey() {
-  return monthKeyOf(new Date());
+  return billMonthKeyOf(new Date());
 }
 
 export function ordinalSuffix(n) {

@@ -156,8 +156,10 @@ function smoothPath(points) {
 }
 
 function renderTrend() {
-  const months = monthsBack(6);
-  const data = months.map((mk) => ({ mk, ...trendTotals(mk) }));
+  // 12 periods = ~6 months of history, same real time span as before this
+  // became period-based (monthsBack(6) would now only cover ~3 months).
+  const periods = monthsBack(12);
+  const data = periods.map((pk) => ({ pk, ...trendTotals(pk) }));
   const max = Math.max(1, ...data.map((d) => Math.max(d.inc, d.exp)));
 
   const W = 300,
@@ -189,7 +191,7 @@ function renderTrend() {
       .join("");
 
   return `
-  <div class="section-title">6-month trend <span class="sub">income vs expenses</span></div>
+  <div class="section-title">Recent trend <span class="sub">income vs expenses</span></div>
   <div class="bars">
     <div class="trend-legend">
       <span><i style="background:var(--green)"></i>Income</span>
@@ -218,7 +220,11 @@ function renderTrend() {
     <div class="trend-x-labels">
       ${data
         .map((d) => {
-          const [y, m] = d.mk.split("-").map(Number);
+          // Only label the 1st-15th period of each month — labeling both
+          // halves would just repeat "Sep Sep Oct Oct..." across 12 ticks,
+          // which is more clutter than information on a narrow mobile chart.
+          const [y, m, half] = d.pk.split("-").map(Number);
+          if (half === 2) return `<span></span>`;
           const label = new Date(y, m - 1, 1).toLocaleDateString("en-US", {
             month: "short",
           });

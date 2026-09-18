@@ -1,11 +1,11 @@
-import { state } from "../state.js";
+import { state, monthLabel } from "../state.js";
 import { fmt } from "../format.js";
 
 export function renderLedgerCard(t) {
   const neg = t.balance < 0;
   return `
   <div class="balance-hero">
-    <div class="eyebrow">Net balance · ${state.monthKey}</div>
+    <div class="eyebrow">Net balance · ${monthLabel(state.monthKey)}</div>
     <div class="balance-amount ${neg ? "negative" : ""}">${neg ? "-" : ""}${fmt(Math.abs(t.balance))}</div>
     <div class="hero-stats-row">
       <div class="hero-stat-inline">

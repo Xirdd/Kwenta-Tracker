@@ -1,4 +1,4 @@
-import { state, DATA } from "../state.js";
+import { state, DATA, monthPortionOf } from "../state.js";
 import { catInfo, categoryIconBadge } from "../categories.js";
 import { fmt, escapeHtml } from "../format.js";
 import {
@@ -22,11 +22,16 @@ export function renderBills() {
     </div>`;
   }
 
-  const isRealCurrentMonth = state.monthKey === currentRealMonthKey();
+  // Bills are month-scoped, not period-scoped (see bills.js's header for
+  // why) — so viewing either half of the same month shows the same bills
+  // and the same paid/unpaid status either way. This is the month-only
+  // portion of the currently viewed period key, e.g. "2026-09-1" -> "2026-09".
+  const viewedMonthKey = monthPortionOf(state.monthKey);
+  const isRealCurrentMonth = viewedMonthKey === currentRealMonthKey();
 
   const sorted = bills.slice().sort((a, b) => {
-    const aPaid = !!findPaymentTx(a.id, state.monthKey);
-    const bPaid = !!findPaymentTx(b.id, state.monthKey);
+    const aPaid = !!findPaymentTx(a.id, viewedMonthKey);
+    const bPaid = !!findPaymentTx(b.id, viewedMonthKey);
     if (aPaid !== bPaid) return aPaid ? 1 : -1; // unpaid first
     return a.dueDay - b.dueDay;
   });
@@ -34,8 +39,8 @@ export function renderBills() {
   const rows = sorted
     .map((bill) => {
       const c = catInfo(bill.category);
-      const paidTx = findPaymentTx(bill.id, state.monthKey);
-      const due = dueDateStr(state.monthKey, bill.dueDay);
+      const paidTx = findPaymentTx(bill.id, viewedMonthKey);
+      const due = dueDateStr(viewedMonthKey, bill.dueDay);
 
       let badge, badgeClass;
       if (paidTx) {
@@ -68,7 +73,7 @@ export function renderBills() {
           : "—";
 
       return `
-    <div class="bill-row" data-bill="${bill.id}" data-month="${state.monthKey}">
+    <div class="bill-row" data-bill="${bill.id}" data-month="${viewedMonthKey}">
       ${categoryIconBadge(c, 36)}
       <div class="info">
         <div class="desc">${escapeHtml(bill.name)}</div>

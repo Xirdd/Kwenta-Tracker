@@ -20,7 +20,7 @@ export function renderBudgets() {
   const totalSpent = exp.reduce((s, e) => s + Number(e.amount || 0), 0);
 
   return `
-  <div class="section-title">Budgets <span class="sub">applies every month</span></div>
+  <div class="section-title">Budgets <span class="sub">applies every period</span></div>
   ${
     totalBudget > 0
       ? `

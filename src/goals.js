@@ -1,4 +1,4 @@
-import { DATA, saveData, monthKeyOf } from "./state.js";
+import { DATA, saveData } from "./state.js";
 import { uid } from "./format.js";
 import {
   isCloudMode,
@@ -81,8 +81,18 @@ export function removeContribution(tx) {
     cloudDeleteTransaction(tx.id).catch((e) => notifySyncError(e));
 }
 
+// Goal target dates stay full calendar months ("by December") — deliberately
+// NOT semi-monthly periods, since "by the 1st half of December" reads
+// strangely for a long-range savings target. This is now its own
+// independent month-key function rather than importing monthKeyOf from
+// state.js (which returns semi-monthly period keys like "2026-09-1" now,
+// for Overview/Income/Expenses/Budgets). Note: monthsBetween() below would
+// have kept producing the right number even with a period key passed in
+// (JS destructuring just ignores the extra "-1"/"-2" segment) — but that's
+// accidental correctness, not something worth relying on going forward.
 export function currentRealMonthKey() {
-  return monthKeyOf(new Date());
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 // Whole months between two 'YYYY-MM' keys (can be negative if `to` is in the past).

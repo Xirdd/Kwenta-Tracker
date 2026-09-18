@@ -9,6 +9,7 @@ import {
   totals,
   switchToCloudData,
   switchToLocalData,
+  monthPortionOf,
 } from "./state.js";
 import { materializeMonth } from "./recurring.js";
 import { getBill } from "./bills.js";
@@ -214,7 +215,11 @@ function attachEvents() {
   document.querySelectorAll("[data-bill]").forEach((row) => {
     row.onclick = () => {
       const bill = getBill(row.dataset.bill);
-      const monthKey = row.dataset.month || state.monthKey;
+      // data-month is always set explicitly by billsTab.js/overview.js as a
+      // proper month key ("YYYY-MM") — this fallback should never actually
+      // fire, but if it did, state.monthKey is a PERIOD key now
+      // ("YYYY-MM-1"), so it needs converting rather than passed through raw.
+      const monthKey = row.dataset.month || monthPortionOf(state.monthKey);
       if (bill) openBillPaymentSheet(bill, monthKey);
     };
   });
