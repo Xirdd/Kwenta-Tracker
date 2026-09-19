@@ -1,4 +1,4 @@
-import { state, DATA, monthPortionOf } from "../state.js";
+import { state, DATA } from "../state.js";
 import { catInfo, categoryIconBadge } from "../categories.js";
 import { fmt, escapeHtml } from "../format.js";
 import {
