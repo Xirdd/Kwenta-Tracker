@@ -1,5 +1,6 @@
 import { BILL_CATEGORIES, catInfo } from "../categories.js";
 import { escapeHtml, fmt, formatDate } from "../format.js";
+import { pesosToCentavos, centavosToPesos } from "../money.js";
 import { openModal, closeModal } from "./modal.js";
 import {
   createBill,
@@ -16,6 +17,12 @@ let onChange = () => {};
 
 export function initBillSheets(rerenderCallback) {
   onChange = rerenderCallback;
+}
+
+// Stored as centavos, shown/edited as pesos. "" when there's no estimate.
+function estimateInputValue(bill) {
+  const c = bill?.estimatedAmount;
+  return c === undefined || c === null ? "" : centavosToPesos(c);
 }
 
 // ── Add / edit a bill's definition (name, category, due day, estimate) ────
@@ -46,7 +53,7 @@ export function openBillForm(bill) {
     </div>
     <div class="field amount">
       <label>Estimated amount <span class="opt">(optional — prefills when you mark it paid)</span></label>
-      <input id="bEstimate" type="number" inputmode="decimal" placeholder="0.00" value="${bill?.estimatedAmount ?? ""}"/>
+      <input id="bEstimate" type="number" inputmode="decimal" placeholder="0.00" value="${estimateInputValue(bill)}"/>
     </div>
     <div class="sheet-actions">
       ${bill ? `<button class="btn btn-danger" id="bDeleteBtn">Delete</button>` : ""}
@@ -74,7 +81,7 @@ export function openBillForm(bill) {
     const name = document.getElementById("bName").value.trim();
     const customCategory = document.getElementById("bCustomCat").value.trim();
     const dueDay = document.getElementById("bDueDay").value;
-    const estimatedAmount = document.getElementById("bEstimate").value;
+    const estimateRaw = document.getElementById("bEstimate").value;
     if (!name) {
       flash("bName");
       return;
@@ -90,7 +97,7 @@ export function openBillForm(bill) {
       customCategory,
       dueDay: Number(dueDay),
       estimatedAmount:
-        estimatedAmount === "" ? undefined : Number(estimatedAmount),
+        estimateRaw === "" ? undefined : pesosToCentavos(estimateRaw), // integer centavos
     };
     if (bill) updateBill(bill, payload);
     else createBill(payload);
@@ -150,7 +157,7 @@ export function openBillPaymentSheet(bill, monthKey) {
     <p class="auth-message">${displayCategoryLabel(bill)} · due on the ${bill.dueDay}${ordinalSuffix(bill.dueDay)}. Enter what you actually paid.</p>
     <div class="field amount">
       <label>Amount</label>
-      <input id="payAmount" type="number" inputmode="decimal" placeholder="0.00" value="${bill.estimatedAmount ?? ""}"/>
+      <input id="payAmount" type="number" inputmode="decimal" placeholder="0.00" value="${estimateInputValue(bill)}"/>
     </div>
     <div class="field">
       <label>Date paid</label>
@@ -167,9 +174,9 @@ export function openBillPaymentSheet(bill, monthKey) {
   document.getElementById("editBillBtn2").onclick = () => openBillForm(bill);
 
   document.getElementById("payConfirmBtn").onclick = () => {
-    const amount = Number(document.getElementById("payAmount").value);
+    const amount = pesosToCentavos(document.getElementById("payAmount").value); // integer centavos
     const date = document.getElementById("payDate").value || suggestedDate;
-    if (!amount || amount <= 0) {
+    if (amount <= 0) {
       flash("payAmount");
       return;
     }

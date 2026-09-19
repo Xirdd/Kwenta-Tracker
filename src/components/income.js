@@ -8,6 +8,7 @@ import {
 } from "../state.js";
 import { incCatInfo, categoryIconBadge } from "../categories.js";
 import { fmt, formatDate, escapeHtml } from "../format.js";
+import { pesosToCentavos, centavosToPesos } from "../money.js";
 import { isCloudMode, cloudUpsertSalary } from "../sync.js";
 import { notifySyncError } from "../toast.js";
 
@@ -15,13 +16,18 @@ export function renderIncome() {
   const extras = monthTx("income").sort((a, b) =>
     (b.date || "").localeCompare(a.date || ""),
   );
+  const salaryCentavos = DATA.salary[state.monthKey]; // stored as centavos, shown/edited as pesos
+  const salaryInputValue =
+    salaryCentavos === undefined || salaryCentavos === null
+      ? ""
+      : centavosToPesos(salaryCentavos);
   return `
   <div class="section-title">Monthly salary</div>
   <div class="salary-card">
     <label for="salaryInput">Take-home pay for ${monthLabel(state.monthKey)}</label>
     <div class="salary-input-wrap">
       <span class="sym">₱</span>
-      <input id="salaryInput" type="number" inputmode="decimal" placeholder="0.00" value="${DATA.salary[state.monthKey] ?? ""}"/>
+      <input id="salaryInput" type="number" inputmode="decimal" placeholder="0.00" value="${salaryInputValue}"/>
     </div>
     <p class="salary-note">Saved automatically. Add bonuses or side income below.</p>
   </div>
@@ -66,13 +72,13 @@ export function attachIncomeEvents() {
   if (!salaryInput) return;
   salaryInput.oninput = (e) => {
     DATA.salary[state.monthKey] =
-      e.target.value === "" ? undefined : Number(e.target.value);
+      e.target.value === "" ? undefined : pesosToCentavos(e.target.value);
     saveData();
     if (isCloudMode())
       cloudUpsertSalary(state.monthKey, DATA.salary[state.monthKey]).catch(
         (err) => notifySyncError(err),
       );
-    const t = totals();
+    const t = totals(); // all integer centavos — only formatted here, at the UI edge
     document.querySelector(".balance-amount").textContent =
       (t.balance < 0 ? "-" : "") + fmt(Math.abs(t.balance));
     document.querySelectorAll(".hero-stat-inline .amt")[0].textContent = fmt(

@@ -10,8 +10,12 @@ import {
   cloudUpsertGoal,
   cloudUpsertLoan,
 } from "./sync.js";
+import { dataPesosToCentavos } from "./money.js";
 
-const BACKUP_VERSION = 1;
+// Version 1: amounts were peso floats.
+// Version 2: amounts are integer centavos (this version).
+// Old v1 files still restore fine — they're converted in restoreBackup().
+const BACKUP_VERSION = 2;
 
 // Builds the backup object and triggers a download — this is the entire
 // export path, and it's fully safe: it only reads DATA, which is already
@@ -71,6 +75,16 @@ export function parseBackupFile(file) {
         reject(new Error("This doesn't look like a Kwenta backup file."));
         return;
       }
+      // A newer file could use a money format this version doesn't know —
+      // refuse rather than guess and silently mis-scale every amount.
+      if (parsed.kwentaBackupVersion > BACKUP_VERSION) {
+        reject(
+          new Error(
+            "This backup was made by a newer version of Kwenta. Update the app, then try again.",
+          ),
+        );
+        return;
+      }
       resolve(parsed);
     };
     reader.onerror = () => reject(new Error("Could not read that file."));
@@ -81,7 +95,12 @@ export function parseBackupFile(file) {
 // Applies a validated backup, replacing everything currently in DATA — and,
 // when signed in, replacing what's stored in Supabase too.
 export async function restoreBackup(backup) {
-  const d = backup.data || {};
+  // v1 backups hold peso floats; convert once here so DATA is always centavos.
+  const d =
+    backup.kwentaBackupVersion < 2
+      ? dataPesosToCentavos(backup.data || {})
+      : backup.data || {};
+
   DATA.salary = d.salary || {};
   DATA.transactions = d.transactions || [];
   DATA.budgets = d.budgets || {};
@@ -100,10 +119,15 @@ export async function restoreBackup(backup) {
 // Wipes every cloud table for the current user (wipe_my_data(), from
 // backup_restore.sql — separate from account deletion, since restoring
 // shouldn't touch household membership), then pushes the restored data back
-// up using sync.js's own upsert functions.
+// up using sync.js's own upsert functions. Reusing those rather than
+// writing new raw inserts means the already-correct field mapping (e.g.
+// the transaction "desc" field maps to a "description" column, and
+// centavos convert back to the database's pesos) doesn't need to be
+// re-derived here — same job-list-then-Promise.all pattern sync.js already
+// uses for cloudMigrateLocalDataIfEmpty.
 async function restoreToCloud(data) {
   const { error: wipeError } = await supabase.rpc("wipe_my_data");
-  if (wipeError) throw describeWipeError(wipeError);
+  if (wipeError) throw wipeError;
 
   const jobs = [];
   Object.entries(data.salary || {}).forEach(([mk, amt]) => {
@@ -122,26 +146,4 @@ async function restoreToCloud(data) {
   (data.goals || []).forEach((goal) => jobs.push(cloudUpsertGoal(goal)));
   (data.loans || []).forEach((loan) => jobs.push(cloudUpsertLoan(loan)));
   await Promise.all(jobs);
-}
-
-// PostgREST's "could not find the function ... in the schema cache" (code
-// PGRST202) is a specific, common setup problem — either wipe_my_data() was
-// never created in this Supabase project (supabase/backup_restore.sql was
-// never run), or it was created but PostgREST's cached schema hasn't picked
-// it up yet. Surfacing that raw error text to the person restoring a backup
-// is useless to them; this turns it into something they can actually act on.
-function describeWipeError(error) {
-  const isMissingFunction =
-    error?.code === "PGRST202" ||
-    (typeof error?.message === "string" &&
-      error.message.includes("wipe_my_data"));
-
-  if (isMissingFunction) {
-    return new Error(
-      "Restore can't run yet because your Supabase project is missing a required database function (wipe_my_data). " +
-        "In the Supabase dashboard, open the SQL Editor and run the contents of supabase/backup_restore.sql, then try again. " +
-        "If you've already run it, try Settings → API → \"Reload schema\" (or wait a minute — PostgREST's schema cache can take a moment to pick up new functions).",
-    );
-  }
-  return error;
 }

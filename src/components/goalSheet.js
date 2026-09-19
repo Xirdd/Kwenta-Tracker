@@ -1,6 +1,7 @@
 import { escapeHtml, fmt, formatDate } from "../format.js";
+import { pesosToCentavos, centavosToPesos } from "../money.js";
 import { openModal, closeModal } from "./modal.js";
-import { renderGoalRing, goalAccentColor } from "./goalsTab.js";
+import { renderGoalRing } from "./goalsTab.js";
 import {
   createGoal,
   updateGoal,
@@ -21,6 +22,7 @@ export function initGoalSheets(rerenderCallback) {
 // ── Add / edit a goal's definition ────────────────────────────────────────
 export function openGoalForm(goal) {
   const heading = goal ? "Edit goal" : "New savings goal";
+  const targetInputValue = goal ? centavosToPesos(goal.targetAmount) : ""; // stored as centavos, edited as pesos
 
   openModal(`
     <div class="grabber"></div>
@@ -31,7 +33,7 @@ export function openGoalForm(goal) {
     </div>
     <div class="field amount">
       <label>Target amount</label>
-      <input id="gTarget" type="number" inputmode="decimal" placeholder="20000" value="${goal?.targetAmount ?? ""}"/>
+      <input id="gTarget" type="number" inputmode="decimal" placeholder="20000" value="${targetInputValue}"/>
     </div>
     <div class="field">
       <label>Target month <span class="opt">(optional)</span></label>
@@ -48,13 +50,15 @@ export function openGoalForm(goal) {
 
   document.getElementById("gSaveBtn").onclick = () => {
     const name = document.getElementById("gName").value.trim();
-    const targetAmount = Number(document.getElementById("gTarget").value);
+    const targetAmount = pesosToCentavos(
+      document.getElementById("gTarget").value,
+    ); // integer centavos
     const targetMonth = document.getElementById("gMonth").value || undefined;
     if (!name) {
       flash("gName");
       return;
     }
-    if (!targetAmount || targetAmount <= 0) {
+    if (targetAmount <= 0) {
       flash("gTarget");
       return;
     }
@@ -91,19 +95,18 @@ export function openGoalDetail(goal) {
   const hint = paceHint(goal);
   const recent = contributionsFor(goal.id).slice(0, 5);
   const today = new Date().toISOString().slice(0, 10);
-  const color = goalAccentColor(goal.id); // same accent as this goal's card in the list
 
   openModal(`
     <div class="grabber"></div>
     <h3>${escapeHtml(goal.name)}</h3>
     <div class="goal-row" style="margin-bottom:14px;">
-      ${renderGoalRing(pct, complete, color, goal.id)}
+      ${renderGoalRing(pct, complete)}
       <div class="goal-info">
         <div class="goal-amounts">
           <span class="goal-saved">${fmt(saved)}</span>
           <span class="goal-of">of ${fmt(goal.targetAmount)}</span>
         </div>
-        ${complete ? `<div class="goal-done-pill">🎉 Goal reached!</div>` : hint ? `<div class="goal-pace">${hint}</div>` : ""}
+        ${hint ? `<div class="goal-pace">${hint}</div>` : ""}
       </div>
     </div>
 
@@ -146,9 +149,9 @@ export function openGoalDetail(goal) {
   document.getElementById("gEditBtn").onclick = () => openGoalForm(goal);
 
   document.getElementById("addMoneyBtn").onclick = () => {
-    const amount = Number(document.getElementById("addAmount").value);
+    const amount = pesosToCentavos(document.getElementById("addAmount").value); // integer centavos
     const date = document.getElementById("addDate").value || today;
-    if (!amount || amount <= 0) {
+    if (amount <= 0) {
       flash("addAmount");
       return;
     }

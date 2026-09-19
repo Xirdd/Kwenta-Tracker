@@ -5,6 +5,7 @@ import {
   categoryIconBadge,
 } from "../categories.js";
 import { uid, escapeHtml } from "../format.js";
+import { pesosToCentavos, centavosToPesos } from "../money.js";
 import { openModal, closeModal } from "./modal.js";
 import {
   isCloudMode,
@@ -26,20 +27,13 @@ export function initSheet(rerenderCallback) {
 
 export const closeSheet = closeModal;
 
-// defaultCategory is only used for brand-new entries (tx is null) — it lets
-// callers like the quick-add chip row pre-select a category so the person
-// only has to enter an amount and save, instead of picking a category too.
-export function openForm(type, tx, defaultCategory) {
+export function openForm(type, tx) {
   const cats = type === "expense" ? CATEGORIES : INCOME_CATEGORIES;
-  const validDefault =
-    defaultCategory && cats.some((c) => c.id === defaultCategory)
-      ? defaultCategory
-      : null;
-  const selectedCat = tx ? tx.category : validDefault || cats[0].id;
+  const selectedCat = tx ? tx.category : cats[0].id;
   const today = new Date().toISOString().slice(0, 10);
   const dateVal = tx ? tx.date : today;
   const descVal = tx ? tx.desc || "" : "";
-  const amtVal = tx ? tx.amount : "";
+  const amtVal = tx ? centavosToPesos(tx.amount) : ""; // stored as centavos, edited as pesos
   const wasRecurring = !!(tx && tx.recurringId);
   const heading = tx
     ? `Edit ${type === "expense" ? "expense" : "income"}`
@@ -51,7 +45,7 @@ export function openForm(type, tx, defaultCategory) {
     <h3>${heading}</h3>
     <div class="field">
       <label>Description</label>
-      <input id="fDesc" type="text" placeholder="${type === "expense" ? "e.g. Jeepney fare, Meralco bill" : "e.g. 13th month pay"}" value="${escapeHtml(descVal)}" autofocus/>
+      <input id="fDesc" type="text" placeholder="${type === "expense" ? "e.g. Jeepney fare, Meralco bill" : "e.g. 13th month pay"}" value="${escapeHtml(descVal)}"/>
     </div>
     <div class="field amount">
       <label>Amount</label>
@@ -86,13 +80,6 @@ export function openForm(type, tx, defaultCategory) {
       <button class="btn btn-primary" id="saveBtn">Save</button>
     </div>
   `);
-
-  // Quick-add entries jump straight to the amount field, since the category
-  // is already picked — one less tap before typing a number.
-  if (validDefault && !tx) {
-    const amountInput = document.getElementById("fAmount");
-    if (amountInput) amountInput.focus();
-  }
 
   let chosenCat = selectedCat;
   document.querySelectorAll("#catGrid .cat-opt").forEach((el) => {
@@ -157,11 +144,11 @@ export function openForm(type, tx, defaultCategory) {
 
   document.getElementById("saveBtn").onclick = () => {
     const desc = document.getElementById("fDesc").value.trim();
-    const amount = Number(document.getElementById("fAmount").value);
+    const amount = pesosToCentavos(document.getElementById("fAmount").value); // integer centavos
     const date = document.getElementById("fDate").value || today;
     const repeatsChecked = document.getElementById("fRepeats").checked;
     if (document.getElementById("tagTextInput").value.trim()) addTagFromInput();
-    if (!amount || amount <= 0) {
+    if (amount <= 0) {
       flashField("fAmount");
       return;
     }

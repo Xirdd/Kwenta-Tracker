@@ -1,16 +1,8 @@
-import { currentCurrencyConfig } from "./currency.js";
+import { formatPHP } from "./money.js";
 
-export function fmt(n) {
-  const num = Number(n) || 0;
-  const { symbol, locale, decimals = 2 } = currentCurrencyConfig();
-  return (
-    symbol +
-    num.toLocaleString(locale, {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    })
-  );
-}
+// Kept under its old name so every existing fmt(...) call site keeps working,
+// but it now takes INTEGER CENTAVOS (10050 -> "₱100.50"), not pesos.
+export const fmt = formatPHP;
 
 export function uid(prefix = "t") {
   return prefix + Date.now() + Math.random().toString(16).slice(2, 8);

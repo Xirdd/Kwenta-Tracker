@@ -1,5 +1,6 @@
-import { DATA, saveData } from "./state.js";
+import { DATA, saveData, monthKeyOf } from "./state.js";
 import { uid } from "./format.js";
+import { sumCentavos } from "./money.js";
 import {
   isCloudMode,
   cloudUpsertGoal,
@@ -15,6 +16,7 @@ export function getGoal(id) {
   return DATA.goals.find((g) => g.id === id);
 }
 
+// targetAmount is integer centavos.
 export function createGoal({ name, targetAmount, targetMonth }) {
   const goal = {
     id: uid(),
@@ -50,13 +52,12 @@ export function contributionsFor(goalId) {
     .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 }
 
+// Integer centavos.
 export function savedAmount(goalId) {
-  return contributionsFor(goalId).reduce(
-    (s, t) => s + Number(t.amount || 0),
-    0,
-  );
+  return sumCentavos(contributionsFor(goalId), (t) => t.amount);
 }
 
+// amount is integer centavos.
 export function addContribution(goal, { amount, date }) {
   const tx = {
     id: uid(),
@@ -81,18 +82,8 @@ export function removeContribution(tx) {
     cloudDeleteTransaction(tx.id).catch((e) => notifySyncError(e));
 }
 
-// Goal target dates stay full calendar months ("by December") — deliberately
-// NOT semi-monthly periods, since "by the 1st half of December" reads
-// strangely for a long-range savings target. This is now its own
-// independent month-key function rather than importing monthKeyOf from
-// state.js (which returns semi-monthly period keys like "2026-09-1" now,
-// for Overview/Income/Expenses/Budgets). Note: monthsBetween() below would
-// have kept producing the right number even with a period key passed in
-// (JS destructuring just ignores the extra "-1"/"-2" segment) — but that's
-// accidental correctness, not something worth relying on going forward.
 export function currentRealMonthKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return monthKeyOf(new Date());
 }
 
 // Whole months between two 'YYYY-MM' keys (can be negative if `to` is in the past).
@@ -115,7 +106,7 @@ export function monthLabel(monthKey) {
 // month set, or the goal is already complete).
 export function paceHint(goal) {
   const saved = savedAmount(goal.id);
-  const remaining = goal.targetAmount - saved;
+  const remaining = goal.targetAmount - saved; // integer centavos
   if (remaining <= 0) return null;
   if (!goal.targetMonth) return null;
 
@@ -123,10 +114,13 @@ export function paceHint(goal) {
   if (monthsLeft <= 0) {
     return `Target month has passed — still needs a bit more to finish.`;
   }
-  const perMonth = remaining / monthsLeft;
-  return `Save about ${perMonthLabel(perMonth)}/month to reach it by ${monthLabel(goal.targetMonth)}.`;
+  // Rounded UP to whole pesos (a hint shouldn't undershoot the target).
+  // One division of integers: centavos -> pesos and per-month in a single step.
+  const perMonthPesos = Math.ceil(remaining / (monthsLeft * 100));
+  return `Save about ${perMonthLabel(perMonthPesos)}/month to reach it by ${monthLabel(goal.targetMonth)}.`;
 }
 
-function perMonthLabel(n) {
-  return "₱" + Math.ceil(n).toLocaleString("en-US");
+// Takes WHOLE PESOS (already rounded up by paceHint).
+function perMonthLabel(pesos) {
+  return "₱" + pesos.toLocaleString("en-US");
 }
