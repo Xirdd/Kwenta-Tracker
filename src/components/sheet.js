@@ -5,7 +5,6 @@ import {
   categoryIconBadge,
 } from "../categories.js";
 import { uid, escapeHtml } from "../format.js";
-import { pesosToCentavos, centavosToPesos } from "../money.js";
 import { openModal, closeModal } from "./modal.js";
 import {
   isCloudMode,
@@ -19,7 +18,7 @@ import {
   stopRecurringRule,
 } from "../recurring.js";
 
-let onChange = () => {}; // callback to re-render the main app, set by main.js
+let onChange = () => {};
 
 export function initSheet(rerenderCallback) {
   onChange = rerenderCallback;
@@ -33,7 +32,7 @@ export function openForm(type, tx) {
   const today = new Date().toISOString().slice(0, 10);
   const dateVal = tx ? tx.date : today;
   const descVal = tx ? tx.desc || "" : "";
-  const amtVal = tx ? centavosToPesos(tx.amount) : ""; // stored as centavos, edited as pesos
+  const amtVal = tx ? tx.amount : "";
   const wasRecurring = !!(tx && tx.recurringId);
   const heading = tx
     ? `Edit ${type === "expense" ? "expense" : "income"}`
@@ -97,7 +96,6 @@ export function openForm(type, tx) {
   function renderTagChips() {
     const wrap = document.getElementById("tagInputWrap");
     const input = document.getElementById("tagTextInput");
-    // Rebuild only the chip elements, keeping the same <input> node so focus/typing isn't disrupted.
     wrap.querySelectorAll(".tag-chip").forEach((el) => el.remove());
     tags.forEach((tag) => {
       const chip = document.createElement("span");
@@ -144,11 +142,11 @@ export function openForm(type, tx) {
 
   document.getElementById("saveBtn").onclick = () => {
     const desc = document.getElementById("fDesc").value.trim();
-    const amount = pesosToCentavos(document.getElementById("fAmount").value); // integer centavos
+    const amount = Number(document.getElementById("fAmount").value);
     const date = document.getElementById("fDate").value || today;
     const repeatsChecked = document.getElementById("fRepeats").checked;
     if (document.getElementById("tagTextInput").value.trim()) addTagFromInput();
-    if (amount <= 0) {
+    if (!amount || amount <= 0) {
       flashField("fAmount");
       return;
     }

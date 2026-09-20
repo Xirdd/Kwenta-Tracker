@@ -1,20 +1,11 @@
 import { supabase } from "./supabaseClient.js";
 import { getCurrentUser } from "./auth.js";
 import { getActiveHouseholdId } from "./household.js";
-import { pesosToCentavos, centavosToPesos } from "./money.js";
-
-// UNIT BOUNDARY: the app works in integer centavos, but the Supabase columns
-// are unchanged and still hold pesos (numeric). Every read below converts
-// pesos -> centavos, every write converts centavos -> pesos. That keeps
-// existing rows valid and the server-side push-notification SQL (which
-// compares budgets to spend inside the database) working as-is.
 
 export function isCloudMode() {
   return !!supabase && !!getCurrentUser();
 }
 
-// Applies the "personal vs household" scope to a SELECT query for any of the
-// shareable tables (everything except kwenta_salary, which is always personal).
 function scoped(table, user, householdId) {
   let q = supabase.from(table).select("*");
   return householdId
@@ -22,7 +13,6 @@ function scoped(table, user, householdId) {
     : q.eq("user_id", user.id).is("household_id", null);
 }
 
-// Loads everything for the signed-in user, shaped like the local DATA object.
 export async function cloudLoadAll() {
   const user = getCurrentUser();
   if (!supabase || !user) return null;
@@ -37,7 +27,7 @@ export async function cloudLoadAll() {
     goalsRes,
     loansRes,
   ] = await Promise.all([
-    supabase.from("kwenta_salary").select("*").eq("user_id", user.id), // always personal, never shared
+    supabase.from("kwenta_salary").select("*").eq("user_id", user.id),
     scoped("kwenta_transactions", user, householdId),
     scoped("kwenta_budgets", user, householdId),
     scoped("kwenta_recurring", user, householdId),
@@ -56,14 +46,14 @@ export async function cloudLoadAll() {
 
   const salary = {};
   (salaryRes.data || []).forEach((r) => {
-    salary[r.month_key] = pesosToCentavos(r.amount);
+    salary[r.month_key] = Number(r.amount);
   });
 
   const transactions = (txRes.data || []).map((r) => ({
     id: r.id,
     type: r.type,
     desc: r.description || "",
-    amount: pesosToCentavos(r.amount),
+    amount: Number(r.amount),
     category: r.category,
     date: r.date,
     recurringId: r.recurring_id || undefined,
@@ -76,14 +66,14 @@ export async function cloudLoadAll() {
 
   const budgets = {};
   (budgetRes.data || []).forEach((r) => {
-    budgets[r.category] = pesosToCentavos(r.amount);
+    budgets[r.category] = Number(r.amount);
   });
 
   const recurring = (recurringRes.data || []).map((r) => ({
     id: r.id,
     type: r.type,
     desc: r.description || "",
-    amount: pesosToCentavos(r.amount),
+    amount: Number(r.amount),
     category: r.category,
     day: r.day_of_month,
     startMonth: r.start_month,
@@ -97,16 +87,14 @@ export async function cloudLoadAll() {
     customCategory: r.custom_category || undefined,
     dueDay: r.due_day,
     estimatedAmount:
-      r.estimated_amount === null || r.estimated_amount === undefined
-        ? undefined
-        : pesosToCentavos(r.estimated_amount),
+      r.estimated_amount === null ? undefined : Number(r.estimated_amount),
     active: r.active,
   }));
 
   const goals = (goalsRes.data || []).map((r) => ({
     id: r.id,
     name: r.name,
-    targetAmount: pesosToCentavos(r.target_amount),
+    targetAmount: Number(r.target_amount),
     targetMonth: r.target_month || undefined,
     active: r.active,
   }));
@@ -115,7 +103,7 @@ export async function cloudLoadAll() {
     id: r.id,
     person: r.person,
     direction: r.direction,
-    amount: pesosToCentavos(r.amount),
+    amount: Number(r.amount),
     date: r.date,
     note: r.note || undefined,
     active: r.active,
@@ -124,7 +112,6 @@ export async function cloudLoadAll() {
   return { salary, transactions, budgets, recurring, bills, goals, loans };
 }
 
-// `amount` is integer centavos (undefined/null/NaN deletes the row).
 export async function cloudUpsertSalary(monthKey, amount) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
@@ -135,11 +122,9 @@ export async function cloudUpsertSalary(monthKey, amount) {
       .eq("user_id", user.id)
       .eq("month_key", monthKey);
   } else {
-    await supabase.from("kwenta_salary").upsert({
-      user_id: user.id,
-      month_key: monthKey,
-      amount: centavosToPesos(amount),
-    });
+    await supabase
+      .from("kwenta_salary")
+      .upsert({ user_id: user.id, month_key: monthKey, amount });
   }
 }
 
@@ -152,7 +137,7 @@ export async function cloudUpsertTransaction(tx) {
     household_id: getActiveHouseholdId(),
     type: tx.type,
     description: tx.desc || "",
-    amount: centavosToPesos(tx.amount),
+    amount: tx.amount,
     category: tx.category,
     date: tx.date,
     recurring_id: tx.recurringId || null,
@@ -174,17 +159,10 @@ export async function cloudDeleteTransaction(id) {
     .eq("id", id);
 }
 
-// Budgets are the one table without a database-level unique constraint on
-// (household_id, category) — the primary key stays (user_id, category) so
-// no schema surgery was needed on an existing table. Instead we look up any
-// existing row for the current scope and update it, or insert a fresh one.
-// `amount` is integer centavos (undefined/null/NaN deletes the row).
 export async function cloudUpsertBudget(category, amount) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
   const householdId = getActiveHouseholdId();
-  const isClearing = amount === undefined || amount === null || isNaN(amount);
-  const pesos = isClearing ? null : centavosToPesos(amount);
 
   if (householdId) {
     const { data: existing } = await supabase
@@ -194,7 +172,7 @@ export async function cloudUpsertBudget(category, amount) {
       .eq("category", category)
       .maybeSingle();
 
-    if (isClearing) {
+    if (amount === undefined || amount === null || isNaN(amount)) {
       if (existing)
         await supabase
           .from("kwenta_budgets")
@@ -206,7 +184,7 @@ export async function cloudUpsertBudget(category, amount) {
     if (existing) {
       await supabase
         .from("kwenta_budgets")
-        .update({ amount: pesos, updated_at: new Date().toISOString() })
+        .update({ amount, updated_at: new Date().toISOString() })
         .eq("household_id", householdId)
         .eq("category", category);
     } else {
@@ -214,14 +192,13 @@ export async function cloudUpsertBudget(category, amount) {
         user_id: user.id,
         household_id: householdId,
         category,
-        amount: pesos,
+        amount,
       });
     }
     return;
   }
 
-  // Personal (no household) — original behavior.
-  if (isClearing) {
+  if (amount === undefined || amount === null || isNaN(amount)) {
     await supabase
       .from("kwenta_budgets")
       .delete()
@@ -231,12 +208,7 @@ export async function cloudUpsertBudget(category, amount) {
   } else {
     await supabase
       .from("kwenta_budgets")
-      .upsert({
-        user_id: user.id,
-        category,
-        amount: pesos,
-        household_id: null,
-      });
+      .upsert({ user_id: user.id, category, amount, household_id: null });
   }
 }
 
@@ -249,7 +221,7 @@ export async function cloudUpsertRecurring(rule) {
     household_id: getActiveHouseholdId(),
     type: rule.type,
     description: rule.desc || "",
-    amount: centavosToPesos(rule.amount),
+    amount: rule.amount,
     category: rule.category,
     day_of_month: rule.day,
     start_month: rule.startMonth,
@@ -279,9 +251,7 @@ export async function cloudUpsertBill(bill) {
     custom_category: bill.customCategory || null,
     due_day: bill.dueDay,
     estimated_amount:
-      bill.estimatedAmount === undefined || bill.estimatedAmount === null
-        ? null
-        : centavosToPesos(bill.estimatedAmount),
+      bill.estimatedAmount === undefined ? null : bill.estimatedAmount,
     active: bill.active,
   });
 }
@@ -304,7 +274,7 @@ export async function cloudUpsertGoal(goal) {
     user_id: user.id,
     household_id: getActiveHouseholdId(),
     name: goal.name,
-    target_amount: centavosToPesos(goal.targetAmount),
+    target_amount: goal.targetAmount,
     target_month: goal.targetMonth || null,
     active: goal.active,
   });
@@ -329,7 +299,7 @@ export async function cloudUpsertLoan(loan) {
     household_id: getActiveHouseholdId(),
     person: loan.person,
     direction: loan.direction,
-    amount: centavosToPesos(loan.amount),
+    amount: loan.amount,
     date: loan.date,
     note: loan.note || null,
     active: loan.active,
@@ -346,11 +316,6 @@ export async function cloudDeleteLoan(id) {
     .eq("id", id);
 }
 
-// Called once, right after a successful sign-in. If the account has no cloud
-// data yet for the current scope (personal, or the household it just joined),
-// pushes whatever was saved locally so nothing gets lost. If data already
-// exists there, does nothing (cloud data wins). `localData` is in centavos;
-// the upsert functions convert to the database's pesos on the way up.
 export async function cloudMigrateLocalDataIfEmpty(localData) {
   const existing = await cloudLoadAll();
   if (!existing) return false;

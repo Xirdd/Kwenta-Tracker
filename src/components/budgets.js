@@ -1,28 +1,21 @@
 import { DATA, monthTx, saveData } from "../state.js";
 import { CATEGORIES, catInfo, categoryIconBadge } from "../categories.js";
 import { fmt } from "../format.js";
-import {
-  asCentavos,
-  sumCentavos,
-  pesosToCentavos,
-  centavosToPesos,
-} from "../money.js";
 import { isCloudMode, cloudUpsertBudget } from "../sync.js";
 import { notifySyncError } from "../toast.js";
 
-// DATA.budgets[catId] is integer centavos; inputs show/accept pesos.
 export function renderBudgets() {
   const exp = monthTx("expense");
   const spentByCat = {};
   exp.forEach((e) => {
     spentByCat[e.category] =
-      (spentByCat[e.category] || 0) + asCentavos(e.amount);
+      (spentByCat[e.category] || 0) + Number(e.amount || 0);
   });
   const totalBudget = CATEGORIES.reduce(
-    (s, c) => s + asCentavos(DATA.budgets[c.id]),
+    (s, c) => s + (Number(DATA.budgets[c.id]) || 0),
     0,
   );
-  const totalSpent = sumCentavos(exp, (e) => e.amount);
+  const totalSpent = exp.reduce((s, e) => s + Number(e.amount || 0), 0);
 
   return `
   <div class="section-title">Budgets <span class="sub">applies every month</span></div>
@@ -37,7 +30,7 @@ export function renderBudgets() {
   }
   <div class="list budget-list">
     ${CATEGORIES.map((c) => {
-      const budget = asCentavos(DATA.budgets[c.id]);
+      const budget = Number(DATA.budgets[c.id]) || 0;
       const spent = spentByCat[c.id] || 0;
       const pct = budget ? Math.min(100, (spent / budget) * 100) : 0;
       const over = budget > 0 && spent > budget;
@@ -47,7 +40,7 @@ export function renderBudgets() {
           <div class="budget-name">${categoryIconBadge(c, 28)}${c.label}</div>
           <div class="budget-input-wrap">
             <span>₱</span>
-            <input type="number" inputmode="decimal" class="budgetInput" data-cat="${c.id}" placeholder="0" value="${budget ? centavosToPesos(budget) : ""}"/>
+            <input type="number" inputmode="decimal" class="budgetInput" data-cat="${c.id}" placeholder="0" value="${budget || ""}"/>
           </div>
         </div>
         <div class="bar-track"><div class="bar-fill" style="width:${budget ? Math.max(pct, 2) : 0}%;background:${over ? "var(--coral)" : c.color}"></div></div>
@@ -58,23 +51,21 @@ export function renderBudgets() {
   `;
 }
 
-// Live-updates a budget row's progress bar without a full re-render (keeps input focus)
 export function attachBudgetEvents() {
   document.querySelectorAll(".budgetInput").forEach((inp) => {
     inp.oninput = (e) => {
       const cat = inp.dataset.cat;
       DATA.budgets[cat] =
-        e.target.value === "" ? undefined : pesosToCentavos(e.target.value);
+        e.target.value === "" ? undefined : Number(e.target.value);
       saveData();
       if (isCloudMode())
         cloudUpsertBudget(cat, DATA.budgets[cat]).catch((err) =>
           notifySyncError(err),
         );
-      const spent = sumCentavos(
-        monthTx("expense").filter((x) => x.category === cat),
-        (x) => x.amount,
-      );
-      const budget = asCentavos(DATA.budgets[cat]);
+      const spent = monthTx("expense")
+        .filter((x) => x.category === cat)
+        .reduce((s, x) => s + Number(x.amount || 0), 0);
+      const budget = Number(DATA.budgets[cat]) || 0;
       const pct = budget ? Math.min(100, (spent / budget) * 100) : 0;
       const over = budget > 0 && spent > budget;
       const row = inp.closest(".budget-row");

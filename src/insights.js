@@ -7,17 +7,7 @@ import {
 } from "./state.js";
 import { catInfo } from "./categories.js";
 import { fmt, escapeHtml } from "./format.js";
-import { asCentavos, sumCentavos } from "./money.js";
 
-// Amounts are integer centavos, so this is ₱100. It used to be a bare `100`
-// (pesos) — left as-is it would have silently become ₱1.
-const MIN_MEANINGFUL_SPEND = 100 * 100;
-
-// Returns an array of {icon, text} — short, computed observations about the
-// currently viewed month's spending. Nothing forced: if there isn't enough
-// data to say something meaningful (e.g. a category had ₱0 last month, so
-// "up 400%" would just be noise), that insight is skipped rather than shown
-// with misleading numbers.
 export function computeInsights() {
   const insights = [];
   const currentMonth = state.monthKey;
@@ -31,7 +21,7 @@ export function computeInsights() {
   for (const cat in currentByCategory) {
     const curr = currentByCategory[cat];
     const prev = prevByCategory[cat] || 0;
-    if (prev < MIN_MEANINGFUL_SPEND || curr < MIN_MEANINGFUL_SPEND) continue; // skip tiny amounts — too noisy to be a meaningful % swing
+    if (prev < 100 || curr < 100) continue;
     const pctChange = ((curr - prev) / prev) * 100;
     if (
       pctChange >= 15 &&
@@ -60,11 +50,16 @@ export function computeInsights() {
     });
   }
 
-  // Savings rate for the month being viewed
-  const salary = asCentavos(DATA.salary[currentMonth]);
-  const extraIncome = sumCentavos(monthTx("income"), (t) => t.amount);
+  const salary = Number(DATA.salary[currentMonth]) || 0;
+  const extraIncome = monthTx("income").reduce(
+    (s, t) => s + Number(t.amount || 0),
+    0,
+  );
   const totalIncome = salary + extraIncome;
-  const totalExpense = sumCentavos(monthTx("expense"), (t) => t.amount);
+  const totalExpense = monthTx("expense").reduce(
+    (s, t) => s + Number(t.amount || 0),
+    0,
+  );
   if (totalIncome > 0) {
     const savingsRate = Math.round(
       ((totalIncome - totalExpense) / totalIncome) * 100,
@@ -82,13 +77,10 @@ export function computeInsights() {
     }
   }
 
-  // Over-budget categories — DATA.budgets is a plain object keyed by
-  // category (DATA.budgets[catId] = amount), same shape overview.js
-  // already reads it in.
   const overBudget = [];
   Object.entries(DATA.budgets || {}).forEach(([catId, budgetAmount]) => {
     const spent = currentByCategory[catId] || 0;
-    const amt = asCentavos(budgetAmount);
+    const amt = Number(budgetAmount) || 0;
     if (amt > 0 && spent > amt) overBudget.push(catId);
   });
   if (overBudget.length === 1) {
@@ -103,14 +95,13 @@ export function computeInsights() {
     });
   }
 
-  // Biggest single expense this month
   const monthExpenses = monthTx("expense");
   if (monthExpenses.length > 0) {
     const biggest = monthExpenses.reduce(
-      (max, t) => (asCentavos(t.amount) > asCentavos(max.amount) ? t : max),
+      (max, t) => (Number(t.amount) > Number(max.amount) ? t : max),
       monthExpenses[0],
     );
-    if (asCentavos(biggest.amount) > 0) {
+    if (Number(biggest.amount) > 0) {
       insights.push({
         icon: "🔍",
         text: `Your biggest expense this month was ${fmt(biggest.amount)}${biggest.desc ? ` for ${escapeHtml(biggest.desc)}` : ""}.`,
@@ -118,7 +109,7 @@ export function computeInsights() {
     }
   }
 
-  return insights.slice(0, 4); // cap at 4 — scannable, not overwhelming
+  return insights.slice(0, 4);
 }
 
 function categorySpendForMonth(monthKey) {
@@ -132,14 +123,11 @@ function categorySpendForMonth(monthKey) {
     )
       return;
     byCategory[t.category] =
-      (byCategory[t.category] || 0) + asCentavos(t.amount);
+      (byCategory[t.category] || 0) + Number(t.amount || 0);
   });
   return byCategory;
 }
 
-// Renders the whole card, or an empty string if there's nothing meaningful
-// to say yet (e.g. a brand-new account with only a few transactions) —
-// designed to disappear cleanly rather than show an awkward empty box.
 export function renderInsightsCard() {
   const insights = computeInsights();
   if (insights.length === 0) return "";

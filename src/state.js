@@ -4,10 +4,7 @@ import {
   cloudLoadAll,
   cloudMigrateLocalDataIfEmpty,
 } from "./sync.js";
-import { asCentavos, sumCentavos } from "./money.js";
 
-// Every money value in DATA (transaction/recurring/loan amounts, salary,
-// budgets, bill estimates, goal targets) is an INTEGER NUMBER OF CENTAVOS.
 export let DATA = {
   salary: {},
   transactions: [],
@@ -20,16 +17,15 @@ export let DATA = {
 
 export const state = {
   monthKey: monthKeyOf(new Date()),
-  section: "overview", // bottom nav: 'overview' | 'goals' | 'loans'
-  tab: "overview", // sub-tab used only when section === 'overview'
+  section: "overview",
+  tab: "overview",
   editingId: null,
   expenseFilters: { query: "", category: null },
 };
 
-// Loads DATA from the cloud if signed in, otherwise from localStorage.
 export async function initData() {
   if (isCloudMode()) {
-    const local = loadData(); // in case this is the very first sign-in on this device
+    const local = loadData();
     await cloudMigrateLocalDataIfEmpty(local);
     const cloud = await cloudLoadAll();
     replaceData(cloud || local);
@@ -38,7 +34,6 @@ export async function initData() {
   }
 }
 
-// Re-loads from the cloud after a sign-in event (mid-session, not on first boot).
 export async function switchToCloudData() {
   const local = {
     salary: DATA.salary,
@@ -54,7 +49,6 @@ export async function switchToCloudData() {
   if (cloud) replaceData(cloud);
 }
 
-// Falls back to localStorage after a sign-out.
 export function switchToLocalData() {
   replaceData(loadData());
 }
@@ -69,8 +63,6 @@ function replaceData(next) {
   DATA.loans = next.loans || [];
 }
 
-// Always mirrors to localStorage as an offline cache; cloud writes happen
-// separately at each mutation site (see components/sheet.js, income.js, budgets.js).
 export function saveData() {
   persist(DATA);
 }
@@ -92,19 +84,10 @@ export function shiftMonth(delta) {
   state.expenseFilters = { query: "", category: null };
 }
 
-// Goal contributions and utang principal/repayments are logged as real
-// transactions (so history stays accurate), but they're tracked separately
-// from the main balance — Goals and Utang already have their own summaries,
-// and mixing them into "Net Balance" makes that number mean something
-// different depending on whether you happened to add to a goal that month.
 export function isSeparatelyTracked(tx) {
   return !!(tx.goalId || tx.loanId);
 }
 
-// type: 'income' | 'expense'. excludeSeparatelyTracked defaults to true,
-// since almost every use of this (balance, trend, category breakdown,
-// budgets) wants goal/utang movements left out. Pass false only for the
-// raw Expenses/Income list views, which should still show everything.
 export function monthTx(type, { excludeSeparatelyTracked = true } = {}) {
   return DATA.transactions.filter((t) => {
     if (t.type !== type || !t.date || !t.date.startsWith(state.monthKey))
@@ -114,12 +97,17 @@ export function monthTx(type, { excludeSeparatelyTracked = true } = {}) {
   });
 }
 
-// All values returned are integer centavos — format only at the UI layer.
 export function totals() {
-  const salary = asCentavos(DATA.salary[state.monthKey]);
-  const extraIncome = sumCentavos(monthTx("income"), (t) => t.amount);
+  const salary = Number(DATA.salary[state.monthKey]) || 0;
+  const extraIncome = monthTx("income").reduce(
+    (s, t) => s + Number(t.amount || 0),
+    0,
+  );
   const totalIncome = salary + extraIncome;
-  const totalExpense = sumCentavos(monthTx("expense"), (t) => t.amount);
+  const totalExpense = monthTx("expense").reduce(
+    (s, t) => s + Number(t.amount || 0),
+    0,
+  );
   return {
     salary,
     extraIncome,
@@ -140,16 +128,24 @@ export function monthsBack(n) {
 }
 
 export function trendTotals(mk) {
-  const inMonth = (type) =>
-    DATA.transactions.filter(
+  const salary = Number(DATA.salary[mk]) || 0;
+  const extra = DATA.transactions
+    .filter(
       (x) =>
-        x.type === type &&
+        x.type === "income" &&
         x.date &&
         x.date.startsWith(mk) &&
         !isSeparatelyTracked(x),
-    );
-  const salary = asCentavos(DATA.salary[mk]);
-  const extra = sumCentavos(inMonth("income"), (x) => x.amount);
-  const exp = sumCentavos(inMonth("expense"), (x) => x.amount);
+    )
+    .reduce((s, x) => s + Number(x.amount || 0), 0);
+  const exp = DATA.transactions
+    .filter(
+      (x) =>
+        x.type === "expense" &&
+        x.date &&
+        x.date.startsWith(mk) &&
+        !isSeparatelyTracked(x),
+    )
+    .reduce((s, x) => s + Number(x.amount || 0), 0);
   return { inc: salary + extra, exp };
 }

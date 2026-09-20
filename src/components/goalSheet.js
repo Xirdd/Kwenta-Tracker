@@ -1,5 +1,4 @@
 import { escapeHtml, fmt, formatDate } from "../format.js";
-import { pesosToCentavos, centavosToPesos } from "../money.js";
 import { openModal, closeModal } from "./modal.js";
 import { renderGoalRing } from "./goalsTab.js";
 import {
@@ -19,10 +18,8 @@ export function initGoalSheets(rerenderCallback) {
   onChange = rerenderCallback;
 }
 
-// ── Add / edit a goal's definition ────────────────────────────────────────
 export function openGoalForm(goal) {
   const heading = goal ? "Edit goal" : "New savings goal";
-  const targetInputValue = goal ? centavosToPesos(goal.targetAmount) : ""; // stored as centavos, edited as pesos
 
   openModal(`
     <div class="grabber"></div>
@@ -33,7 +30,7 @@ export function openGoalForm(goal) {
     </div>
     <div class="field amount">
       <label>Target amount</label>
-      <input id="gTarget" type="number" inputmode="decimal" placeholder="20000" value="${targetInputValue}"/>
+      <input id="gTarget" type="number" inputmode="decimal" placeholder="20000" value="${goal?.targetAmount ?? ""}"/>
     </div>
     <div class="field">
       <label>Target month <span class="opt">(optional)</span></label>
@@ -50,15 +47,13 @@ export function openGoalForm(goal) {
 
   document.getElementById("gSaveBtn").onclick = () => {
     const name = document.getElementById("gName").value.trim();
-    const targetAmount = pesosToCentavos(
-      document.getElementById("gTarget").value,
-    ); // integer centavos
+    const targetAmount = Number(document.getElementById("gTarget").value);
     const targetMonth = document.getElementById("gMonth").value || undefined;
     if (!name) {
       flash("gName");
       return;
     }
-    if (targetAmount <= 0) {
+    if (!targetAmount || targetAmount <= 0) {
       flash("gTarget");
       return;
     }
@@ -87,7 +82,6 @@ function flash(id) {
   }, 700);
 }
 
-// ── View progress, add money, see & undo recent contributions ───────────
 export function openGoalDetail(goal) {
   const saved = savedAmount(goal.id);
   const pct = Math.min(100, (saved / goal.targetAmount) * 100);
@@ -149,9 +143,9 @@ export function openGoalDetail(goal) {
   document.getElementById("gEditBtn").onclick = () => openGoalForm(goal);
 
   document.getElementById("addMoneyBtn").onclick = () => {
-    const amount = pesosToCentavos(document.getElementById("addAmount").value); // integer centavos
+    const amount = Number(document.getElementById("addAmount").value);
     const date = document.getElementById("addDate").value || today;
-    if (amount <= 0) {
+    if (!amount || amount <= 0) {
       flash("addAmount");
       return;
     }
@@ -167,7 +161,7 @@ export function openGoalDetail(goal) {
       if (tx) {
         removeContribution(tx);
         onChange();
-        openGoalDetail(goal); // refresh the sheet in place with updated numbers
+        openGoalDetail(goal);
       }
     };
   });

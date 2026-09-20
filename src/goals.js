@@ -1,6 +1,5 @@
 import { DATA, saveData, monthKeyOf } from "./state.js";
 import { uid } from "./format.js";
-import { sumCentavos } from "./money.js";
 import {
   isCloudMode,
   cloudUpsertGoal,
@@ -16,7 +15,6 @@ export function getGoal(id) {
   return DATA.goals.find((g) => g.id === id);
 }
 
-// targetAmount is integer centavos.
 export function createGoal({ name, targetAmount, targetMonth }) {
   const goal = {
     id: uid(),
@@ -45,19 +43,19 @@ export function deleteGoal(id) {
   if (isCloudMode()) cloudDeleteGoal(id).catch((e) => notifySyncError(e));
 }
 
-// All contributions ever made toward a goal, regardless of which month is currently being viewed.
 export function contributionsFor(goalId) {
   return DATA.transactions
     .filter((t) => t.goalId === goalId)
     .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 }
 
-// Integer centavos.
 export function savedAmount(goalId) {
-  return sumCentavos(contributionsFor(goalId), (t) => t.amount);
+  return contributionsFor(goalId).reduce(
+    (s, t) => s + Number(t.amount || 0),
+    0,
+  );
 }
 
-// amount is integer centavos.
 export function addContribution(goal, { amount, date }) {
   const tx = {
     id: uid(),
@@ -86,7 +84,6 @@ export function currentRealMonthKey() {
   return monthKeyOf(new Date());
 }
 
-// Whole months between two 'YYYY-MM' keys (can be negative if `to` is in the past).
 export function monthsBetween(fromKey, toKey) {
   const [fy, fm] = fromKey.split("-").map(Number);
   const [ty, tm] = toKey.split("-").map(Number);
@@ -101,12 +98,9 @@ export function monthLabel(monthKey) {
   });
 }
 
-// A friendly "save this much per month to hit the target on time" hint, or a
-// past-due note. Returns null when there's nothing useful to say (no target
-// month set, or the goal is already complete).
 export function paceHint(goal) {
   const saved = savedAmount(goal.id);
-  const remaining = goal.targetAmount - saved; // integer centavos
+  const remaining = goal.targetAmount - saved;
   if (remaining <= 0) return null;
   if (!goal.targetMonth) return null;
 
@@ -114,13 +108,10 @@ export function paceHint(goal) {
   if (monthsLeft <= 0) {
     return `Target month has passed — still needs a bit more to finish.`;
   }
-  // Rounded UP to whole pesos (a hint shouldn't undershoot the target).
-  // One division of integers: centavos -> pesos and per-month in a single step.
-  const perMonthPesos = Math.ceil(remaining / (monthsLeft * 100));
-  return `Save about ${perMonthLabel(perMonthPesos)}/month to reach it by ${monthLabel(goal.targetMonth)}.`;
+  const perMonth = remaining / monthsLeft;
+  return `Save about ${perMonthLabel(perMonth)}/month to reach it by ${monthLabel(goal.targetMonth)}.`;
 }
 
-// Takes WHOLE PESOS (already rounded up by paceHint).
-function perMonthLabel(pesos) {
-  return "₱" + pesos.toLocaleString("en-US");
+function perMonthLabel(n) {
+  return "₱" + Math.ceil(n).toLocaleString("en-US");
 }

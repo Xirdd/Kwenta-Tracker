@@ -1,5 +1,4 @@
 import { escapeHtml, fmt, formatDate } from "../format.js";
-import { pesosToCentavos, centavosToPesos } from "../money.js";
 import { openModal, closeModal } from "./modal.js";
 import {
   createLoan,
@@ -17,12 +16,10 @@ export function initLoanSheets(rerenderCallback) {
   onChange = rerenderCallback;
 }
 
-// ── Add / edit a loan ──────────────────────────────────────────────────
 export function openLoanForm(loan) {
   const today = new Date().toISOString().slice(0, 10);
   const heading = loan ? "Edit utang" : "Log money lent or borrowed";
   let direction = loan ? loan.direction : "lent";
-  const amountInputValue = loan ? centavosToPesos(loan.amount) : ""; // stored as centavos, edited as pesos
 
   openModal(`
     <div class="grabber"></div>
@@ -45,7 +42,7 @@ export function openLoanForm(loan) {
     </div>
     <div class="field amount">
       <label>Amount</label>
-      <input id="lAmount" type="number" inputmode="decimal" placeholder="0.00" value="${amountInputValue}"/>
+      <input id="lAmount" type="number" inputmode="decimal" placeholder="0.00" value="${loan?.amount ?? ""}"/>
     </div>
     <div class="field">
       <label>Date</label>
@@ -78,14 +75,14 @@ export function openLoanForm(loan) {
 
   document.getElementById("lSaveBtn").onclick = () => {
     const person = document.getElementById("lPerson").value.trim();
-    const amount = pesosToCentavos(document.getElementById("lAmount").value); // integer centavos
+    const amount = Number(document.getElementById("lAmount").value);
     const date = document.getElementById("lDate").value || today;
     const note = document.getElementById("lNote").value.trim();
     if (!person) {
       flash("lPerson");
       return;
     }
-    if (amount <= 0) {
+    if (!amount || amount <= 0) {
       flash("lAmount");
       return;
     }
@@ -114,7 +111,6 @@ function flash(id) {
   }, 700);
 }
 
-// ── View progress, record a payment, see & undo recent repayments ────────
 export function openLoanDetail(loan) {
   const remaining = remainingAmount(loan);
   const settled = remaining <= 0;
@@ -183,11 +179,9 @@ export function openLoanDetail(loan) {
   const repayBtn = document.getElementById("repayBtn");
   if (repayBtn) {
     repayBtn.onclick = () => {
-      const amount = pesosToCentavos(
-        document.getElementById("repayAmount").value,
-      ); // integer centavos
+      const amount = Number(document.getElementById("repayAmount").value);
       const date = document.getElementById("repayDate").value || today;
-      if (amount <= 0) {
+      if (!amount || amount <= 0) {
         flash("repayAmount");
         return;
       }
@@ -204,7 +198,7 @@ export function openLoanDetail(loan) {
       if (tx) {
         removeRepayment(tx);
         onChange();
-        openLoanDetail(loan); // refresh the sheet in place with updated numbers
+        openLoanDetail(loan);
       }
     };
   });

@@ -1,22 +1,12 @@
 import { DATA } from "./state.js";
 import { catInfo, incCatInfo } from "./categories.js";
 import { csvEscape } from "./format.js";
-import { centavosToDecimalString } from "./money.js";
 
-// Amounts in the CSV are plain pesos ("1234.50") so spreadsheets read them as
-// numbers — built from integer centavos, so no float rounding creeps in.
 export function exportCSV() {
   const rows = [["Date", "Type", "Category", "Description", "Amount"]];
 
   Object.entries(DATA.salary).forEach(([mk, amt]) => {
-    if (amt)
-      rows.push([
-        mk + "-01",
-        "Income",
-        "Salary",
-        "Monthly salary",
-        centavosToDecimalString(amt),
-      ]);
+    if (amt) rows.push([mk + "-01", "Income", "Salary", "Monthly salary", amt]);
   });
 
   DATA.transactions
@@ -32,7 +22,7 @@ export function exportCSV() {
         tx.type === "expense" ? "Expense" : "Income",
         label,
         tx.desc || "",
-        centavosToDecimalString(tx.amount),
+        tx.amount,
       ]);
     });
 

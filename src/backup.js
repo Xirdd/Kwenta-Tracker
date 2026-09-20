@@ -10,16 +10,9 @@ import {
   cloudUpsertGoal,
   cloudUpsertLoan,
 } from "./sync.js";
-import { dataPesosToCentavos } from "./money.js";
 
-// Version 1: amounts were peso floats.
-// Version 2: amounts are integer centavos (this version).
-// Old v1 files still restore fine — they're converted in restoreBackup().
-const BACKUP_VERSION = 2;
+const BACKUP_VERSION = 1;
 
-// Builds the backup object and triggers a download — this is the entire
-// export path, and it's fully safe: it only reads DATA, which is already
-// in memory, no network calls or table-name assumptions involved.
 export function exportBackup() {
   const backup = {
     kwentaBackupVersion: BACKUP_VERSION,
@@ -48,9 +41,6 @@ export function exportBackup() {
   URL.revokeObjectURL(url);
 }
 
-// Reads and validates an uploaded backup file — doesn't apply it yet, just
-// parses and sanity-checks the shape so the caller can show what's about to
-// be restored (date, transaction count) before asking for confirmation.
 export function parseBackupFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -75,16 +65,6 @@ export function parseBackupFile(file) {
         reject(new Error("This doesn't look like a Kwenta backup file."));
         return;
       }
-      // A newer file could use a money format this version doesn't know —
-      // refuse rather than guess and silently mis-scale every amount.
-      if (parsed.kwentaBackupVersion > BACKUP_VERSION) {
-        reject(
-          new Error(
-            "This backup was made by a newer version of Kwenta. Update the app, then try again.",
-          ),
-        );
-        return;
-      }
       resolve(parsed);
     };
     reader.onerror = () => reject(new Error("Could not read that file."));
@@ -92,15 +72,8 @@ export function parseBackupFile(file) {
   });
 }
 
-// Applies a validated backup, replacing everything currently in DATA — and,
-// when signed in, replacing what's stored in Supabase too.
 export async function restoreBackup(backup) {
-  // v1 backups hold peso floats; convert once here so DATA is always centavos.
-  const d =
-    backup.kwentaBackupVersion < 2
-      ? dataPesosToCentavos(backup.data || {})
-      : backup.data || {};
-
+  const d = backup.data || {};
   DATA.salary = d.salary || {};
   DATA.transactions = d.transactions || [];
   DATA.budgets = d.budgets || {};
@@ -116,15 +89,6 @@ export async function restoreBackup(backup) {
   }
 }
 
-// Wipes every cloud table for the current user (wipe_my_data(), from
-// backup_restore.sql — separate from account deletion, since restoring
-// shouldn't touch household membership), then pushes the restored data back
-// up using sync.js's own upsert functions. Reusing those rather than
-// writing new raw inserts means the already-correct field mapping (e.g.
-// the transaction "desc" field maps to a "description" column, and
-// centavos convert back to the database's pesos) doesn't need to be
-// re-derived here — same job-list-then-Promise.all pattern sync.js already
-// uses for cloudMigrateLocalDataIfEmpty.
 async function restoreToCloud(data) {
   const { error: wipeError } = await supabase.rpc("wipe_my_data");
   if (wipeError) throw wipeError;
