@@ -9,6 +9,7 @@ import {
   totals,
   switchToCloudData,
   switchToLocalData,
+  monthPortionOf,
 } from "./state.js";
 import { materializeMonth } from "./recurring.js";
 import { getBill } from "./bills.js";
