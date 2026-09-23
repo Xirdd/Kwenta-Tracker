@@ -26,10 +26,34 @@ const PUSH_FUNCTION_SECRET = Deno.env.get("PUSH_FUNCTION_SECRET")!;
 
 webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
+// A plain `a !== b` string comparison on a secret returns as soon as it
+// finds the first differing character — in principle, that means a wrong
+// guess that happens to share more of its prefix with the real secret takes
+// marginally longer to reject than one that doesn't, which is the classic
+// timing side-channel for secret comparisons. This walks the full length of
+// both strings unconditionally (via XOR-accumulation) instead of bailing
+// early, so the comparison takes the same time regardless of where (or
+// whether) the strings first differ. Pads to equal length first so the
+// length itself doesn't leak through early loop termination either.
+function timingSafeEqual(a: string, b: string): boolean {
+  const maxLen = Math.max(a.length, b.length);
+  const paddedA = a.padEnd(maxLen, "\0");
+  const paddedB = b.padEnd(maxLen, "\0");
+  let mismatch = a.length === b.length ? 0 : 1;
+  for (let i = 0; i < maxLen; i++) {
+    mismatch |= paddedA.charCodeAt(i) ^ paddedB.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
 Deno.serve(async (req) => {
   try {
     const providedSecret = req.headers.get("x-push-secret");
-    if (!PUSH_FUNCTION_SECRET || providedSecret !== PUSH_FUNCTION_SECRET) {
+    if (
+      !PUSH_FUNCTION_SECRET ||
+      !providedSecret ||
+      !timingSafeEqual(providedSecret, PUSH_FUNCTION_SECRET)
+    ) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
