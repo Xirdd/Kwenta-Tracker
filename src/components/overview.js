@@ -1,10 +1,10 @@
 import {
   state,
-  DATA,
   monthTx,
   monthLabel,
   monthsBack,
   trendTotals,
+  budgetFor,
 } from "../state.js";
 import { catInfo } from "../categories.js";
 import { fmt, escapeHtml } from "../format.js";
@@ -25,6 +25,7 @@ export function renderOverview() {
   const entries = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
   const max = entries.length ? entries[0][1] : 0;
   const totalExp = entries.reduce((s, [, v]) => s + v, 0);
+  const totalLabel = fmt(totalExp);
 
   return `
   ${renderUpcomingBills()}
@@ -40,8 +41,8 @@ export function renderOverview() {
     <div class="bars">
       <div class="donut-wrap">
         ${renderDonut(entries, totalExp)}
-        <div class="donut-center">
-          <div class="donut-total">${fmt(totalExp)}</div>
+        <div class="donut-center" style="width:${DONUT_TEXT_WIDTH}px;">
+          <div class="donut-total" style="font-size:${donutTotalFontSize(totalLabel)}px;white-space:nowrap;">${totalLabel}</div>
           <div class="donut-label">total spent</div>
         </div>
       </div>
@@ -49,7 +50,7 @@ export function renderOverview() {
         .map(([catId, amt]) => {
           const c = catInfo(catId);
           const pct = max ? Math.max(6, (amt / max) * 100) : 0;
-          const budget = Number(DATA.budgets[catId]) || 0;
+          const budget = budgetFor(catId); // this half-month's limit
           const over = budget > 0 && amt > budget;
           return `
         <div class="bar-row">
@@ -101,37 +102,63 @@ function renderUpcomingBills() {
   </div>`;
 }
 
-// Gradient-filled, round-capped donut segments instead of flat color wedges
-// — reads softer and matches the rounded-card aesthetic elsewhere.
+// ── Donut chart ─────────────────────────────────────────────────────────
+// Geometry: a 180×180 viewBox, ring radius 64 with a 16-wide stroke, so the
+// ring spans radius 56–72 and the hole in the middle is 112px across.
+const DONUT_R = 64;
+const DONUT_STROKE = 16;
+// Widest the total can be while still sitting clear of the ring, with a few
+// px of breathing room on each side of the 112px hole.
+const DONUT_TEXT_WIDTH = 96;
+
+// The total used to be a fixed 17px, which is ~102px wide for something as
+// ordinary as "₱15,000.00" — wider than the hole, so it ran over the ring.
+// This shrinks the font as the amount gets longer (never below 10px).
+// 0.62em is the monospace glyph advance plus a little slack for the ₱
+// glyph's fallback font.
+function donutTotalFontSize(label) {
+  const size = Math.floor(DONUT_TEXT_WIDTH / (label.length * 0.62));
+  return Math.max(10, Math.min(17, size));
+}
+
+// Flat-ended segments with a real gap between them. The previous version used
+// round caps: a round cap extends half the stroke width (9px) past each end of
+// a dash, which swallowed the 2–3px gap entirely, so neighbouring segments
+// overlapped — the translucent gradient ends stacked into lighter blobs at
+// every join, slices looked larger than their real share, and tiny categories
+// showed up as round dots. Butt caps draw exactly the arc length asked for.
 function renderDonut(entries, total) {
-  const r = 60,
+  const r = DONUT_R,
     cx = 90,
     cy = 90,
     circ = 2 * Math.PI * r;
+  const gap = entries.length > 1 ? 2.5 : 0; // no gap needed for a single full ring
   let acc = 0;
   const defs = entries
     .map(([catId], i) => {
       const c = catInfo(catId);
       return `<linearGradient id="donutGrad${i}" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stop-color="${c.color}"/>
-        <stop offset="100%" stop-color="${c.color}" stop-opacity="0.65"/>
+        <stop offset="100%" stop-color="${c.color}" stop-opacity="0.8"/>
       </linearGradient>`;
     })
     .join("");
   const arcs = entries
-    .map(([catId, amt], i) => {
+    .map(([, amt], i) => {
       const frac = total ? amt / total : 0;
-      // A tiny gap between segments so gradients read as distinct slices
-      // rather than one continuous ring.
-      const gap = entries.length > 1 ? Math.min(circ * 0.008, 3) : 0;
-      const dash = Math.max(frac * circ - gap, 0);
-      const seg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="url(#donutGrad${i})" stroke-width="18" stroke-linecap="round" stroke-dasharray="${dash.toFixed(2)} ${(circ - dash).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 ${cx} ${cy})"/>`;
-      acc += frac * circ;
+      const len = frac * circ;
+      // Never let a very small slice vanish completely, but never draw more
+      // than its own length either.
+      const dash = Math.max(len - gap, Math.min(len, 1));
+      // Start half a gap in, so each gap is centered on the slice boundary.
+      const start = acc + gap / 2;
+      const seg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="url(#donutGrad${i})" stroke-width="${DONUT_STROKE}" stroke-linecap="butt" stroke-dasharray="${dash.toFixed(2)} ${(circ - dash).toFixed(2)}" stroke-dashoffset="${(-start).toFixed(2)}" transform="rotate(-90 ${cx} ${cy})"/>`;
+      acc += len;
       return seg;
     })
     .join("");
   return `<svg viewBox="0 0 180 180" width="180" height="180" class="donut-svg"><defs>${defs}</defs>
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--paper-2)" stroke-width="18"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--paper-2)" stroke-width="${DONUT_STROKE}"/>
     ${arcs}
   </svg>`;
 }
