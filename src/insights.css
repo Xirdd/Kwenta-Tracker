@@ -1,0 +1,149 @@
+/* ---------- Insights (bento tiles) ---------- */
+/* Each tile is tinted by tone via --ins-accent: green = good news, coral =
+   needs attention, gold (the theme accent) = neutral info. Everything else
+   comes from the shared theme tokens, so all five themes work unchanged. */
+.ins-good {
+  --ins-accent: var(--green);
+}
+.ins-bad {
+  --ins-accent: var(--coral);
+}
+.ins-info {
+  --ins-accent: var(--gold);
+}
+
+.ins-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+/* An odd tile out on phones stretches across both columns instead of
+   leaving a hole. */
+@media (max-width: 859px) {
+  .ins-grid > .ins-tile:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+@media (min-width: 860px) {
+  .ins-grid {
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  }
+}
+
+.ins-tile {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  padding: 14px 16px 16px 16px;
+  border-radius: 22px;
+  background: var(--gradient-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid color-mix(in srgb, var(--ins-accent) 22%, var(--line));
+  box-shadow: var(--shadow-card);
+  animation: goalCardIn 0.45s cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
+}
+/* Soft accent glow bleeding off the top-right corner, like the goal cards. */
+.ins-tile::before {
+  content: "";
+  position: absolute;
+  top: -46px;
+  right: -46px;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--ins-accent) 34%, transparent) 0%,
+    color-mix(in srgb, var(--ins-accent) 10%, transparent) 45%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+.ins-tile > * {
+  position: relative;
+  z-index: 1;
+}
+
+.ins-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ins-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--ins-accent);
+  background: color-mix(in srgb, var(--ins-accent) 16%, transparent);
+}
+.ins-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ins-metric {
+  font-family:
+    "IBM Plex Mono", "SF Mono", "Menlo", "Roboto Mono", "Consolas", monospace;
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  /* Nudged toward the theme's text color so the big number stays readable on
+     the light theme, where the pure accent green is too pale on white. */
+  color: color-mix(in srgb, var(--ins-accent) 80%, var(--ink));
+  white-space: nowrap;
+  margin-bottom: 6px;
+}
+.ins-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ins-sub {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+/* Thin progress meter (used for the savings rate). */
+.ins-meter {
+  height: 5px;
+  margin-top: 12px;
+  border-radius: 4px;
+  background: var(--paper-2);
+  overflow: hidden;
+}
+.ins-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--ins-accent),
+    color-mix(in srgb, var(--ins-accent) 60%, transparent)
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ins-tile {
+    animation: none;
+  }
+}
