@@ -1,5 +1,12 @@
 import { jsPDF } from "jspdf";
-import { state, DATA, monthTx, monthLabel, totals } from "./state.js";
+import {
+  state,
+  DATA,
+  monthTx,
+  monthLabel,
+  totals,
+  budgetFor,
+} from "./state.js";
 import { catInfo } from "./categories.js";
 import { fmt } from "./format.js";
 
@@ -73,7 +80,7 @@ export function exportMonthlyStatementPDF() {
         y = 20;
       }
       const label = catInfo(catId).label;
-      const budget = Number(DATA.budgets[catId]) || 0;
+      const budget = budgetFor(catId); // this half-month's limit
       const over = budget > 0 && amt > budget;
 
       doc.setFont("helvetica", "normal");

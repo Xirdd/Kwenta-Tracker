@@ -10,6 +10,7 @@ import {
   cloudUpsertGoal,
   cloudUpsertLoan,
 } from "./sync.js";
+import { cloudSetBudgetSecond } from "./budgetLimitsCloud.js";
 
 const BACKUP_VERSION = 1;
 
@@ -21,6 +22,7 @@ export function exportBackup() {
       salary: DATA.salary,
       transactions: DATA.transactions,
       budgets: DATA.budgets,
+      budgetsSecond: DATA.budgetsSecond,
       recurring: DATA.recurring,
       bills: DATA.bills,
       goals: DATA.goals,
@@ -77,6 +79,9 @@ export async function restoreBackup(backup) {
   DATA.salary = d.salary || {};
   DATA.transactions = d.transactions || [];
   DATA.budgets = d.budgets || {};
+  // Backups made before semi-monthly limits existed have no budgetsSecond —
+  // that just means every category uses one limit for both halves.
+  DATA.budgetsSecond = d.budgetsSecond || {};
   DATA.recurring = d.recurring || [];
   DATA.bills = d.bills || [];
   DATA.goals = d.goals || [];
@@ -110,4 +115,10 @@ async function restoreToCloud(data) {
   (data.goals || []).forEach((goal) => jobs.push(cloudUpsertGoal(goal)));
   (data.loans || []).forEach((loan) => jobs.push(cloudUpsertLoan(loan)));
   await Promise.all(jobs);
+
+  // Second-half limits go in AFTER the budget rows above exist — they update
+  // that same row, and running them in parallel with the inserts would race.
+  for (const [cat, amt] of Object.entries(data.budgetsSecond || {})) {
+    await cloudSetBudgetSecond(cat, amt);
+  }
 }

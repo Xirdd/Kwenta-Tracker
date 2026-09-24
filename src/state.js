@@ -4,11 +4,21 @@ import {
   cloudLoadAll,
   cloudMigrateLocalDataIfEmpty,
 } from "./sync.js";
+import {
+  cloudLoadBudgetsSecond,
+  cloudSetBudgetSecond,
+} from "./budgetLimitsCloud.js";
 
 export let DATA = {
   salary: {},
   transactions: [],
+  // Budget limits are semi-monthly. `budgets[cat]` is the 1st–15th limit (and,
+  // for anything saved before limits were split, the limit for both halves).
+  // `budgetsSecond[cat]` is an OPTIONAL separate limit for the 16th–end half;
+  // when a category has none, the 16th–end half uses budgets[cat]. Read limits
+  // through budgetFor() below rather than indexing these directly.
   budgets: {},
+  budgetsSecond: {},
   recurring: [],
   bills: [],
   goals: [],
@@ -79,6 +89,29 @@ export function monthPortionOf(periodKey) {
   return periodKey.slice(0, 7);
 }
 
+// 1 for the 1st–15th, 2 for the 16th–end — the half a period key belongs to.
+export function halfOfKey(periodKey) {
+  return Number(String(periodKey).split("-")[2]) === 2 ? 2 : 1;
+}
+
+// True if this category has its own separate 16th–end limit (as opposed to
+// inheriting the 1st–15th one). An explicit 0 counts — it means "no limit in
+// the 2nd half" even when the 1st half has one.
+export function hasOwnSecondBudget(catId) {
+  const v = DATA.budgetsSecond[catId];
+  return v !== undefined && v !== null;
+}
+
+// The budget limit that applies to a category in a given period (defaults to
+// the period currently being viewed). 0 means no limit.
+export function budgetFor(catId, periodKey = state.monthKey) {
+  const first = Number(DATA.budgets[catId]) || 0;
+  if (halfOfKey(periodKey) === 1) return first;
+  return hasOwnSecondBudget(catId)
+    ? Number(DATA.budgetsSecond[catId]) || 0
+    : first;
+}
+
 // Kept name: shiftMonth. Moves one period forward/back, correctly rolling
 // over month and year boundaries (verified against Dec->Jan and Jan->Dec).
 export function shiftMonth(delta) {
@@ -114,12 +147,40 @@ export function shiftMonth(delta) {
   state.expenseFilters = { query: "", category: null };
 }
 
+// The optional 2nd-half limits live in their own cloud module (so sync.js
+// stays untouched). If that load fails — offline, or the SQL migration in
+// supabase/budget_second_half.sql hasn't been run yet — fall back to what's
+// already on this device instead of losing them or blocking the whole load.
+async function attachSecondHalfBudgets(cloud, fallback) {
+  try {
+    cloud.budgetsSecond = await cloudLoadBudgetsSecond();
+  } catch (e) {
+    console.error("Couldn't load 2nd-half budget limits", e);
+    cloud.budgetsSecond = fallback || {};
+  }
+}
+
+// First sign-in on a device whose cloud account was empty: the app already
+// pushes local data up (cloudMigrateLocalDataIfEmpty), which only knows the
+// 1st-half limit — this carries the 2nd-half ones along.
+async function pushSecondHalfBudgets(second) {
+  for (const [cat, amt] of Object.entries(second || {})) {
+    try {
+      await cloudSetBudgetSecond(cat, amt);
+    } catch (e) {
+      console.error("Couldn't upload 2nd-half budget limit", e);
+    }
+  }
+}
+
 // Loads DATA from the cloud if signed in, otherwise from localStorage.
 export async function initData() {
   if (isCloudMode()) {
     const local = loadData(); // in case this is the very first sign-in on this device
-    await cloudMigrateLocalDataIfEmpty(local);
+    const migrated = await cloudMigrateLocalDataIfEmpty(local);
+    if (migrated) await pushSecondHalfBudgets(local.budgetsSecond);
     const cloud = await cloudLoadAll();
+    if (cloud) await attachSecondHalfBudgets(cloud, local.budgetsSecond);
     replaceData(cloud || local);
   } else {
     replaceData(loadData());
@@ -132,14 +193,19 @@ export async function switchToCloudData() {
     salary: DATA.salary,
     transactions: DATA.transactions,
     budgets: DATA.budgets,
+    budgetsSecond: DATA.budgetsSecond,
     recurring: DATA.recurring,
     bills: DATA.bills,
     goals: DATA.goals,
     loans: DATA.loans,
   };
-  await cloudMigrateLocalDataIfEmpty(local);
+  const migrated = await cloudMigrateLocalDataIfEmpty(local);
+  if (migrated) await pushSecondHalfBudgets(local.budgetsSecond);
   const cloud = await cloudLoadAll();
-  if (cloud) replaceData(cloud);
+  if (cloud) {
+    await attachSecondHalfBudgets(cloud, local.budgetsSecond);
+    replaceData(cloud);
+  }
 }
 
 // Falls back to localStorage after a sign-out.
@@ -151,6 +217,7 @@ function replaceData(next) {
   DATA.salary = next.salary || {};
   DATA.transactions = next.transactions || [];
   DATA.budgets = next.budgets || {};
+  DATA.budgetsSecond = next.budgetsSecond || {};
   DATA.recurring = next.recurring || [];
   DATA.bills = next.bills || [];
   DATA.goals = next.goals || [];

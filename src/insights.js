@@ -1,3 +1,4 @@
+import "./insights.css";
 import {
   DATA,
   state,
@@ -5,15 +6,27 @@ import {
   monthsBack,
   isSeparatelyTracked,
   periodRange,
+  budgetFor,
 } from "./state.js";
 import { catInfo } from "./categories.js";
 import { fmt, escapeHtml } from "./format.js";
 
-// Returns an array of {icon, text} — short, computed observations about the
-// currently viewed period's spending. Nothing forced: if there isn't enough
-// data to say something meaningful (e.g. a category had ₱0 last period, so
-// "up 400%" would just be noise), that insight is skipped rather than shown
-// with misleading numbers.
+// Simple 24×24 line icons, same stroke style as the category badges.
+const ICONS = {
+  up: `<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>`,
+  down: `<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>`,
+  wallet: `<path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/>`,
+  alert: `<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>`,
+  flag: `<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>`,
+  arrow: `<line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>`,
+};
+
+// Returns an array of insight tiles for the currently viewed period:
+//   { tone: 'good' | 'bad' | 'info', icon, tag, metric, title, sub, meter? }
+// `metric` is the big number, `title` the what, `sub` the context line.
+// Nothing forced: if there isn't enough data to say something meaningful
+// (e.g. a category had ₱0 last period, so "up 400%" would just be noise),
+// that insight is skipped rather than shown with misleading numbers.
 export function computeInsights() {
   const insights = [];
   const currentPeriod = state.monthKey;
@@ -45,14 +58,22 @@ export function computeInsights() {
 
   if (biggestIncrease) {
     insights.push({
-      icon: "📈",
-      text: `You spent ${Math.round(biggestIncrease.pct)}% more on ${escapeHtml(catInfo(biggestIncrease.cat).label)} this period than last.`,
+      tone: "bad",
+      icon: "up",
+      tag: "More spent",
+      metric: `+${Math.round(biggestIncrease.pct)}%`,
+      title: catInfo(biggestIncrease.cat).label,
+      sub: "more than last period",
     });
   }
   if (biggestDecrease) {
     insights.push({
-      icon: "📉",
-      text: `You spent ${Math.round(Math.abs(biggestDecrease.pct))}% less on ${escapeHtml(catInfo(biggestDecrease.cat).label)} this period than last — nice.`,
+      tone: "good",
+      icon: "down",
+      tag: "Less spent",
+      metric: `\u2212${Math.round(Math.abs(biggestDecrease.pct))}%`,
+      title: catInfo(biggestDecrease.cat).label,
+      sub: "less than last period",
     });
   }
 
@@ -73,35 +94,52 @@ export function computeInsights() {
     );
     if (savingsRate >= 0) {
       insights.push({
-        icon: "💰",
-        text: `You've saved ${savingsRate}% of your income so far this period.`,
+        tone: "good",
+        icon: "wallet",
+        tag: "Savings",
+        metric: `${savingsRate}%`,
+        title: "Saved so far",
+        sub: "of income this period",
+        meter: Math.min(100, savingsRate),
       });
     } else {
       insights.push({
-        icon: "⚠️",
-        text: `You've spent ${Math.abs(savingsRate)}% more than you've earned this period.`,
+        tone: "bad",
+        icon: "alert",
+        tag: "Cash flow",
+        metric: `+${Math.abs(savingsRate)}%`,
+        title: "Over your income",
+        sub: "spent more than you earned",
       });
     }
   }
 
-  // Over-budget categories — DATA.budgets is a plain object keyed by
-  // category (DATA.budgets[catId] = amount), same shape overview.js
-  // already reads it in.
+  // Over-budget categories — measured against this half-month's own limit
+  // (budgetFor), so a category can be over in one half and fine in the other.
+  // Only categories with spending this period can be over, so those are the
+  // ones checked.
   const overBudget = [];
-  Object.entries(DATA.budgets || {}).forEach(([catId, budgetAmount]) => {
-    const spent = currentByCategory[catId] || 0;
-    const amt = Number(budgetAmount) || 0;
-    if (amt > 0 && spent > amt) overBudget.push(catId);
+  Object.keys(currentByCategory).forEach((catId) => {
+    const limit = budgetFor(catId);
+    if (limit > 0 && currentByCategory[catId] > limit) overBudget.push(catId);
   });
   if (overBudget.length === 1) {
     insights.push({
-      icon: "🔺",
-      text: `You're over budget on ${escapeHtml(catInfo(overBudget[0]).label)} this period.`,
+      tone: "bad",
+      icon: "flag",
+      tag: "Budget",
+      metric: "Over",
+      title: catInfo(overBudget[0]).label,
+      sub: "budget this period",
     });
   } else if (overBudget.length > 1) {
     insights.push({
-      icon: "🔺",
-      text: `You're over budget in ${overBudget.length} categories this period.`,
+      tone: "bad",
+      icon: "flag",
+      tag: "Budget",
+      metric: String(overBudget.length),
+      title: "Categories over",
+      sub: "budget this period",
     });
   }
 
@@ -114,8 +152,12 @@ export function computeInsights() {
     );
     if (Number(biggest.amount) > 0) {
       insights.push({
-        icon: "🔍",
-        text: `Your biggest expense this period was ${fmt(biggest.amount)}${biggest.desc ? ` for ${escapeHtml(biggest.desc)}` : ""}.`,
+        tone: "info",
+        icon: "arrow",
+        tag: "Top expense",
+        metric: fmt(biggest.amount),
+        title: biggest.desc || catInfo(biggest.category).label,
+        sub: "biggest single expense",
       });
     }
   }
@@ -147,25 +189,39 @@ function categorySpendForMonth(periodKey) {
   return byCategory;
 }
 
-// Renders the whole card, or an empty string if there's nothing meaningful
-// to say yet (e.g. a brand-new account with only a few transactions) —
-// designed to disappear cleanly rather than show an awkward empty box.
+// Long amounts ("₱123,456.00") would run past the edge of a half-width tile
+// at the full 24px, so the big number steps down as it gets longer.
+function metricFontSize(metric) {
+  if (metric.length > 11) return 17;
+  if (metric.length > 9) return 20;
+  return 24;
+}
+
+function renderTile(i, index) {
+  return `
+  <div class="ins-tile ins-${i.tone}" style="animation-delay:${index * 60}ms;">
+    <div class="ins-top">
+      <span class="ins-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS[i.icon]}</svg></span>
+      <span class="ins-tag">${escapeHtml(i.tag)}</span>
+    </div>
+    <div class="ins-metric" style="font-size:${metricFontSize(i.metric)}px;">${escapeHtml(i.metric)}</div>
+    <div class="ins-title">${escapeHtml(i.title)}</div>
+    <div class="ins-sub">${escapeHtml(i.sub)}</div>
+    ${i.meter !== undefined ? `<div class="ins-meter"><span style="width:${Math.max(i.meter, 2)}%"></span></div>` : ""}
+  </div>`;
+}
+
+// Renders the whole section, or an empty string if there's nothing
+// meaningful to say yet (e.g. a brand-new account with only a few
+// transactions) — designed to disappear cleanly rather than show an awkward
+// empty box.
 export function renderInsightsCard() {
   const insights = computeInsights();
   if (insights.length === 0) return "";
 
   return `
-  <div class="insights-card">
-    <div class="insights-title">Insights</div>
-    ${insights
-      .map(
-        (i) => `
-      <div class="insight-row">
-        <span class="insight-icon">${i.icon}</span>
-        <span class="insight-text">${i.text}</span>
-      </div>
-    `,
-      )
-      .join("")}
+  <div class="section-title">Insights <span class="sub">this period</span></div>
+  <div class="ins-grid">
+    ${insights.map(renderTile).join("")}
   </div>`;
 }
