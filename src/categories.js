@@ -1,3 +1,5 @@
+import { DATA } from "./state.js";
+
 // Simple line-icon SVGs (24x24 viewBox, stroke-based) — one per category, used
 // for the icon-badge treatment (colored circle + icon) instead of plain dots.
 const ICONS = {
@@ -22,6 +24,26 @@ const ICONS = {
   allowance: `<rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>`,
 };
 
+// Icon used for every custom (user-created) category — a price tag, distinct
+// from the "other" three-dot glyph so a custom category never looks like an
+// unrecognized one.
+const CUSTOM_ICON = `<path d="M20.59 13.41 13 21l-9-9V4h8l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7.5" cy="7.5" r="1.5"/>`;
+
+// A curated palette for custom categories to pick from — reuses hues already
+// used elsewhere in the app so a custom category never clashes.
+export const CUSTOM_CATEGORY_COLORS = [
+  "#e2604a",
+  "#d4a72c",
+  "#3fa377",
+  "#5b7fde",
+  "#8e5fd6",
+  "#d65a8e",
+  "#4fb8c9",
+  "#7fae3f",
+  "#c77b3f",
+  "#e893a8",
+];
+
 export const CATEGORIES = [
   { id: "food", label: "Food & Groceries", color: "#e2604a" },
   { id: "transport", label: "Transport", color: "#d4a72c" },
@@ -42,9 +64,42 @@ export const CATEGORIES = [
 ].map((c) => ({ ...c, icon: ICONS[c.id] }));
 
 export function catInfo(id) {
-  return (
-    CATEGORIES.find((c) => c.id === id) || CATEGORIES[CATEGORIES.length - 1]
+  const builtin = CATEGORIES.find((c) => c.id === id);
+  if (builtin) return builtin;
+  const custom = (DATA.customCategories || []).find(
+    (c) => c.id === id && c.active !== false,
   );
+  if (custom) {
+    return {
+      id: custom.id,
+      label: custom.label,
+      color: custom.color,
+      icon: CUSTOM_ICON,
+      custom: true,
+    };
+  }
+  // Unknown id (including a deleted custom category) — same fallback as
+  // before, so old transactions never render blank.
+  return CATEGORIES[CATEGORIES.length - 1];
+}
+
+// Every category a NEW/EDITED expense (or the Budgets tab) can be assigned
+// to: the fixed built-ins, then any active custom categories, with "Others"
+// kept last so it still reads as the catch-all. Income has no custom
+// categories — INCOME_CATEGORIES is untouched.
+export function allExpenseCategories() {
+  const others = CATEGORIES[CATEGORIES.length - 1];
+  const fixed = CATEGORIES.slice(0, -1);
+  const custom = (DATA.customCategories || [])
+    .filter((c) => c.active !== false)
+    .map((c) => ({
+      id: c.id,
+      label: c.label,
+      color: c.color,
+      icon: CUSTOM_ICON,
+      custom: true,
+    }));
+  return [...fixed, ...custom, others];
 }
 
 // A focused subset shown in the Bills form specifically — common Philippine

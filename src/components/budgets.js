@@ -7,13 +7,36 @@ import {
   halfOfKey,
   hasOwnSecondBudget,
 } from "../state.js";
-import { CATEGORIES, catInfo, categoryIconBadge } from "../categories.js";
-import { fmt } from "../format.js";
+import {
+  catInfo,
+  categoryIconBadge,
+  allExpenseCategories,
+  CUSTOM_CATEGORY_COLORS,
+} from "../categories.js";
+import { fmt, escapeHtml } from "../format.js";
 import { isCloudMode, cloudUpsertBudget } from "../sync.js";
 import { cloudSetBudgetSecond } from "../budgetLimitsCloud.js";
 import { notifySyncError } from "../toast.js";
+import {
+  createCustomCategory,
+  updateCustomCategory,
+  deleteCustomCategory,
+} from "../customCategories.js";
+import "../customCategories.css";
+import { openModal, closeModal } from "./modal.js";
+
+let onChange = () => {};
+
+// Called once from main.js (initBudgetsSheet(render)) — lets the custom-
+// category create/edit/delete modal below trigger a re-render after saving,
+// the same pattern goalSheet.js/loanSheet.js/billSheet.js already use.
+export function initBudgetsSheet(rerenderCallback) {
+  onChange = rerenderCallback;
+}
 
 const CHEVRON_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+const EDIT_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+const PLUS_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
 
 // One small pill per half: "1–15  ₱ [ 5000 ]" / "16–end  ₱ [ 4000 ]". The pill
 // for the half currently being viewed gets a gold ring so it's obvious which
@@ -22,15 +45,19 @@ const CHEVRON_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none
 // that's the value it's inheriting.
 function limitPill(catId, half, value, placeholder, active) {
   const label = half === 1 ? "1–15" : "16–end";
+  // Equal-width pills that share the row (flex:1). The active ring is a real
+  // border rather than a box-shadow: the collapsible row is overflow:hidden,
+  // so a shadow ring got its top and sides sliced off.
   return `
-  <div class="budget-input-wrap" style="margin-bottom:0;${active ? "box-shadow:0 0 0 1.5px var(--gold);" : ""}">
-    <span style="font-size:10.5px;font-weight:700;color:var(--ink-soft);margin-right:4px;">${label}</span>
+  <div class="budget-input-wrap" style="flex:1;min-width:0;width:auto;margin-bottom:0;border:1.5px solid ${active ? "var(--gold)" : "transparent"};">
+    <span style="font-size:10.5px;font-weight:700;color:var(--ink-soft);margin-right:4px;white-space:nowrap;">${label}</span>
     <span>₱</span>
-    <input type="number" inputmode="decimal" class="budgetInput" data-cat="${catId}" data-half="${half}" placeholder="${placeholder || 0}" value="${value}" style="width:64px;"/>
+    <input type="number" inputmode="decimal" class="budgetInput" data-cat="${catId}" data-half="${half}" placeholder="${placeholder || 0}" value="${value}" style="flex:1;min-width:0;width:100%;"/>
   </div>`;
 }
 
 export function renderBudgets() {
+  const cats = allExpenseCategories();
   const exp = monthTx("expense");
   const spentByCat = {};
   exp.forEach((e) => {
@@ -38,7 +65,7 @@ export function renderBudgets() {
       (spentByCat[e.category] || 0) + Number(e.amount || 0);
   });
   const viewedHalf = halfOfKey(state.monthKey);
-  const totalBudget = CATEGORIES.reduce((s, c) => s + budgetFor(c.id), 0);
+  const totalBudget = cats.reduce((s, c) => s + budgetFor(c.id), 0);
   const totalSpent = exp.reduce((s, e) => s + Number(e.amount || 0), 0);
 
   return `
@@ -53,18 +80,22 @@ export function renderBudgets() {
       : ""
   }
   <div class="list budget-list">
-    ${CATEGORIES.map((c) => {
-      const first = Number(DATA.budgets[c.id]) || 0;
-      const hasSecond = hasOwnSecondBudget(c.id);
-      const limit = budgetFor(c.id);
-      const spent = spentByCat[c.id] || 0;
-      const pct = limit ? Math.min(100, (spent / limit) * 100) : 0;
-      const over = limit > 0 && spent > limit;
-      return `
+    ${cats
+      .map((c) => {
+        const first = Number(DATA.budgets[c.id]) || 0;
+        const hasSecond = hasOwnSecondBudget(c.id);
+        const limit = budgetFor(c.id);
+        const spent = spentByCat[c.id] || 0;
+        const pct = limit ? Math.min(100, (spent / limit) * 100) : 0;
+        const over = limit > 0 && spent > limit;
+        return `
       <div class="budget-row" data-cat-row="${c.id}">
         <div class="budget-header" data-toggle="${c.id}">
           <div class="budget-name">${categoryIconBadge(c, 32)}${c.label}</div>
-          <span class="budget-chevron">${CHEVRON_ICON}</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${c.custom ? `<button type="button" class="icon-ghost-btn" data-edit-cat="${c.id}" title="Edit">${EDIT_ICON}</button>` : ""}
+            <span class="budget-chevron">${CHEVRON_ICON}</span>
+          </div>
         </div>
         <div class="budget-detail">
           <div class="budget-detail-inner">
@@ -77,8 +108,10 @@ export function renderBudgets() {
           </div>
         </div>
       </div>`;
-    }).join("")}
+      })
+      .join("")}
   </div>
+  <button type="button" class="btn btn-ghost" id="addCustomCatBtn" style="width:100%;margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px;">${PLUS_ICON}Add a custom budget category</button>
   `;
 }
 
@@ -129,7 +162,8 @@ function refreshRow(row, cat) {
   }
 }
 
-// Wires the limit inputs and the tap-to-reveal toggle on each row's header.
+// Wires the limit inputs, the tap-to-reveal toggle, and the custom-category
+// add/edit controls.
 export function attachBudgetEvents() {
   document.querySelectorAll(".budgetInput").forEach((inp) => {
     inp.oninput = (e) => {
@@ -163,4 +197,108 @@ export function attachBudgetEvents() {
       row.classList.toggle("open");
     };
   });
+
+  document.querySelectorAll("[data-edit-cat]").forEach((btn) => {
+    btn.onclick = (e) => {
+      e.stopPropagation(); // don't also toggle the row open/closed
+      const cat = DATA.customCategories.find(
+        (c) => c.id === btn.dataset.editCat,
+      );
+      if (cat) openCategoryForm(cat);
+    };
+  });
+
+  const addBtn = document.getElementById("addCustomCatBtn");
+  if (addBtn) addBtn.onclick = () => openCategoryForm(null);
+}
+
+function colorSwatchRow(selected) {
+  return `
+  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;">
+    ${CUSTOM_CATEGORY_COLORS.map(
+      (hex) => `
+      <button type="button" class="color-swatch-btn ${hex === selected ? "selected" : ""}" data-color="${hex}" style="background:${hex};" aria-label="${hex}"></button>
+    `,
+    ).join("")}
+  </div>`;
+}
+
+function openCategoryForm(cat, error) {
+  const isEdit = !!cat;
+  let chosenColor = cat ? cat.color : CUSTOM_CATEGORY_COLORS[0];
+
+  openModal(`
+    <div class="grabber"></div>
+    <h3>${isEdit ? "Edit budget category" : "New budget category"}</h3>
+    <div class="field">
+      <label>Name</label>
+      <input id="ccLabel" type="text" placeholder="e.g. Pet care, Tuition" value="${escapeHtml(cat?.label || "")}"/>
+    </div>
+    <div class="field">
+      <label>Color</label>
+      <div id="ccColorRow">${colorSwatchRow(chosenColor)}</div>
+    </div>
+    ${error ? `<p class="auth-message" style="color:var(--coral);">${error}</p>` : ""}
+    <div class="sheet-actions">
+      ${isEdit ? `<button class="btn btn-danger" id="ccDeleteBtn">Delete</button>` : ""}
+      <button class="btn btn-ghost" id="ccCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="ccSaveBtn">Save</button>
+    </div>
+  `);
+
+  document.querySelectorAll("#ccColorRow .color-swatch-btn").forEach((btn) => {
+    btn.onclick = () => {
+      chosenColor = btn.dataset.color;
+      document
+        .querySelectorAll("#ccColorRow .color-swatch-btn")
+        .forEach((b) => b.classList.remove("selected"));
+      btn.classList.add("selected");
+    };
+  });
+
+  document.getElementById("ccCancelBtn").onclick = closeModal;
+
+  document.getElementById("ccSaveBtn").onclick = () => {
+    const label = document.getElementById("ccLabel").value.trim();
+    if (!label) {
+      openCategoryForm(cat, "Give this category a name.");
+      return;
+    }
+    // "Others" is a reserved fallback label everywhere in the app
+    // (catInfo()'s catch-all) — a same-named custom category would be
+    // confusing right next to it.
+    if (label.toLowerCase() === "others") {
+      openCategoryForm(cat, "That name is reserved — try something else.");
+      return;
+    }
+
+    if (isEdit) updateCustomCategory(cat, { label, color: chosenColor });
+    else createCustomCategory({ label, color: chosenColor });
+
+    closeModal();
+    onChange();
+  };
+
+  if (isEdit) {
+    document.getElementById("ccDeleteBtn").onclick = () =>
+      confirmDeleteCategory(cat);
+  }
+}
+
+function confirmDeleteCategory(cat) {
+  openModal(`
+    <div class="grabber"></div>
+    <h3>Delete "${escapeHtml(cat.label)}"?</h3>
+    <p class="auth-message">Its budget limits go with it. Expenses already logged under it stay in your history, listed under "Others" from now on.</p>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="ccKeepBtn">Keep it</button>
+      <button class="btn btn-danger" id="ccConfirmDeleteBtn">Delete</button>
+    </div>
+  `);
+  document.getElementById("ccKeepBtn").onclick = () => openCategoryForm(cat);
+  document.getElementById("ccConfirmDeleteBtn").onclick = () => {
+    deleteCustomCategory(cat.id);
+    closeModal();
+    onChange();
+  };
 }

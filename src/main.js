@@ -24,7 +24,11 @@ import { renderFab, attachFabEvents } from "./components/fabMenu.js";
 import { renderOverview } from "./components/overview.js";
 import { renderIncome, attachIncomeEvents } from "./components/income.js";
 import { renderExpenses, attachExpenseEvents } from "./components/expenses.js";
-import { renderBudgets, attachBudgetEvents } from "./components/budgets.js";
+import {
+  renderBudgets,
+  attachBudgetEvents,
+  initBudgetsSheet,
+} from "./components/budgets.js";
 import { renderBills } from "./components/billsTab.js";
 import { renderGoalsTab } from "./components/goalsTab.js";
 import {
@@ -264,6 +268,7 @@ function hideSplash() {
   initBillSheets(render);
   initGoalSheets(render);
   initLoanSheets(render);
+  initBudgetsSheet(render); // custom budget category create/edit/delete needs a re-render too
   initHouseholdSheet(onHouseholdChanged);
   initProfileTab(render); // theme toggle inside Profile needs to trigger a re-render too
   initDeleteAccountSheet(() => {

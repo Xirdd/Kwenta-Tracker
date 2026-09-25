@@ -1,0 +1,29 @@
+/* ---------- Custom budget categories ---------- */
+.icon-ghost-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--paper-2);
+  border: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.icon-ghost-btn:active {
+  color: var(--gold);
+}
+.color-swatch-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.color-swatch-btn.selected {
+  border-color: var(--ink);
+  transform: scale(1.08);
+}

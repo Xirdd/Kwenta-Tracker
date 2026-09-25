@@ -1,6 +1,6 @@
 import { DATA, saveData } from "../state.js";
 import {
-  CATEGORIES,
+  allExpenseCategories,
   INCOME_CATEGORIES,
   categoryIconBadge,
 } from "../categories.js";
@@ -26,9 +26,11 @@ export function initSheet(rerenderCallback) {
 
 export const closeSheet = closeModal;
 
-export function openForm(type, tx) {
-  const cats = type === "expense" ? CATEGORIES : INCOME_CATEGORIES;
-  const selectedCat = tx ? tx.category : cats[0].id;
+export function openForm(type, tx, presetCategory) {
+  // Custom categories (see categories.js/customCategories.js) only apply to
+  // expenses — the picker for income entries is unchanged.
+  const cats = type === "expense" ? allExpenseCategories() : INCOME_CATEGORIES;
+  const selectedCat = tx ? tx.category : presetCategory || cats[0].id;
   const today = new Date().toISOString().slice(0, 10);
   const dateVal = tx ? tx.date : today;
   const descVal = tx ? tx.desc || "" : "";

@@ -8,6 +8,10 @@ import {
   cloudLoadBudgetsSecond,
   cloudSetBudgetSecond,
 } from "./budgetLimitsCloud.js";
+import {
+  cloudLoadCustomCategories,
+  cloudUpsertCustomCategory,
+} from "./customCategoriesCloud.js";
 
 export let DATA = {
   salary: {},
@@ -19,6 +23,11 @@ export let DATA = {
   // through budgetFor() below rather than indexing these directly.
   budgets: {},
   budgetsSecond: {},
+  // User-created expense categories, beyond the fixed list in categories.js —
+  // see customCategories.js for CRUD and categories.js's catInfo()/
+  // allExpenseCategories() for how they're merged in everywhere a category
+  // is shown or picked.
+  customCategories: [],
   recurring: [],
   bills: [],
   goals: [],
@@ -147,28 +156,41 @@ export function shiftMonth(delta) {
   state.expenseFilters = { query: "", category: null };
 }
 
-// The optional 2nd-half limits live in their own cloud module (so sync.js
-// stays untouched). If that load fails — offline, or the SQL migration in
-// supabase/budget_second_half.sql hasn't been run yet — fall back to what's
+// The optional 2nd-half limits and custom categories each live in their own
+// cloud modules (so sync.js stays untouched). If either load fails — offline,
+// or the matching SQL migration hasn't been run yet — fall back to what's
 // already on this device instead of losing them or blocking the whole load.
-async function attachSecondHalfBudgets(cloud, fallback) {
+async function attachSideTables(cloud, fallback) {
   try {
     cloud.budgetsSecond = await cloudLoadBudgetsSecond();
   } catch (e) {
     console.error("Couldn't load 2nd-half budget limits", e);
-    cloud.budgetsSecond = fallback || {};
+    cloud.budgetsSecond = fallback.budgetsSecond || {};
+  }
+  try {
+    cloud.customCategories = await cloudLoadCustomCategories();
+  } catch (e) {
+    console.error("Couldn't load custom categories", e);
+    cloud.customCategories = fallback.customCategories || [];
   }
 }
 
 // First sign-in on a device whose cloud account was empty: the app already
 // pushes local data up (cloudMigrateLocalDataIfEmpty), which only knows the
-// 1st-half limit — this carries the 2nd-half ones along.
-async function pushSecondHalfBudgets(second) {
-  for (const [cat, amt] of Object.entries(second || {})) {
+// tables sync.js owns — this carries the side tables along too.
+async function pushSideTables(local) {
+  for (const [cat, amt] of Object.entries(local.budgetsSecond || {})) {
     try {
       await cloudSetBudgetSecond(cat, amt);
     } catch (e) {
       console.error("Couldn't upload 2nd-half budget limit", e);
+    }
+  }
+  for (const cat of local.customCategories || []) {
+    try {
+      await cloudUpsertCustomCategory(cat);
+    } catch (e) {
+      console.error("Couldn't upload custom category", e);
     }
   }
 }
@@ -178,9 +200,9 @@ export async function initData() {
   if (isCloudMode()) {
     const local = loadData(); // in case this is the very first sign-in on this device
     const migrated = await cloudMigrateLocalDataIfEmpty(local);
-    if (migrated) await pushSecondHalfBudgets(local.budgetsSecond);
+    if (migrated) await pushSideTables(local);
     const cloud = await cloudLoadAll();
-    if (cloud) await attachSecondHalfBudgets(cloud, local.budgetsSecond);
+    if (cloud) await attachSideTables(cloud, local);
     replaceData(cloud || local);
   } else {
     replaceData(loadData());
@@ -194,16 +216,17 @@ export async function switchToCloudData() {
     transactions: DATA.transactions,
     budgets: DATA.budgets,
     budgetsSecond: DATA.budgetsSecond,
+    customCategories: DATA.customCategories,
     recurring: DATA.recurring,
     bills: DATA.bills,
     goals: DATA.goals,
     loans: DATA.loans,
   };
   const migrated = await cloudMigrateLocalDataIfEmpty(local);
-  if (migrated) await pushSecondHalfBudgets(local.budgetsSecond);
+  if (migrated) await pushSideTables(local);
   const cloud = await cloudLoadAll();
   if (cloud) {
-    await attachSecondHalfBudgets(cloud, local.budgetsSecond);
+    await attachSideTables(cloud, local);
     replaceData(cloud);
   }
 }
@@ -218,6 +241,7 @@ function replaceData(next) {
   DATA.transactions = next.transactions || [];
   DATA.budgets = next.budgets || {};
   DATA.budgetsSecond = next.budgetsSecond || {};
+  DATA.customCategories = next.customCategories || [];
   DATA.recurring = next.recurring || [];
   DATA.bills = next.bills || [];
   DATA.goals = next.goals || [];

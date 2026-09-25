@@ -1,5 +1,9 @@
 import { state, DATA, monthTx, monthLabel } from "../state.js";
-import { CATEGORIES, catInfo, categoryIconBadge } from "../categories.js";
+import {
+  catInfo,
+  categoryIconBadge,
+  allExpenseCategories,
+} from "../categories.js";
 import { fmt, formatDate, escapeHtml } from "../format.js";
 import { openForm } from "./sheet.js";
 import { renderQuickAddBar, attachQuickAddEvents } from "./quickAddBar.js";
@@ -28,10 +32,12 @@ function filteredExpenses() {
   return items.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 }
 
-// Only show filter chips for categories actually used this month, to keep it relevant.
+// Only show filter chips for categories actually used this month, to keep it
+// relevant. allExpenseCategories() (not the fixed CATEGORIES list) so a
+// custom category shows up as its own chip once something's logged under it.
 function presentCategories() {
   const ids = new Set(monthTx("expense").map((tx) => tx.category));
-  return CATEGORIES.filter((c) => ids.has(c.id));
+  return allExpenseCategories().filter((c) => ids.has(c.id));
 }
 
 export function renderExpenses() {
