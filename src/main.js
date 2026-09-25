@@ -1,4 +1,5 @@
 import "./style.css";
+import "./mobileShell.js";
 import { initSyncQueue } from "./syncQueue.js";
 
 import {
