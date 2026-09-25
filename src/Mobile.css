@@ -3,7 +3,7 @@
    page's root scroller, and CSS can't hide it there — ::-webkit-scrollbar
    rules are ignored for the viewport on iOS. So the page scrolls inside <body>
    instead, an ordinary element whose scrollbar CSS *does* control. The
-   viewport itself never scrolls.  rename*/
+   viewport itself never scrolls. */
 html,
 body {
   height: 100%;

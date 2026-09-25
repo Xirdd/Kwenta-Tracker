@@ -28,5 +28,3 @@ document.addEventListener(
   },
   { passive: false },
 );
-
-//here also
