@@ -2,7 +2,7 @@
 // It lives here only so main.js doesn't need touching — theme.js is already
 // imported once at startup. Feel free to move this line into main.js.
 import "./mobileShell.js";
-
+//rename
 const THEME_KEY = "kwenta_theme";
 
 // id must match the [data-theme="..."] selector in style.css.
