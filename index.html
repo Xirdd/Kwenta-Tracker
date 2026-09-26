@@ -17,10 +17,8 @@
       content="black-translucent"
     />
     <meta name="apple-mobile-web-app-title" content="Kwenta" />
-
-    <!-- Updated App Icons -->
-    <link rel="apple-touch-icon" href="/kwenta_icon_192.png" />
-    <link rel="icon" type="image/png" href="/kwenta_icon_192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" href="/favicon-32.png" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
@@ -43,19 +41,13 @@
     </script>
   </head>
   <body>
-    <!-- Splash screen -->
+    <!-- Splash screen: plain inline HTML/CSS (styled via style.css once it
+         loads) so this paints immediately, before the JS bundle has even
+         been fetched — main.js removes it once the first real screen is
+         ready to show (see hideSplash() in src/main.js). -->
     <div id="splash" class="splash-screen">
       <div class="splash-glow"></div>
-
-      <!-- Replaced the plain ₱ text with the transparent background logo -->
-      <div class="splash-logo">
-        <img
-          src="/kwenta_logo_nobg_512.png"
-          alt="Kwenta Logo"
-          style="width: 80px; height: 80px; object-fit: contain"
-        />
-      </div>
-
+      <div class="splash-logo">₱</div>
       <div class="splash-title">Kwenta</div>
       <div class="splash-tagline">sulit sa bawat piso</div>
       <div class="splash-loader"><span></span><span></span><span></span></div>
