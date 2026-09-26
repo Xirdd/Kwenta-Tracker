@@ -1,7 +1,7 @@
 // Also loads the mobile shell (hidden scrollbars + double-tap-zoom guard).
 // It lives here only so main.js doesn't need touching — theme.js is already
 // imported once at startup. Feel free to move this line into main.js.
-import "./MobileShell.jsx";
+import "./MobileShell.js";
 const THEME_KEY = "kwenta_theme";
 
 // id must match the [data-theme="..."] selector in style.css.
