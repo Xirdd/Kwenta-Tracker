@@ -5,6 +5,8 @@
 // comparison), so nothing readable sits in localStorage even if someone
 // inspects it.
 //
+import "./appLock.css";
+
 // This is a convenience lock, not a replacement for your account password —
 // your real data is protected by Supabase auth + RLS regardless of whether
 // this is on. Treat "forgot PIN" accordingly (see resetLock() below): it
