@@ -13,6 +13,8 @@ import { openDevicesSheet } from "./devicesSheet.js";
 import { openMfaSetupSheet } from "./mfaSetupSheet.js";
 import { openNotificationsSheet } from "./notificationsSheet.js";
 import { openBackupSheet } from "./backupSheet.js";
+import { openAppLockSheet } from "./appLockSheet.js";
+import { isLockEnabled } from "../appLock.js";
 
 let onChange = () => {};
 
@@ -106,6 +108,16 @@ export function renderProfileTab() {
   </div>
   `
   }
+
+  ${settingsRow({
+    id: "profileAppLockBtn",
+    label: "App Lock",
+    value: isLockEnabled()
+      ? "PIN required to open Kwenta on this device"
+      : "Require a PIN to open Kwenta on this device",
+    buttonLabel: isLockEnabled() ? "Manage" : "Turn on",
+    buttonClass: isLockEnabled() ? "" : "variant-green",
+  })}
 
   <div class="profile-card">
     <div class="profile-label" style="margin-bottom:12px;">Appearance</div>
@@ -240,6 +252,9 @@ export function attachProfileEvents() {
 
   const notificationsBtn = document.getElementById("profileNotificationsBtn");
   if (notificationsBtn) notificationsBtn.onclick = openNotificationsSheet;
+
+  const appLockBtn = document.getElementById("profileAppLockBtn");
+  if (appLockBtn) appLockBtn.onclick = openAppLockSheet;
 
   const themeSwatches = document.querySelectorAll(".theme-swatch");
   themeSwatches.forEach((btn) => {

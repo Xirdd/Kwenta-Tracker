@@ -2,6 +2,7 @@ import { escapeHtml } from "../format.js";
 
 const PERSON_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
 const HOME_ICON = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v10h14V10"/></svg>`;
+const SEARCH_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
 
 export function renderHeader(user, household) {
   const accountContent = user ? escapeInitial(user.email) : PERSON_ICON;
@@ -16,6 +17,7 @@ export function renderHeader(user, household) {
       }
     </div>
     <div class="header-actions">
+      <button class="icon-btn" id="searchBtn" title="Search">${SEARCH_ICON}</button>
       <button class="icon-btn ${user ? "icon-btn-account" : ""}" id="accountBtn" title="${user ? user.email : "Profile"}">${accountContent}</button>
       <div class="peso-mark">₱</div>
     </div>

@@ -12,6 +12,7 @@ import {
   cloudDeleteTransaction,
 } from "../sync.js";
 import { notifySyncError } from "../toast.js";
+import { scheduleUndoableDelete } from "../undo.js";
 import {
   createRecurringRule,
   updateRecurringTemplate,
@@ -229,8 +230,8 @@ function confirmDelete(tx) {
     <h3>Remove this entry?</h3>
     <p style="color:var(--ink-soft);font-size:13.5px;margin-top:-6px;">${
       isRecurring
-        ? "This is a recurring entry — removing it also stops it from repeating next month."
-        : "This can't be undone."
+        ? "This is a recurring entry — removing it also stops it from repeating next month. You can undo for a few seconds after."
+        : "You'll have a few seconds to undo this after."
     }</p>
     <div class="sheet-actions" style="margin-top:18px;">
       <button class="btn btn-ghost" id="cancelDel">Keep it</button>
@@ -239,12 +240,27 @@ function confirmDelete(tx) {
   `);
   document.getElementById("cancelDel").onclick = closeSheet;
   document.getElementById("confirmDel").onclick = () => {
-    DATA.transactions = DATA.transactions.filter((t) => t.id !== tx.id);
-    saveData();
-    if (isCloudMode())
-      cloudDeleteTransaction(tx.id).catch((e) => notifySyncError(e));
-    if (isRecurring) stopRecurringRule(tx.recurringId);
     closeSheet();
-    onChange();
+    // The actual removal is deferred to scheduleUndoableDelete's commit()
+    // below — remove() only takes it off-screen and out of the in-memory
+    // array, so Undo can put it straight back with nothing to re-fetch.
+    scheduleUndoableDelete({
+      label: tx.type === "expense" ? "Expense" : "Income entry",
+      remove: () => {
+        DATA.transactions = DATA.transactions.filter((t) => t.id !== tx.id);
+        onChange();
+      },
+      restore: () => {
+        DATA.transactions.push(tx);
+        saveData();
+        onChange();
+      },
+      commit: () => {
+        saveData();
+        if (isCloudMode())
+          cloudDeleteTransaction(tx.id).catch((e) => notifySyncError(e));
+        if (isRecurring) stopRecurringRule(tx.recurringId);
+      },
+    });
   };
 }

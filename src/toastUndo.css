@@ -1,0 +1,22 @@
+/* Extends .toast-banner (style.css) with an inline action button, for
+   showUndoToast() in toast.js. */
+.toast-banner.toast-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  text-align: left;
+}
+.toast-undo-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  padding: 4px 2px;
+}

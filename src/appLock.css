@@ -1,0 +1,84 @@
+/* ---------- App lock ---------- */
+#appLockOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 24px;
+}
+#appLockOverlay.show {
+  display: flex;
+}
+.lock-card {
+  width: 100%;
+  max-width: 340px;
+  text-align: center;
+}
+.lock-peso {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 18px auto;
+  border-radius: 20px;
+  background: var(--gradient-accent);
+  color: var(--on-accent);
+  font-weight: 800;
+  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lock-card h2 {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 6px 0;
+}
+.lock-sub {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin: 0 0 22px 0;
+}
+.lock-dots {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 26px;
+}
+.lock-dots span {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink-soft);
+  background: transparent;
+}
+.lock-dots span.filled {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.lock-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.lock-keypad button {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: none;
+  background: var(--paper-2);
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.lock-keypad button:active {
+  background: var(--paper);
+}
+#lockBackspaceBtn,
+#lockBiometricBtn {
+  background: transparent;
+  font-size: 18px;
+}

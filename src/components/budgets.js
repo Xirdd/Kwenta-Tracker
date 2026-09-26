@@ -17,6 +17,7 @@ import { fmt, escapeHtml } from "../format.js";
 import { isCloudMode, cloudUpsertBudget } from "../sync.js";
 import { cloudSetBudgetSecond } from "../budgetLimitsCloud.js";
 import { notifySyncError } from "../toast.js";
+import { scheduleUndoableDelete } from "../undo.js";
 import {
   createCustomCategory,
   updateCustomCategory,
@@ -289,7 +290,7 @@ function confirmDeleteCategory(cat) {
   openModal(`
     <div class="grabber"></div>
     <h3>Delete "${escapeHtml(cat.label)}"?</h3>
-    <p class="auth-message">Its budget limits go with it. Expenses already logged under it stay in your history, listed under "Others" from now on.</p>
+    <p class="auth-message">Its budget limits go with it. Expenses already logged under it stay in your history, listed under "Others" from now on. You can undo for a few seconds after.</p>
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="ccKeepBtn">Keep it</button>
       <button class="btn btn-danger" id="ccConfirmDeleteBtn">Delete</button>
@@ -297,8 +298,28 @@ function confirmDeleteCategory(cat) {
   `);
   document.getElementById("ccKeepBtn").onclick = () => openCategoryForm(cat);
   document.getElementById("ccConfirmDeleteBtn").onclick = () => {
-    deleteCustomCategory(cat.id);
     closeModal();
-    onChange();
+    // deleteCustomCategory() also clears its budget limits — capture them so
+    // Undo restores the whole picture, not just the category's name/color.
+    const firstBudget = DATA.budgets[cat.id];
+    const secondBudget = DATA.budgetsSecond[cat.id];
+    scheduleUndoableDelete({
+      label: `"${cat.label}"`,
+      remove: () => {
+        DATA.customCategories = DATA.customCategories.filter(
+          (c) => c.id !== cat.id,
+        );
+        onChange();
+      },
+      restore: () => {
+        DATA.customCategories.push(cat);
+        if (firstBudget !== undefined) DATA.budgets[cat.id] = firstBudget;
+        if (secondBudget !== undefined)
+          DATA.budgetsSecond[cat.id] = secondBudget;
+        saveData();
+        onChange();
+      },
+      commit: () => deleteCustomCategory(cat.id),
+    });
   };
 }

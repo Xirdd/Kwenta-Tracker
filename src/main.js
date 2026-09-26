@@ -59,6 +59,9 @@ import {
   openLoanDetail,
 } from "./components/loanSheet.js";
 import { initTheme } from "./theme.js";
+import { initAppLock } from "./appLock.js";
+import { initAppLockSheet } from "./components/appLockSheet.js";
+import { openSearchSheet, initSearchSheet } from "./components/searchSheet.js";
 import {
   initAuth,
   getCurrentUser,
@@ -197,6 +200,8 @@ function attachEvents() {
     render();
   };
 
+  document.getElementById("searchBtn").onclick = openSearchSheet;
+
   const householdBadge = document.getElementById("householdBadge");
   if (householdBadge) householdBadge.onclick = openHouseholdSheet;
 
@@ -256,6 +261,8 @@ function hideSplash() {
 }
 
 (async function init() {
+  initAppLock();
+
   // Safety net: hideSplash() is idempotent (no-ops if already removed), so
   // this just guarantees the splash can't get stuck forever if something
   // in the auth/data chain below throws before reaching the normal call.
@@ -269,6 +276,8 @@ function hideSplash() {
   initGoalSheets(render);
   initLoanSheets(render);
   initBudgetsSheet(render); // custom budget category create/edit/delete needs a re-render too
+  initAppLockSheet(render); // App Lock's setup/manage sheet needs a re-render too (Profile row text changes)
+  initSearchSheet(render); // jumping to a search result's period/tab needs the same re-render everything else uses
   initHouseholdSheet(onHouseholdChanged);
   initProfileTab(render); // theme toggle inside Profile needs to trigger a re-render too
   initDeleteAccountSheet(() => {
