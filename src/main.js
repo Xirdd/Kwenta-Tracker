@@ -62,6 +62,7 @@ import { initTheme } from "./theme.js";
 import { initAppLock } from "./appLock.js";
 import { initAppLockSheet } from "./components/appLockSheet.js";
 import { openSearchSheet, initSearchSheet } from "./components/searchSheet.js";
+import { initEditProfileSheet } from "./components/editProfileSheet.js";
 import {
   initAuth,
   getCurrentUser,
@@ -278,6 +279,7 @@ function hideSplash() {
   initBudgetsSheet(render); // custom budget category create/edit/delete needs a re-render too
   initAppLockSheet(render); // App Lock's setup/manage sheet needs a re-render too (Profile row text changes)
   initSearchSheet(render); // jumping to a search result's period/tab needs the same re-render everything else uses
+  initEditProfileSheet(render); // editing name/birthday needs the Profile header to re-render too
   initHouseholdSheet(onHouseholdChanged);
   initProfileTab(render); // theme toggle inside Profile needs to trigger a re-render too
   initDeleteAccountSheet(() => {

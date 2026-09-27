@@ -96,6 +96,31 @@ export async function updateUserPassword(password) {
   if (error) throw error;
 }
 
+// ── Profile (name/birthday) ──────────────────────────────────────────────
+// Stored in Supabase auth's own user_metadata (raw_user_meta_data) rather
+// than a new table — it's already part of the session object, so it needs
+// no separate fetch, no RLS policy of its own, and syncs across devices for
+// free the same way the email/account info already does.
+export function getUserProfile() {
+  const meta = currentUser?.user_metadata || {};
+  return {
+    fullName: meta.full_name || "",
+    birthday: meta.birthday || "",
+  };
+}
+
+export async function updateUserProfile({ fullName, birthday }) {
+  requireSupabase();
+  const { data, error } = await supabase.auth.updateUser({
+    data: { full_name: fullName || null, birthday: birthday || null },
+  });
+  if (error) throw error;
+  // updateUser() resolves with the fresh user object before the
+  // onAuthStateChange listener fires — update the local copy immediately so
+  // a render right after saving already reflects the new name/birthday.
+  if (data?.user) currentUser = data.user;
+}
+
 // Wipes every transaction/budget/goal/loan/bill/recurring rule the current
 // user owns, removes them from any household, clears the local offline
 // cache, and signs out. Does NOT delete the underlying auth.users row —
