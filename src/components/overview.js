@@ -183,8 +183,10 @@ function smoothPath(points) {
 }
 
 function renderTrend() {
-  // 12 periods = ~6 months of history, same real time span as before this
-  // became period-based (monthsBack(6) would now only cover ~3 months).
+  // monthsBack(12) is 6 months of history in semi-monthly mode, or a full
+  // year in monthly mode (see state.js's monthsBack) — both are reasonable
+  // trend windows for what they are, so this stays a flat 12 regardless of
+  // which the person has picked in Profile.
   const periods = monthsBack(12);
   const data = periods.map((pk) => ({ pk, ...trendTotals(pk) }));
   const max = Math.max(1, ...data.map((d) => Math.max(d.inc, d.exp)));

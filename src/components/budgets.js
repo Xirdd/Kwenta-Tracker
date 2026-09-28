@@ -6,6 +6,7 @@ import {
   budgetFor,
   halfOfKey,
   hasOwnSecondBudget,
+  periodKeyHasHalf,
 } from "../state.js";
 import {
   catInfo,
@@ -57,6 +58,18 @@ function limitPill(catId, half, value, placeholder, active) {
   </div>`;
 }
 
+// Monthly mode has no second half, so there's nothing to pair this with —
+// just one limit input for the whole month, always bound to half=1
+// (DATA.budgets[cat], the same field semi-monthly mode calls the "1st-15th"
+// limit — in monthly mode it simply IS the month's only limit).
+function singleLimitInput(catId, value) {
+  return `
+  <div class="budget-input-wrap" style="flex:1;min-width:0;width:auto;margin-bottom:0;">
+    <span>₱</span>
+    <input type="number" inputmode="decimal" class="budgetInput" data-cat="${catId}" data-half="1" placeholder="0" value="${value}" style="flex:1;min-width:0;width:100%;"/>
+  </div>`;
+}
+
 export function renderBudgets() {
   const cats = allExpenseCategories();
   const exp = monthTx("expense");
@@ -69,8 +82,9 @@ export function renderBudgets() {
   const totalBudget = cats.reduce((s, c) => s + budgetFor(c.id), 0);
   const totalSpent = exp.reduce((s, e) => s + Number(e.amount || 0), 0);
 
+  const isHalfMonth = periodKeyHasHalf(state.monthKey);
   return `
-  <div class="section-title">Budgets <span class="sub">a limit for each half-month</span></div>
+  <div class="section-title">Budgets <span class="sub">${isHalfMonth ? "a limit for each half-month" : "a limit each month"}</span></div>
   ${
     totalBudget > 0
       ? `
@@ -101,8 +115,18 @@ export function renderBudgets() {
         <div class="budget-detail">
           <div class="budget-detail-inner">
             <div style="display:flex;gap:8px;margin-bottom:12px;">
-              ${limitPill(c.id, 1, first || "", 0, viewedHalf === 1)}
-              ${limitPill(c.id, 2, hasSecond ? DATA.budgetsSecond[c.id] : "", first, viewedHalf === 2)}
+              ${
+                isHalfMonth
+                  ? limitPill(c.id, 1, first || "", 0, viewedHalf === 1) +
+                    limitPill(
+                      c.id,
+                      2,
+                      hasSecond ? DATA.budgetsSecond[c.id] : "",
+                      first,
+                      viewedHalf === 2,
+                    )
+                  : singleLimitInput(c.id, first || "")
+              }
             </div>
             <div class="bar-track"><div class="bar-fill" style="width:${limit ? Math.max(pct, 2) : 0}%;background:${over ? "var(--coral)" : c.color}"></div></div>
             <div class="budget-meta ${over ? "over" : ""}">${fmt(spent)} of ${limit ? fmt(limit) : "no limit set"}${over ? " · over budget" : ""}</div>

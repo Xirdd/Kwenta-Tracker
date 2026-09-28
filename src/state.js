@@ -12,6 +12,7 @@ import {
   cloudLoadCustomCategories,
   cloudUpsertCustomCategory,
 } from "./customCategoriesCloud.js";
+import { getPeriodMode } from "./periodMode.js";
 
 export let DATA = {
   salary: {},
@@ -56,19 +57,47 @@ function daysInMonth(year, month /* 1-indexed */) {
   return new Date(year, month, 0).getDate();
 }
 
-// Which half a given Date falls into, as a period key.
-export function periodKeyOf(d) {
-  const half = d.getDate() <= 15 ? 1 : 2;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${half}`;
+// A period key is either "YYYY-MM" (monthly mode -- the whole calendar month
+// is one period) or "YYYY-MM-H" (semi-monthly -- H is 1 for the 1st-15th, 2
+// for the 16th-end). Every function below tells the two apart by how many
+// "-"-separated parts the key itself has, NOT by checking the CURRENT
+// periodMode.js setting -- that's what lets monthly-mode keys and
+// semi-monthly-mode keys coexist in the same DATA.salary/DATA.transactions
+// without corrupting each other when someone switches the setting: old data
+// keeps meaning exactly what it always meant, and only NEW keys (from
+// periodKeyOf, when shifting the viewed period) reflect the current choice.
+function keyHasHalf(key) {
+  return String(key).split("-").length === 3;
 }
 
-// { start, end } as "YYYY-MM-DD" strings — end correctly accounts for the
-// actual last day of the month (28/29/30/31), not a hardcoded 30.
+// Exported so other files (recurring.js, components/budgets.js) can branch
+// on a period key's shape the same way, without duplicating this check.
+export const periodKeyHasHalf = keyHasHalf;
+
+// The key representing "today", in whichever mode is currently selected.
+export function periodKeyOf(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  if (getPeriodMode() === "monthly") return `${y}-${m}`;
+  const half = d.getDate() <= 15 ? 1 : 2;
+  return `${y}-${m}-${half}`;
+}
+
+// { start, end } as "YYYY-MM-DD" strings -- end correctly accounts for the
+// actual last day of the month (28/29/30/31), not a hardcoded 30. Shape of
+// the key decides whether this is a half-month or a whole-month range.
 export function periodRange(key) {
-  const [y, m, half] = key.split("-").map(Number);
+  const parts = String(key).split("-").map(Number);
+  const [y, m, half] = parts;
+  const pad = (n) => String(n).padStart(2, "0");
+  if (!keyHasHalf(key)) {
+    return {
+      start: `${y}-${pad(m)}-01`,
+      end: `${y}-${pad(m)}-${pad(daysInMonth(y, m))}`,
+    };
+  }
   const startDay = half === 1 ? 1 : 16;
   const endDay = half === 1 ? 15 : daysInMonth(y, m);
-  const pad = (n) => String(n).padStart(2, "0");
   return {
     start: `${y}-${pad(m)}-${pad(startDay)}`,
     end: `${y}-${pad(m)}-${pad(endDay)}`,
@@ -80,25 +109,34 @@ export function monthKeyOf(d) {
   return periodKeyOf(d);
 }
 
-// Kept name: monthLabel. Now returns e.g. "September 1–15, 2026".
+// Kept name: monthLabel. Returns "September 2026" for a monthly-mode key, or
+// "September 1\u201315, 2026" for a semi-monthly one.
 export function monthLabel(key) {
-  const [y, m, half] = key.split("-").map(Number);
+  const parts = String(key).split("-").map(Number);
+  const [y, m, half] = parts;
   const monthName = new Date(y, m - 1, 1).toLocaleDateString("en-US", {
     month: "long",
   });
+  if (!keyHasHalf(key)) return `${monthName} ${y}`;
   const startDay = half === 1 ? 1 : 16;
   const endDay = half === 1 ? 15 : daysInMonth(y, m);
   return `${monthName} ${startDay}\u2013${endDay}, ${y}`;
 }
 
-// Just the "YYYY-MM" calendar-month portion of a period key — for the few
-// places (bills.js, billsTab.js) that intentionally stay month-scoped and
-// need to derive the underlying month from state.monthKey.
+// Just the "YYYY-MM" calendar-month portion of a period key -- for the few
+// places (bills.js, billsTab.js) that intentionally stay month-scoped
+// regardless of this setting, and need to derive the underlying month from
+// state.monthKey. Works for either key shape (both start with "YYYY-MM").
 export function monthPortionOf(periodKey) {
   return periodKey.slice(0, 7);
 }
 
-// 1 for the 1st–15th, 2 for the 16th–end — the half a period key belongs to.
+// 1 for the 1st-15th, 2 for the 16th-end. A monthly-mode key (no half of its
+// own) always reads as 1 -- which is exactly what's wanted: budgetFor() below
+// then always resolves to DATA.budgets[cat] (the single limit), and any
+// DATA.budgetsSecond value for that category just sits unused rather than
+// applying to "the whole month" by accident. Switching back to semi-monthly
+// later picks it back up unchanged.
 export function halfOfKey(periodKey) {
   return Number(String(periodKey).split("-")[2]) === 2 ? 2 : 1;
 }
@@ -121,9 +159,36 @@ export function budgetFor(catId, periodKey = state.monthKey) {
     : first;
 }
 
+// Moves the calendar forward/back by one whole month, rolling over year
+// boundaries -- the monthly-mode half of shiftMonth below.
+function shiftWholeMonth(y, m, delta) {
+  m += delta;
+  while (m > 12) {
+    m -= 12;
+    y += 1;
+  }
+  while (m < 1) {
+    m += 12;
+    y -= 1;
+  }
+  return [y, m];
+}
+
 // Kept name: shiftMonth. Moves one period forward/back, correctly rolling
 // over month and year boundaries (verified against Dec->Jan and Jan->Dec).
+// Branches on state.monthKey's OWN shape, so this keeps stepping through
+// whatever's currently on screen even for the instant right after switching
+// modes (profileTab.js resets state.monthKey to the new shape immediately
+// when the setting changes, so the two never actually disagree in practice).
 export function shiftMonth(delta) {
+  if (!periodKeyHasHalf(state.monthKey)) {
+    let [y, m] = state.monthKey.split("-").map(Number);
+    [y, m] = shiftWholeMonth(y, m, delta);
+    state.monthKey = `${y}-${String(m).padStart(2, "0")}`;
+    state.expenseFilters = { query: "", category: null };
+    return;
+  }
+
   let [y, m, half] = state.monthKey.split("-").map(Number);
   const steps = Math.abs(delta);
   const dir = delta > 0 ? 1 : -1;
@@ -300,9 +365,22 @@ export function totals() {
 }
 
 // Kept name: monthsBack. Returns N period keys going back from the current
-// one (chronological order, oldest first) — used by the trend chart.
+// one (chronological order, oldest first) -- used by the trend chart. In
+// monthly mode this spans N months; in semi-monthly mode, N/2 months (same
+// N=12 call site in overview.js therefore shows a year of history in
+// monthly mode vs. 6 months in semi-monthly -- both are reasonable chart
+// windows for what they are, not a bug).
 export function monthsBack(n) {
   const arr = [];
+  if (!periodKeyHasHalf(state.monthKey)) {
+    let [y, m] = state.monthKey.split("-").map(Number);
+    for (let i = 0; i < n; i++) {
+      arr.unshift(`${y}-${String(m).padStart(2, "0")}`);
+      [y, m] = shiftWholeMonth(y, m, -1);
+    }
+    return arr;
+  }
+
   let [y, m, half] = state.monthKey.split("-").map(Number);
   for (let i = 0; i < n; i++) {
     arr.unshift(`${y}-${String(m).padStart(2, "0")}-${half}`);

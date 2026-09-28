@@ -17,6 +17,9 @@ import { openBackupSheet } from "./backupSheet.js";
 import { openAppLockSheet } from "./appLockSheet.js";
 import { openEditProfileSheet } from "./editProfileSheet.js";
 import { isLockEnabled } from "../appLock.js";
+import { PERIOD_MODES, getPeriodMode, setPeriodMode } from "../periodMode.js";
+import { state, periodKeyOf } from "../state.js";
+import { materializeMonth } from "../recurring.js";
 
 let onChange = () => {};
 
@@ -147,6 +150,11 @@ export function renderProfileTab() {
       ${renderThemeGroup("Dark", theme)}
     </div>
     <div class="profile-card">
+      <div class="profile-label" style="margin-bottom:4px;">Budget period</div>
+      <div class="profile-value" style="font-weight:500;color:var(--ink-soft);margin-bottom:12px;font-size:12px;">Not everyone gets paid twice a month — pick whichever matches how you actually budget. Bills and Goals always stay monthly either way.</div>
+      ${renderPeriodModeChips()}
+    </div>
+    <div class="profile-card">
       <div class="profile-label" style="margin-bottom:4px;">Currency</div>
       <div class="profile-value" style="font-weight:500;color:var(--ink-soft);margin-bottom:12px;font-size:12px;">Changes how amounts are displayed only — doesn't convert anything.</div>
       ${renderCurrencyChips()}
@@ -238,6 +246,11 @@ export function renderProfileTab() {
     ${renderThemeGroup("Dark", theme)}
   </div>
   <div class="profile-card">
+    <div class="profile-label" style="margin-bottom:4px;">Budget period</div>
+    <div class="profile-value" style="font-weight:500;color:var(--ink-soft);margin-bottom:12px;font-size:12px;">Not everyone gets paid twice a month — pick whichever matches how you actually budget. Bills and Goals always stay monthly either way.</div>
+    ${renderPeriodModeChips()}
+  </div>
+  <div class="profile-card">
     <div class="profile-label" style="margin-bottom:4px;">Currency</div>
     <div class="profile-value" style="font-weight:500;color:var(--ink-soft);margin-bottom:12px;font-size:12px;">Changes how amounts are displayed only — doesn't convert anything.</div>
     ${renderCurrencyChips()}
@@ -285,6 +298,21 @@ export function renderProfileTab() {
 
 // A scrollable row of currency chips — same visual pattern as the theme
 // swatches, but simpler (just symbol + label, no color circle).
+function renderPeriodModeChips() {
+  const activeId = getPeriodMode();
+  return `
+  <div class="currency-chip-row">
+    ${PERIOD_MODES.map(
+      (m) => `
+      <button class="currency-chip ${activeId === m.id ? "active" : ""}" data-period-mode-id="${m.id}" style="flex-direction:column;align-items:flex-start;gap:2px;padding:10px 14px;">
+        <span class="currency-chip-label" style="font-weight:700;">${m.label}</span>
+        <span style="font-size:10.5px;color:var(--ink-soft);font-weight:500;white-space:normal;max-width:180px;">${m.sub}</span>
+      </button>
+    `,
+    ).join("")}
+  </div>`;
+}
+
 function renderCurrencyChips() {
   const activeId = currentCurrencyId();
   return `
@@ -372,11 +400,30 @@ export function attachProfileEvents() {
     };
   });
 
-  const currencyChips = document.querySelectorAll(".currency-chip");
+  const currencyChips = document.querySelectorAll(
+    ".currency-chip[data-currency-id]",
+  );
   currencyChips.forEach((btn) => {
     btn.onclick = () => {
       setCurrency(btn.dataset.currencyId);
       onChange(); // re-render so every amount on screen updates immediately
+    };
+  });
+
+  const periodModeChips = document.querySelectorAll(
+    ".currency-chip[data-period-mode-id]",
+  );
+  periodModeChips.forEach((btn) => {
+    btn.onclick = () => {
+      setPeriodMode(btn.dataset.periodModeId);
+      // Jump the currently-viewed period to "today" in the new shape right
+      // away, so the Overview/Income/Expenses/Budgets tabs are never left
+      // showing a stale-shaped key — then materialize this period's
+      // recurring rules under that shape before rendering, same as
+      // main.js's own goToMonth() does after every month change.
+      state.monthKey = periodKeyOf(new Date());
+      materializeMonth(state.monthKey);
+      onChange();
     };
   });
 
