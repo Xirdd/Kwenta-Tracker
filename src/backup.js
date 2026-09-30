@@ -128,13 +128,3 @@ async function restoreToCloud(data) {
     await cloudSetBudgetSecond(cat, amt);
   }
 }
-
-// --- Added to fix missing export errors in Vercel ---
-
-export function isEncryptedBackup(parsedData) {
-  return false;
-}
-
-export async function unlockBackup(parsedData, password) {
-  return parsedData;
-}
