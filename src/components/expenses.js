@@ -44,10 +44,27 @@ export function renderExpenses() {
   const all = monthTx("expense");
   const items = filteredExpenses();
   const cats = presentCategories();
+  const total = all.reduce((s, t) => s + Number(t.amount || 0), 0);
+  const avgPerEntry = all.length ? total / all.length : 0;
 
   return `
   ${renderQuickAddBar()}
   <div class="section-title">Expenses <span class="sub">${all.length} ${all.length === 1 ? "entry" : "entries"}</span></div>
+  ${
+    all.length > 0
+      ? `
+  <div class="stat-strip">
+    <div class="stat-chip">
+      <div class="label">Total this period</div>
+      <div class="value" style="color:var(--coral);">${fmt(total)}</div>
+    </div>
+    <div class="stat-chip">
+      <div class="label">Average per entry</div>
+      <div class="value">${fmt(avgPerEntry)}</div>
+    </div>
+  </div>`
+      : ""
+  }
   ${all.length > 0 ? renderSearchBar(cats) : ""}
   <div id="expenseListWrap">${renderExpenseList(items, all.length)}</div>
   `;

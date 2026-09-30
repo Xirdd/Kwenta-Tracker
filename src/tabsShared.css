@@ -1,0 +1,60 @@
+/* ---------- Cross-tab consistency fixes ---------- */
+/* Overview's cards (Upcoming bills, Where it went, Recent trend) were
+   unified onto --radius-lg (34px). Several other tabs' main surfaces were
+   still on the smaller --radius (26px) — the exact same inconsistency,
+   just not yet touched. Fixing it here, once, instead of duplicating the
+   override in five separate per-tab CSS files. Global on purpose: any file
+   can import this (it's imported once from main.js), the rules just apply
+   wherever these classes appear. */
+.list,
+.salary-card,
+.goal-card,
+.loan-card,
+.budget-summary,
+.goals-summary-banner {
+  border-radius: var(--radius-lg) !important;
+}
+
+/* A touch more breathing room in list rows — matches the 20px horizontal
+   padding Overview's cards now use, instead of the slightly tighter 18px
+   every row-based list (Expenses, Income, Bills) had before. */
+.row,
+.bill-row {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+/* ---------- Small stat-strip cards ---------- */
+/* Reusable compact readouts — used above the Expenses and Bills lists (see
+   expenses.js / billsTab.js) for an at-a-glance summary, same visual
+   language as Overview's income/expense trend stats. */
+.stat-strip {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.stat-chip {
+  flex: 1;
+  background: var(--gradient-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.stat-chip .label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.stat-chip .value {
+  font-family:
+    "IBM Plex Mono", "SF Mono", "Menlo", "Roboto Mono", "Consolas", monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
