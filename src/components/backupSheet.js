@@ -1,5 +1,11 @@
 import { openModal, closeModal } from "./modal.js";
-import { exportBackup, parseBackupFile, restoreBackup } from "../backup.js";
+import {
+  exportBackup,
+  parseBackupFile,
+  isEncryptedBackup,
+  unlockBackup,
+  restoreBackup,
+} from "../backup.js";
 import { DATA } from "../state.js";
 
 let onChange = () => {};
@@ -12,7 +18,9 @@ export function openBackupSheet() {
   render();
 }
 
-function render(message) {
+const MIN_PASSWORD_LENGTH = 8;
+
+function render(message, isError = true) {
   openModal(
     `
     <div class="grabber"></div>
@@ -20,13 +28,17 @@ function render(message) {
     <p class="auth-message">A full backup includes everything — transactions, budgets, bills, goals, and utang — in a format Kwenta itself can read back in. This is different from the CSV export, which is for viewing in a spreadsheet, not restoring.</p>
 
     <div class="profile-card" style="margin-bottom:12px;">
-      <div class="profile-row">
-        <div class="profile-row-text">
-          <div class="profile-label">Export</div>
-          <div class="profile-value">Download a full backup file</div>
-        </div>
-        <button class="btn btn-ghost variant-gold" id="backupExportBtn">Download</button>
+      <div class="profile-label" style="margin-bottom:10px;">Export</div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Password <span class="opt">(optional — leave blank for an unprotected file)</span></label>
+        <input id="backupPassword" type="password" autocomplete="new-password" placeholder="At least ${MIN_PASSWORD_LENGTH} characters"/>
       </div>
+      <div class="field" id="backupConfirmField" style="margin-bottom:10px;display:none;">
+        <label>Confirm password</label>
+        <input id="backupPasswordConfirm" type="password" autocomplete="new-password" placeholder="Type it again"/>
+        <p class="field-hint" style="color:var(--coral);">Kwenta never stores this password and can't recover it. Forget it and this file can't be opened — by you or anyone.</p>
+      </div>
+      <button class="btn btn-ghost variant-gold" id="backupExportBtn" style="width:100%;">Download backup</button>
     </div>
 
     <div class="profile-card">
@@ -38,9 +50,9 @@ function render(message) {
         <button class="btn btn-ghost" id="backupRestoreBtn">Choose file</button>
       </div>
     </div>
-    <input type="file" id="backupFileInput" accept="application/json" style="display:none;"/>
+    <input type="file" id="backupFileInput" accept="application/json,.json" style="display:none;"/>
 
-    ${message ? `<p class="auth-message" style="color:var(--coral);margin-top:14px;">${message}</p>` : ""}
+    ${message ? `<p class="auth-message" style="${isError ? "color:var(--coral);" : "color:var(--green);"}margin-top:14px;">${message}</p>` : ""}
     <div class="sheet-actions" style="margin-top:14px;">
       <button class="btn btn-ghost" id="backupCloseBtn">Close</button>
     </div>
@@ -49,7 +61,44 @@ function render(message) {
   );
 
   document.getElementById("backupCloseBtn").onclick = closeModal;
-  document.getElementById("backupExportBtn").onclick = exportBackup;
+
+  // The confirm box only appears once a password is being typed — most
+  // people exporting an ordinary backup never see it.
+  const pw = document.getElementById("backupPassword");
+  const confirmField = document.getElementById("backupConfirmField");
+  pw.oninput = () => {
+    confirmField.style.display = pw.value ? "block" : "none";
+  };
+
+  document.getElementById("backupExportBtn").onclick = async () => {
+    const password = pw.value;
+    if (password) {
+      if (password.length < MIN_PASSWORD_LENGTH) {
+        render(
+          `Use at least ${MIN_PASSWORD_LENGTH} characters for the password.`,
+        );
+        return;
+      }
+      if (password !== document.getElementById("backupPasswordConfirm").value) {
+        render("Those two passwords don't match — type them again.");
+        return;
+      }
+    }
+    const btn = document.getElementById("backupExportBtn");
+    btn.disabled = true;
+    btn.textContent = password ? "Encrypting…" : "Preparing…";
+    try {
+      await exportBackup(password || undefined);
+      render(
+        password
+          ? "Encrypted backup downloaded. Keep the password somewhere safe — it can't be recovered."
+          : "Backup downloaded.",
+        false,
+      );
+    } catch (e) {
+      render(e.message || "Couldn't create the backup. Please try again.");
+    }
+  };
 
   const fileInput = document.getElementById("backupFileInput");
   document.getElementById("backupRestoreBtn").onclick = () => fileInput.click();
@@ -60,10 +109,53 @@ function render(message) {
     if (!file) return;
 
     try {
-      const backup = await parseBackupFile(file);
-      renderConfirm(backup);
+      const parsed = await parseBackupFile(file);
+      if (isEncryptedBackup(parsed)) renderUnlock(parsed);
+      else renderConfirm(parsed);
     } catch (e) {
       render(e.message || "Could not read that file.");
+    }
+  };
+}
+
+// An encrypted file needs its password before anything else can happen —
+// including the diff preview, which has to read what's inside.
+function renderUnlock(envelope, error) {
+  openModal(
+    `
+    <div class="grabber"></div>
+    <h3>This backup is locked</h3>
+    <p class="auth-message">Enter the password you set when you exported it.</p>
+    <div class="field">
+      <label>Password</label>
+      <input id="unlockPassword" type="password" autocomplete="off" placeholder="Backup password"/>
+    </div>
+    ${error ? `<p class="auth-message" style="color:var(--coral);">${error}</p>` : ""}
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="unlockCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="unlockBtn">Unlock</button>
+    </div>
+  `,
+    closeModal,
+  );
+
+  const input = document.getElementById("unlockPassword");
+  input.focus();
+  document.getElementById("unlockCancelBtn").onclick = () => render();
+
+  document.getElementById("unlockBtn").onclick = async () => {
+    if (!input.value) {
+      renderUnlock(envelope, "Enter the backup's password.");
+      return;
+    }
+    const btn = document.getElementById("unlockBtn");
+    btn.disabled = true;
+    btn.textContent = "Unlocking…";
+    try {
+      const backup = await unlockBackup(envelope, input.value);
+      renderConfirm(backup);
+    } catch (e) {
+      renderUnlock(envelope, e.message);
     }
   };
 }

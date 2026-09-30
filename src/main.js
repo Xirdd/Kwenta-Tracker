@@ -1,4 +1,5 @@
 import "./style.css";
+import "./tabsShared.css";
 import { initSyncQueue } from "./syncQueue.js";
 
 import {
@@ -63,6 +64,11 @@ import { initAppLock } from "./appLock.js";
 import { initAppLockSheet } from "./components/appLockSheet.js";
 import { openSearchSheet, initSearchSheet } from "./components/searchSheet.js";
 import { initEditProfileSheet } from "./components/editProfileSheet.js";
+import {
+  initShareIntakeSheet,
+  openShareIntakeSheet,
+} from "./components/shareIntakeSheet.js";
+import { takePendingShare } from "./shareStore.js";
 import {
   initAuth,
   getCurrentUser,
@@ -280,6 +286,7 @@ function hideSplash() {
   initAppLockSheet(render); // App Lock's setup/manage sheet needs a re-render too (Profile row text changes)
   initSearchSheet(render); // jumping to a search result's period/tab needs the same re-render everything else uses
   initEditProfileSheet(render); // editing name/birthday needs the Profile header to re-render too
+  initShareIntakeSheet(render); // saving a shared item as an expense needs a re-render too
   initHouseholdSheet(onHouseholdChanged);
   initProfileTab(render); // theme toggle inside Profile needs to trigger a re-render too
   initDeleteAccountSheet(() => {
@@ -330,6 +337,15 @@ function hideSplash() {
   await initData();
   goToMonth();
   hideSplash(); // first real content is on screen now — safe to reveal it
+
+  // Only worth checking when this load actually came from a share (the
+  // service worker's redirect appends ?shared=1) — on every ordinary open,
+  // this skips straight past without touching IndexedDB at all.
+  if (new URLSearchParams(window.location.search).has("shared")) {
+    window.history.replaceState(null, "", window.location.pathname);
+    const share = await takePendingShare().catch(() => null);
+    if (share) openShareIntakeSheet(share);
+  }
 
   // Catches the case where THIS page load IS the magic-link landing itself,
   // or a returning session that's still short of aal2. By the time

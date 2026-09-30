@@ -48,6 +48,29 @@ export default defineConfig({
         orientation: "portrait",
         background_color: "#0e211b",
         theme_color: "#0e211b",
+        // Lets Kwenta appear in the phone's own share sheet ("Share to...")
+        // once installed, so a receipt photo or a copied GCash/bank message
+        // can be sent straight in. Android/Chrome only — iOS Safari has no
+        // support for a web app RECEIVING a share at all (it only supports
+        // web apps SENDING one via navigator.share, which is unrelated and
+        // already used by the Statement export). sw.js's registerRoute for
+        // "/share-target/" is what actually answers this POST.
+        share_target: {
+          action: "/share-target/",
+          method: "POST",
+          enctype: "multipart/form-data",
+          params: {
+            title: "title",
+            text: "text",
+            url: "url",
+            files: [
+              {
+                name: "photo",
+                accept: ["image/*"],
+              },
+            ],
+          },
+        },
         icons: [
           {
             src: "icon-192.png",

@@ -6,6 +6,7 @@ import {
 import { registerRoute, NavigationRoute } from "workbox-routing";
 import { CacheFirst, StaleWhileRevalidate } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
+import { handleShareRequest } from "./shareStore.js";
 
 // ── Lifecycle: registerType "autoUpdate" ────────────────────────────────
 // A new worker activates immediately and takes control of open tabs, so a
@@ -21,6 +22,22 @@ cleanupOutdatedCaches();
 // icon file (see injectManifest.globPatterns in vite.config.js). These are
 // served cache-first, so the whole app boots with no network at all.
 precacheAndRoute(self.__WB_MANIFEST);
+
+// ── Share Target (Android/Chrome only) ──────────────────────────────────
+// When Kwenta is installed and someone shares an image or text to it from
+// their phone's share sheet, the browser POSTs the share here — there's no
+// server behind this URL, this listener IS the "backend". It hands off to
+// shareStore.js to park the shared item in IndexedDB, then redirects into
+// the app, which picks it up on load (see main.js) and opens the intake
+// sheet. iOS Safari doesn't support receiving shares into a web app at all
+// (a WebKit/Apple platform limitation, not something fixable here), so this
+// only ever fires on Android/Chrome-based browsers.
+registerRoute(
+  ({ url, request }) =>
+    url.pathname === "/share-target/" && request.method === "POST",
+  ({ request }) => handleShareRequest(request),
+  "POST",
+);
 
 // Any page navigation (including the magic-link landing URL) gets the
 // precached index.html — this is a single-page app, so offline reloads on any

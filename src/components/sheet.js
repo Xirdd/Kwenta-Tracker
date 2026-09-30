@@ -53,6 +53,18 @@ export function openForm(type, tx, presetCategory) {
       <label>Amount</label>
       <input id="fAmount" type="number" inputmode="decimal" placeholder="0.00" value="${amtVal}"/>
     </div>
+    ${
+      type === "expense"
+        ? `
+    <div class="field" id="photoField">
+      <label>Receipt photo <span class="opt">(optional — just to help you fill this in)</span></label>
+      <input id="fPhotoInput" type="file" accept="image/*" capture="environment" style="display:none;"/>
+      <div id="photoPreviewWrap"></div>
+      <button type="button" class="btn btn-ghost" id="photoAttachBtn" style="width:100%;">Take or choose a photo</button>
+      <p class="field-hint">Shown here while you type the amount — it isn't saved with the expense.</p>
+    </div>`
+        : ""
+    }
     <div class="field">
       <label>Category</label>
       <div class="cat-grid" id="catGrid">
@@ -141,7 +153,28 @@ export function openForm(type, tx, presetCategory) {
     if (document.getElementById("tagTextInput").value.trim()) addTagFromInput();
   });
 
-  document.getElementById("cancelBtn").onclick = closeSheet;
+  let photoPreviewUrl = null;
+  const photoInput = document.getElementById("fPhotoInput");
+  if (photoInput) {
+    document.getElementById("photoAttachBtn").onclick = () =>
+      photoInput.click();
+    photoInput.onchange = () => {
+      const file = photoInput.files[0];
+      if (!file) return;
+      if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+      photoPreviewUrl = URL.createObjectURL(file);
+      document.getElementById("photoPreviewWrap").innerHTML =
+        `<img src="${photoPreviewUrl}" alt="Receipt preview" style="width:100%;max-height:200px;object-fit:contain;border-radius:12px;background:var(--paper-2);margin-bottom:10px;"/>`;
+    };
+  }
+  const revokePhotoPreview = () => {
+    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+  };
+
+  document.getElementById("cancelBtn").onclick = () => {
+    revokePhotoPreview();
+    closeSheet();
+  };
 
   document.getElementById("saveBtn").onclick = () => {
     const desc = document.getElementById("fDesc").value.trim();
@@ -206,6 +239,7 @@ export function openForm(type, tx, presetCategory) {
     saveData();
     if (isCloudMode())
       cloudUpsertTransaction(saved).catch((e) => notifySyncError(e));
+    revokePhotoPreview();
     closeSheet();
     onChange();
   };
