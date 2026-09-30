@@ -1,3 +1,4 @@
+import "./overview.css";
 import {
   state,
   monthTx,
@@ -6,7 +7,7 @@ import {
   trendTotals,
   budgetFor,
 } from "../state.js";
-import { catInfo } from "../categories.js";
+import { catInfo, categoryIconBadge } from "../categories.js";
 import { fmt, escapeHtml } from "../format.js";
 import {
   upcomingBills,
@@ -38,7 +39,7 @@ export function renderOverview() {
       <p>No expenses logged for ${monthLabel(state.monthKey)} yet.<br/>Tap + to add your first entry.</p>
     </div>`
       : `
-    <div class="bars">
+    <div class="ov-card" style="padding-top:22px;">
       <div class="donut-wrap">
         ${renderDonut(entries, totalExp)}
         <div class="donut-center" style="width:${DONUT_TEXT_WIDTH}px;">
@@ -53,9 +54,12 @@ export function renderOverview() {
           const budget = budgetFor(catId); // this half-month's limit
           const over = budget > 0 && amt > budget;
           return `
-        <div class="bar-row">
-          <div class="top"><span>${c.label}${over ? ' <span class="over-flag">over budget</span>' : ""}</span><span>${fmt(amt)}</span></div>
-          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${over ? "var(--coral)" : c.color}"></div></div>
+        <div class="ov-cat-row">
+          ${categoryIconBadge(c, 34)}
+          <div class="ov-cat-main">
+            <div class="top"><span>${c.label}${over ? ' <span class="over-flag">over budget</span>' : ""}</span><span class="amt">${fmt(amt)}</span></div>
+            <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${over ? "var(--coral)" : c.color}"></div></div>
+          </div>
         </div>`;
         })
         .join("")}
@@ -74,7 +78,7 @@ function renderUpcomingBills() {
 
   return `
   <div class="section-title">Upcoming bills <span class="sub">due soon</span></div>
-  <div class="list" style="margin-bottom:8px;">
+  <div class="ov-card" style="margin-bottom:24px;">
     ${items
       .map(({ bill, daysLeft }) => {
         const c = catInfo(bill.category);
@@ -87,15 +91,13 @@ function renderUpcomingBills() {
         const badgeClass =
           daysLeft <= 0 ? "overdue" : daysLeft <= 3 ? "soon" : "later";
         return `
-      <div class="bill-row" data-bill="${bill.id}" data-month="${monthKey}">
-        <span class="chip" style="background:${c.color}"></span>
+      <div class="ov-bill-row" data-bill="${bill.id}" data-month="${monthKey}">
+        ${categoryIconBadge(c, 38)}
         <div class="info">
           <div class="desc">${escapeHtml(bill.name)}</div>
           <div class="meta">${escapeHtml(billCategoryLabel(bill, c.label))} · due on the ${bill.dueDay}${ordinalSuffix(bill.dueDay)}</div>
         </div>
-        <div class="bill-right">
-          <span class="bill-badge ${badgeClass}">${badge}</span>
-        </div>
+        <span class="bill-badge ${badgeClass}">${badge}</span>
       </div>`;
       })
       .join("")}
@@ -103,36 +105,22 @@ function renderUpcomingBills() {
 }
 
 // ── Donut chart ─────────────────────────────────────────────────────────
-// Geometry: a 180×180 viewBox, ring radius 64 with a 16-wide stroke, so the
-// ring spans radius 56–72 and the hole in the middle is 112px across.
 const DONUT_R = 64;
 const DONUT_STROKE = 16;
-// Widest the total can be while still sitting clear of the ring, with a few
-// px of breathing room on each side of the 112px hole.
 const DONUT_TEXT_WIDTH = 96;
 
-// The total used to be a fixed 17px, which is ~102px wide for something as
-// ordinary as "₱15,000.00" — wider than the hole, so it ran over the ring.
-// This shrinks the font as the amount gets longer (never below 10px).
-// 0.62em is the monospace glyph advance plus a little slack for the ₱
-// glyph's fallback font.
 function donutTotalFontSize(label) {
   const size = Math.floor(DONUT_TEXT_WIDTH / (label.length * 0.62));
   return Math.max(10, Math.min(17, size));
 }
 
-// Flat-ended segments with a real gap between them. The previous version used
-// round caps: a round cap extends half the stroke width (9px) past each end of
-// a dash, which swallowed the 2–3px gap entirely, so neighbouring segments
-// overlapped — the translucent gradient ends stacked into lighter blobs at
-// every join, slices looked larger than their real share, and tiny categories
-// showed up as round dots. Butt caps draw exactly the arc length asked for.
+// Flat-ended segments with a real gap between them.
 function renderDonut(entries, total) {
   const r = DONUT_R,
     cx = 90,
     cy = 90,
     circ = 2 * Math.PI * r;
-  const gap = entries.length > 1 ? 2.5 : 0; // no gap needed for a single full ring
+  const gap = entries.length > 1 ? 2.5 : 0;
   let acc = 0;
   const defs = entries
     .map(([catId], i) => {
@@ -147,10 +135,7 @@ function renderDonut(entries, total) {
     .map(([, amt], i) => {
       const frac = total ? amt / total : 0;
       const len = frac * circ;
-      // Never let a very small slice vanish completely, but never draw more
-      // than its own length either.
       const dash = Math.max(len - gap, Math.min(len, 1));
-      // Start half a gap in, so each gap is centered on the slice boundary.
       const start = acc + gap / 2;
       const seg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="url(#donutGrad${i})" stroke-width="${DONUT_STROKE}" stroke-linecap="butt" stroke-dasharray="${dash.toFixed(2)} ${(circ - dash).toFixed(2)}" stroke-dashoffset="${(-start).toFixed(2)}" transform="rotate(-90 ${cx} ${cy})"/>`;
       acc += len;
@@ -163,8 +148,6 @@ function renderDonut(entries, total) {
   </svg>`;
 }
 
-// Converts a set of points into a smooth Catmull-Rom-to-Bezier path, so the
-// trend reads as a fluid curve rather than jagged bar-to-bar jumps.
 function smoothPath(points) {
   if (points.length < 2) return "";
   let d = `M ${points[0].x},${points[0].y}`;
@@ -190,6 +173,8 @@ function renderTrend() {
   const periods = monthsBack(12);
   const data = periods.map((pk) => ({ pk, ...trendTotals(pk) }));
   const max = Math.max(1, ...data.map((d) => Math.max(d.inc, d.exp)));
+  const spanIncome = data.reduce((s, d) => s + d.inc, 0);
+  const spanExpense = data.reduce((s, d) => s + d.exp, 0);
 
   const W = 300,
     H = 130,
@@ -221,10 +206,20 @@ function renderTrend() {
 
   return `
   <div class="section-title">Recent trend <span class="sub">income vs expenses</span></div>
-  <div class="bars">
-    <div class="trend-legend">
-      <span><i style="background:var(--green)"></i>Income</span>
-      <span><i style="background:var(--coral)"></i>Expenses</span>
+  <div class="ov-card" style="padding-top:20px;padding-bottom:18px;">
+    <div class="ov-trend-summary">
+      <div class="ov-trend-stat">
+        <div class="label">Income, this span</div>
+        <div class="value" style="color:var(--green);">${fmt(spanIncome)}</div>
+      </div>
+      <div class="ov-trend-stat">
+        <div class="label">Expenses, this span</div>
+        <div class="value" style="color:var(--coral);">${fmt(spanExpense)}</div>
+      </div>
+    </div>
+    <div class="ov-trend-legend">
+      <span class="ov-trend-legend-chip"><i style="background:var(--green)"></i>Income</span>
+      <span class="ov-trend-legend-chip"><i style="background:var(--coral)"></i>Expenses</span>
     </div>
     <div class="trend-area-wrap">
       <svg viewBox="0 0 ${W} ${H}" class="trend-area-svg">
@@ -249,10 +244,8 @@ function renderTrend() {
     <div class="trend-x-labels">
       ${data
         .map((d) => {
-          // Only label the 1st-15th period of each month — labeling both
-          // halves would just repeat "Sep Sep Oct Oct..." across 12 ticks,
-          // which is more clutter than information on a narrow mobile chart.
-          const [y, m, half] = d.pk.split("-").map(Number);
+          const parts = d.pk.split("-").map(Number);
+          const [y, m, half] = parts;
           if (half === 2) return `<span></span>`;
           const label = new Date(y, m - 1, 1).toLocaleDateString("en-US", {
             month: "short",

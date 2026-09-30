@@ -1,0 +1,141 @@
+/* ---------- Overview tab restyle ---------- */
+/* Scoped to Overview only (ov- prefix) — deliberately NOT touching the
+   shared .list/.bill-row classes billsTab.js and expenses.js also use, so
+   this restyle can't leak into other tabs. */
+
+/* A single consistent "surface" for all three Overview cards — Upcoming
+   bills previously used .list (--radius, 26px) while Where it went and
+   Recent trend used .bars (--radius-lg, 34px); this brings all three to the
+   same corner radius and padding scale. */
+.ov-card {
+  background: var(--gradient-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 6px 20px;
+  margin-bottom: 8px;
+}
+
+/* Upcoming bills — brought to icon-badge parity with the real Bills tab
+   (billsTab.js), which already uses categoryIconBadge(); this widget was
+   the odd one out still using a plain color dot. */
+.ov-bill-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line-dark);
+  cursor: pointer;
+}
+.ov-bill-row:last-child {
+  border-bottom: none;
+}
+.ov-bill-row:active {
+  opacity: 0.8;
+}
+.ov-bill-row .info {
+  flex: 1;
+  min-width: 0;
+}
+.ov-bill-row .desc {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ov-bill-row .meta {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+/* Category breakdown rows — added icon badges (parity with Budgets/Expenses)
+   where there was previously only a label, no icon at all. */
+.ov-cat-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+.ov-cat-row + .ov-cat-row {
+  border-top: 1px solid var(--line-dark);
+}
+.ov-cat-row .ov-cat-main {
+  flex: 1;
+  min-width: 0;
+}
+.ov-cat-row .top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.ov-cat-row .top .amt {
+  font-family:
+    "IBM Plex Mono", "SF Mono", "Menlo", "Roboto Mono", "Consolas", monospace;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Recent trend — a compact income/expense readout above the chart (new),
+   and a pill-style legend (previously two plain dot+label pairs) matching
+   the filter-chip language already used elsewhere in the app. */
+.ov-trend-summary {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.ov-trend-stat {
+  flex: 1;
+  background: color-mix(in srgb, var(--paper) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.ov-trend-stat .label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+.ov-trend-stat .value {
+  font-family:
+    "IBM Plex Mono", "SF Mono", "Menlo", "Roboto Mono", "Consolas", monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.ov-trend-legend {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.ov-trend-legend-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--paper-2);
+  border-radius: 20px;
+  padding: 5px 12px 5px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.ov-trend-legend-chip i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
