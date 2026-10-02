@@ -9,7 +9,7 @@
     <title>Kwenta — Budget Ledger</title>
 
     <!-- PWA / installability -->
-    <meta name="theme-color" content="#0e211b" />
+    <meta name="theme-color" content="#0a1611" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta
@@ -27,16 +27,17 @@
     />
     <script>
       // Set the theme before first paint so there's no flash of the wrong colors.
+      // The id list must match THEMES in src/theme.js. A saved id that's no
+      // longer in it (e.g. the removed "light" theme) falls back to the default.
       (function () {
         try {
+          var ids = ["forest", "deepsea", "plum", "wine", "amoled"];
           var stored = localStorage.getItem("kwenta_theme");
-          var theme =
-            stored ||
-            (window.matchMedia("(prefers-color-scheme: light)").matches
-              ? "light"
-              : "dark");
+          var theme = ids.indexOf(stored) > -1 ? stored : "forest";
           document.documentElement.setAttribute("data-theme", theme);
-        } catch (e) {}
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "forest");
+        }
       })();
     </script>
   </head>

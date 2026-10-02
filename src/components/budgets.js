@@ -3,147 +3,105 @@ import {
   state,
   monthTx,
   saveData,
-  budgetFor,
   halfOfKey,
+  budgetFor,
   hasOwnSecondBudget,
   periodKeyHasHalf,
 } from "../state.js";
-import {
-  catInfo,
-  categoryIconBadge,
-  allExpenseCategories,
-  CUSTOM_CATEGORY_COLORS,
-} from "../categories.js";
-import { fmt, escapeHtml } from "../format.js";
+import { fmt } from "../format.js";
 import { isCloudMode, cloudUpsertBudget } from "../sync.js";
 import { cloudSetBudgetSecond } from "../budgetLimitsCloud.js";
 import { notifySyncError } from "../toast.js";
-import { scheduleUndoableDelete } from "../undo.js";
+import { visibleCategories, budgetCategoryPool } from "../budgetView.js";
+import { renderBudgetCard, refreshBudgetCard } from "./budgetCard.js";
 import {
-  createCustomCategory,
-  updateCustomCategory,
-  deleteCustomCategory,
-} from "../customCategories.js";
-import "../customCategories.css";
-import { openModal, closeModal } from "./modal.js";
+  initBudgetCategoryPicker,
+  openBudgetCategoryPicker,
+} from "./budgetCategoryPicker.js";
+import {
+  initCategoryFormSheet,
+  openCategoryForm,
+} from "./categoryFormSheet.js";
 
-let onChange = () => {};
-
-// Called once from main.js (initBudgetsSheet(render)) — lets the custom-
-// category create/edit/delete modal below trigger a re-render after saving,
-// the same pattern goalSheet.js/loanSheet.js/billSheet.js already use.
+// Called once from main.js (initBudgetsSheet(render)). Fans the re-render
+// callback out to the sheets this tab opens, so main.js needs no change.
 export function initBudgetsSheet(rerenderCallback) {
-  onChange = rerenderCallback;
+  initBudgetCategoryPicker(rerenderCallback);
+  initCategoryFormSheet(rerenderCallback);
 }
 
-const CHEVRON_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
-const EDIT_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
 const PLUS_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+const SLIDERS_ICON = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>`;
 
-// One small pill per half: "1–15  ₱ [ 5000 ]" / "16–end  ₱ [ 4000 ]". The pill
-// for the half currently being viewed gets a gold ring so it's obvious which
-// limit the progress bar below is measuring against. The 2nd-half input shows
-// the 1st-half limit as its placeholder while it has no limit of its own —
-// that's the value it's inheriting.
-function limitPill(catId, half, value, placeholder, active) {
-  const label = half === 1 ? "1–15" : "16–end";
-  // Equal-width pills that share the row (flex:1). The active ring is a real
-  // border rather than a box-shadow: the collapsible row is overflow:hidden,
-  // so a shadow ring got its top and sides sliced off.
-  return `
-  <div class="budget-input-wrap" style="flex:1;min-width:0;width:auto;margin-bottom:0;border:1.5px solid ${active ? "var(--gold)" : "transparent"};">
-    <span style="font-size:10.5px;font-weight:700;color:var(--ink-soft);margin-right:4px;white-space:nowrap;">${label}</span>
-    <span>₱</span>
-    <input type="number" inputmode="decimal" class="budgetInput" data-cat="${catId}" data-half="${half}" placeholder="${placeholder || 0}" value="${value}" style="flex:1;min-width:0;width:100%;"/>
-  </div>`;
+function spentByCategory() {
+  const spent = {};
+  monthTx("expense").forEach((e) => {
+    spent[e.category] = (spent[e.category] || 0) + Number(e.amount || 0);
+  });
+  return spent;
 }
 
-// Monthly mode has no second half, so there's nothing to pair this with —
-// just one limit input for the whole month, always bound to half=1
-// (DATA.budgets[cat], the same field semi-monthly mode calls the "1st-15th"
-// limit — in monthly mode it simply IS the month's only limit).
-function singleLimitInput(catId, value) {
+// Totals count ONLY the categories currently shown, so "budgeted" and
+// "spent" always describe the same set of cards.
+function summaryTotals(cats) {
+  const spent = spentByCategory();
+  return {
+    totalBudget: cats.reduce((s, c) => s + budgetFor(c.id), 0),
+    totalSpent: cats.reduce((s, c) => s + (spent[c.id] || 0), 0),
+  };
+}
+
+function renderEmptyState() {
   return `
-  <div class="budget-input-wrap" style="flex:1;min-width:0;width:auto;margin-bottom:0;">
-    <span>₱</span>
-    <input type="number" inputmode="decimal" class="budgetInput" data-cat="${catId}" data-half="1" placeholder="0" value="${value}" style="flex:1;min-width:0;width:100%;"/>
+  <div class="empty-state">
+    <div class="glyph">₱</div>
+    <p>No budget categories selected.<br/>Choose the ones you want to track.</p>
+    <button type="button" class="btn btn-primary" id="selectCatsBtn" style="margin-top:18px;width:auto;padding:14px 28px;">Select Categories</button>
   </div>`;
 }
 
 export function renderBudgets() {
-  const cats = allExpenseCategories();
-  const exp = monthTx("expense");
-  const spentByCat = {};
-  exp.forEach((e) => {
-    spentByCat[e.category] =
-      (spentByCat[e.category] || 0) + Number(e.amount || 0);
-  });
+  const cats = visibleCategories();
+  const { presets, others } = budgetCategoryPool();
+  const poolSize = presets.length + others.length;
+  const spentByCat = spentByCategory();
+  const { totalBudget, totalSpent } = summaryTotals(cats);
   const viewedHalf = halfOfKey(state.monthKey);
-  const totalBudget = cats.reduce((s, c) => s + budgetFor(c.id), 0);
-  const totalSpent = exp.reduce((s, e) => s + Number(e.amount || 0), 0);
-
   const isHalfMonth = periodKeyHasHalf(state.monthKey);
+
+  const cards = cats
+    .map((c) =>
+      renderBudgetCard(c, {
+        spent: spentByCat[c.id] || 0,
+        isHalfMonth,
+        viewedHalf,
+      }),
+    )
+    .join("");
+
   return `
   <div class="section-title">Budgets <span class="sub">${isHalfMonth ? "a limit for each half-month" : "a limit each month"}</span></div>
-  ${
-    totalBudget > 0
-      ? `
-    <div class="budget-summary">
-      <span>Total budgeted</span>
-      <span>${fmt(totalSpent)} <span class="of">of ${fmt(totalBudget)}</span></span>
-    </div>`
-      : ""
-  }
-  <div class="list budget-list">
-    ${cats
-      .map((c) => {
-        const first = Number(DATA.budgets[c.id]) || 0;
-        const hasSecond = hasOwnSecondBudget(c.id);
-        const limit = budgetFor(c.id);
-        const spent = spentByCat[c.id] || 0;
-        const pct = limit ? Math.min(100, (spent / limit) * 100) : 0;
-        const over = limit > 0 && spent > limit;
-        return `
-      <div class="budget-row" data-cat-row="${c.id}">
-        <div class="budget-header" data-toggle="${c.id}">
-          <div class="budget-name">${categoryIconBadge(c, 32)}${c.label}</div>
-          <div style="display:flex;align-items:center;gap:10px;">
-            ${c.custom ? `<button type="button" class="icon-ghost-btn" data-edit-cat="${c.id}" title="Edit">${EDIT_ICON}</button>` : ""}
-            <span class="budget-chevron">${CHEVRON_ICON}</span>
-          </div>
-        </div>
-        <div class="budget-detail">
-          <div class="budget-detail-inner">
-            <div style="display:flex;gap:8px;margin-bottom:12px;">
-              ${
-                isHalfMonth
-                  ? limitPill(c.id, 1, first || "", 0, viewedHalf === 1) +
-                    limitPill(
-                      c.id,
-                      2,
-                      hasSecond ? DATA.budgetsSecond[c.id] : "",
-                      first,
-                      viewedHalf === 2,
-                    )
-                  : singleLimitInput(c.id, first || "")
-              }
-            </div>
-            <div class="bar-track"><div class="bar-fill" style="width:${limit ? Math.max(pct, 2) : 0}%;background:${over ? "var(--coral)" : c.color}"></div></div>
-            <div class="budget-meta ${over ? "over" : ""}">${fmt(spent)} of ${limit ? fmt(limit) : "no limit set"}${over ? " · over budget" : ""}</div>
-          </div>
-        </div>
-      </div>`;
-      })
-      .join("")}
+  <div class="budget-toolbar">
+    <span class="budget-toolbar-count">Showing <strong>${cats.length}</strong> of ${poolSize} categories</span>
+    <button type="button" class="budget-customize-btn" id="manageCatsBtn">${SLIDERS_ICON}Customize</button>
   </div>
+  ${
+    cats.length === 0
+      ? renderEmptyState()
+      : `
+  <div class="budget-summary" id="budgetSummary" style="display:${totalBudget > 0 ? "flex" : "none"};">
+    <span>Total budgeted</span>
+    <span><span id="budgetSummarySpent">${fmt(totalSpent)}</span> <span class="of">of <span id="budgetSummaryLimit">${fmt(totalBudget)}</span></span></span>
+  </div>
+  <div class="list budget-list">${cards}</div>`
+  }
   <button type="button" class="btn btn-ghost" id="addCustomCatBtn" style="width:100%;margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px;">${PLUS_ICON}Add a custom budget category</button>
   `;
 }
 
 // Cloud writes are debounced per (category, half): every keystroke still
 // updates the screen and the local copy instantly, but the network call only
-// fires once typing pauses. Sending one per keystroke let responses land out
-// of order (typing 500 could leave "50" in the cloud).
+// fires once typing pauses (otherwise responses can land out of order).
 const cloudTimers = {};
 function scheduleCloudWrite(cat, half) {
   if (!isCloudMode()) return;
@@ -162,33 +120,16 @@ function scheduleCloudWrite(cat, half) {
   }, 400);
 }
 
-// Re-measures one row against whichever limit applies to the viewed half,
-// without a full re-render (which would drop input focus mid-typing).
-function refreshRow(row, cat) {
-  const spent = monthTx("expense")
-    .filter((x) => x.category === cat)
-    .reduce((s, x) => s + Number(x.amount || 0), 0);
-  const limit = budgetFor(cat);
-  const pct = limit ? Math.min(100, (spent / limit) * 100) : 0;
-  const over = limit > 0 && spent > limit;
-
-  const fill = row.querySelector(".bar-fill");
-  fill.style.width = (limit ? Math.max(pct, 2) : 0) + "%";
-  fill.style.background = over ? "var(--coral)" : catInfo(cat).color;
-  const meta = row.querySelector(".budget-meta");
-  meta.textContent = `${fmt(spent)} of ${limit ? fmt(limit) : "no limit set"}${over ? " · over budget" : ""}`;
-  meta.classList.toggle("over", over);
-
-  // While the 2nd half has no limit of its own, its placeholder mirrors the
-  // 1st-half value it's inheriting — keep that in step as the 1st is edited.
-  const second = row.querySelector('.budgetInput[data-half="2"]');
-  if (second && !hasOwnSecondBudget(cat)) {
-    second.placeholder = String(Number(DATA.budgets[cat]) || 0);
-  }
+// Keeps the "Total budgeted" strip in step with typing, without a re-render.
+function refreshSummary() {
+  const el = document.getElementById("budgetSummary");
+  if (!el) return;
+  const { totalBudget, totalSpent } = summaryTotals(visibleCategories());
+  el.style.display = totalBudget > 0 ? "flex" : "none";
+  document.getElementById("budgetSummarySpent").textContent = fmt(totalSpent);
+  document.getElementById("budgetSummaryLimit").textContent = fmt(totalBudget);
 }
 
-// Wires the limit inputs, the tap-to-reveal toggle, and the custom-category
-// add/edit controls.
 export function attachBudgetEvents() {
   document.querySelectorAll(".budgetInput").forEach((inp) => {
     inp.oninput = (e) => {
@@ -210,22 +151,22 @@ export function attachBudgetEvents() {
 
       saveData();
       scheduleCloudWrite(cat, half);
-      refreshRow(inp.closest(".budget-row"), cat);
+      refreshBudgetCard(inp.closest(".budget-row"), cat);
+      refreshSummary();
     };
-    // Typing shouldn't collapse the row it's inside — only the header toggles it.
+    // Typing shouldn't collapse the card it's inside — only the header toggles it.
     inp.onclick = (e) => e.stopPropagation();
   });
 
   document.querySelectorAll("[data-toggle]").forEach((header) => {
-    header.onclick = () => {
-      const row = header.closest(".budget-row");
-      row.classList.toggle("open");
-    };
+    header.onclick = () =>
+      header.closest(".budget-row").classList.toggle("open");
   });
 
+  // Edit pencil on custom cards -> the same form used for creating.
   document.querySelectorAll("[data-edit-cat]").forEach((btn) => {
     btn.onclick = (e) => {
-      e.stopPropagation(); // don't also toggle the row open/closed
+      e.stopPropagation(); // don't also toggle the card open/closed
       const cat = DATA.customCategories.find(
         (c) => c.id === btn.dataset.editCat,
       );
@@ -233,117 +174,11 @@ export function attachBudgetEvents() {
     };
   });
 
+  const manageBtn = document.getElementById("manageCatsBtn");
+  if (manageBtn) manageBtn.onclick = openBudgetCategoryPicker;
+  const selectBtn = document.getElementById("selectCatsBtn");
+  if (selectBtn) selectBtn.onclick = openBudgetCategoryPicker;
+
   const addBtn = document.getElementById("addCustomCatBtn");
   if (addBtn) addBtn.onclick = () => openCategoryForm(null);
-}
-
-function colorSwatchRow(selected) {
-  return `
-  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;">
-    ${CUSTOM_CATEGORY_COLORS.map(
-      (hex) => `
-      <button type="button" class="color-swatch-btn ${hex === selected ? "selected" : ""}" data-color="${hex}" style="background:${hex};" aria-label="${hex}"></button>
-    `,
-    ).join("")}
-  </div>`;
-}
-
-function openCategoryForm(cat, error) {
-  const isEdit = !!cat;
-  let chosenColor = cat ? cat.color : CUSTOM_CATEGORY_COLORS[0];
-
-  openModal(`
-    <div class="grabber"></div>
-    <h3>${isEdit ? "Edit budget category" : "New budget category"}</h3>
-    <div class="field">
-      <label>Name</label>
-      <input id="ccLabel" type="text" placeholder="e.g. Pet care, Tuition" value="${escapeHtml(cat?.label || "")}"/>
-    </div>
-    <div class="field">
-      <label>Color</label>
-      <div id="ccColorRow">${colorSwatchRow(chosenColor)}</div>
-    </div>
-    ${error ? `<p class="auth-message" style="color:var(--coral);">${error}</p>` : ""}
-    <div class="sheet-actions">
-      ${isEdit ? `<button class="btn btn-danger" id="ccDeleteBtn">Delete</button>` : ""}
-      <button class="btn btn-ghost" id="ccCancelBtn">Cancel</button>
-      <button class="btn btn-primary" id="ccSaveBtn">Save</button>
-    </div>
-  `);
-
-  document.querySelectorAll("#ccColorRow .color-swatch-btn").forEach((btn) => {
-    btn.onclick = () => {
-      chosenColor = btn.dataset.color;
-      document
-        .querySelectorAll("#ccColorRow .color-swatch-btn")
-        .forEach((b) => b.classList.remove("selected"));
-      btn.classList.add("selected");
-    };
-  });
-
-  document.getElementById("ccCancelBtn").onclick = closeModal;
-
-  document.getElementById("ccSaveBtn").onclick = () => {
-    const label = document.getElementById("ccLabel").value.trim();
-    if (!label) {
-      openCategoryForm(cat, "Give this category a name.");
-      return;
-    }
-    // "Others" is a reserved fallback label everywhere in the app
-    // (catInfo()'s catch-all) — a same-named custom category would be
-    // confusing right next to it.
-    if (label.toLowerCase() === "others") {
-      openCategoryForm(cat, "That name is reserved — try something else.");
-      return;
-    }
-
-    if (isEdit) updateCustomCategory(cat, { label, color: chosenColor });
-    else createCustomCategory({ label, color: chosenColor });
-
-    closeModal();
-    onChange();
-  };
-
-  if (isEdit) {
-    document.getElementById("ccDeleteBtn").onclick = () =>
-      confirmDeleteCategory(cat);
-  }
-}
-
-function confirmDeleteCategory(cat) {
-  openModal(`
-    <div class="grabber"></div>
-    <h3>Delete "${escapeHtml(cat.label)}"?</h3>
-    <p class="auth-message">Its budget limits go with it. Expenses already logged under it stay in your history, listed under "Others" from now on. You can undo for a few seconds after.</p>
-    <div class="sheet-actions">
-      <button class="btn btn-ghost" id="ccKeepBtn">Keep it</button>
-      <button class="btn btn-danger" id="ccConfirmDeleteBtn">Delete</button>
-    </div>
-  `);
-  document.getElementById("ccKeepBtn").onclick = () => openCategoryForm(cat);
-  document.getElementById("ccConfirmDeleteBtn").onclick = () => {
-    closeModal();
-    // deleteCustomCategory() also clears its budget limits — capture them so
-    // Undo restores the whole picture, not just the category's name/color.
-    const firstBudget = DATA.budgets[cat.id];
-    const secondBudget = DATA.budgetsSecond[cat.id];
-    scheduleUndoableDelete({
-      label: `"${cat.label}"`,
-      remove: () => {
-        DATA.customCategories = DATA.customCategories.filter(
-          (c) => c.id !== cat.id,
-        );
-        onChange();
-      },
-      restore: () => {
-        DATA.customCategories.push(cat);
-        if (firstBudget !== undefined) DATA.budgets[cat.id] = firstBudget;
-        if (secondBudget !== undefined)
-          DATA.budgetsSecond[cat.id] = secondBudget;
-        saveData();
-        onChange();
-      },
-      commit: () => deleteCustomCategory(cat.id),
-    });
-  };
 }

@@ -1,0 +1,56 @@
+/* ---------- Dark themes (background tint only) ---------- */
+/* Every theme below is dark and changes ONLY the background family:
+   --bg (page), --bg-2 (raised strip), --paper (cards), --paper-2 (inputs and
+   inner chips) and --bg-glow (the soft glow behind the page). The accent
+   (--gold / --green / --coral), text colors, lines and shadows all come from
+   :root in style.css and stay identical in every theme, so income is always
+   green, expenses always coral, and the brand accent never moves.
+
+   Loaded from theme.js, after style.css, so these win over :root. Keep
+   --paper-2 dark (relative luminance under ~0.02) — the muted text color
+   (--ink-soft) sits on it and needs to stay readable. */
+
+/* Forest — deep green, the closest to Kwenta's original brand color */
+[data-theme="forest"] {
+  --bg: #0a1611;
+  --bg-2: #101f18;
+  --paper: #112119;
+  --paper-2: #182b20;
+  --bg-glow: #0f2a1e;
+}
+
+/* Deep Sea — dark teal-navy */
+[data-theme="deepsea"] {
+  --bg: #06121a;
+  --bg-2: #0c1c27;
+  --paper: #0d1e29;
+  --paper-2: #142b39;
+  --bg-glow: #0a2431;
+}
+
+/* Plum — dark violet-purple */
+[data-theme="plum"] {
+  --bg: #110815;
+  --bg-2: #190e1e;
+  --paper: #1b0f21;
+  --paper-2: #271730;
+  --bg-glow: #200d28;
+}
+
+/* Wine — dark burgundy */
+[data-theme="wine"] {
+  --bg: #14070a;
+  --bg-2: #1d0d11;
+  --paper: #200e13;
+  --paper-2: #2e1720;
+  --bg-glow: #260b12;
+}
+
+/* Amoled — true black; pixels switch fully off on OLED iPhones */
+[data-theme="amoled"] {
+  --bg: #000000;
+  --bg-2: #0a0a0a;
+  --paper: #0e0e0e;
+  --paper-2: #181818;
+  --bg-glow: #050505;
+}

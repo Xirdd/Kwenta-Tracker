@@ -3,8 +3,8 @@ import { CATEGORIES, catInfo, categoryIconBadge } from "../categories.js";
 import { openForm } from "./sheet.js";
 
 // A curated fallback so a brand-new account still gets useful chips before
-// any spending history exists.
-const DEFAULT_CATS = ["food", "transport", "bills", "load", "shopping"];
+// any spending history exists. "food" was split into "dining" + "groceries".
+const DEFAULT_CATS = ["dining", "groceries", "transport", "bills", "load"];
 
 // Ranks categories by how often they're actually used (all-time, not just
 // this month, so the row stays stable and useful even in a slow month),
@@ -13,6 +13,10 @@ function topCategories(limit = 6) {
   const counts = {};
   DATA.transactions.forEach((t) => {
     if (t.type !== "expense") return;
+    // Old expenses logged under the retired combined "food" category still
+    // count toward ranking, but a chip for it would open the picker with a
+    // category that's no longer selectable — so it's skipped here.
+    if (t.category === "food") return;
     counts[t.category] = (counts[t.category] || 0) + 1;
   });
   const ranked = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);

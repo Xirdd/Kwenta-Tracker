@@ -1,48 +1,48 @@
-// Also loads the mobile shell (hidden scrollbars + double-tap-zoom guard).
-// It lives here only so main.js doesn't need touching — theme.js is already
-// imported once at startup. Feel free to move this line into main.js.
+// Also loads the mobile shell (hidden scrollbars + double-tap-zoom guard) and
+// the dark theme palettes. They live here only so main.js doesn't need
+// touching — theme.js is already imported once at startup, and importing
+// themes.css from here puts it AFTER style.css in the bundle, which is what
+// lets its [data-theme] rules override :root.
 import "./mobileShell.js";
+import "./themes.css";
 const THEME_KEY = "kwenta_theme";
 
-// id must match the [data-theme="..."] selector in style.css.
-// mode groups the theme for display in Profile → Appearance (Light section
-// vs Dark section) — it's purely a UI grouping label, separate from the
-// actual color tokens each theme defines in style.css. Only "light" is
-// genuinely a light theme; Midnight and Sepia are dark themes despite their
-// warmer/cooler names, so they belong in the Dark group, not mixed in with
-// Light.
+// id must match the [data-theme="..."] selector in themes.css.
+// bg / paper are only the two colors used to draw this theme's swatch in
+// Profile → Appearance: the circle is a dark surface tone and the dot inside
+// is a lighter tint of the same hue, so the five read as clearly different.
+// mode groups the swatch row in Profile — every theme is "dark", so only the
+// "Dark" group renders (profileTab.js skips a group with no themes).
 export const THEMES = [
   {
-    id: "light",
-    label: "Light",
-    bg: "#efe9d8",
-    paper: "#f5f0e1",
-    mode: "light",
-  },
-  { id: "dark", label: "Dark", bg: "#0e211b", paper: "#f5f0e1", mode: "dark" },
-  {
-    id: "midnight",
-    label: "Midnight",
-    bg: "#0d1420",
-    paper: "#eef1f7",
+    id: "forest",
+    label: "Forest",
+    bg: "#182b20",
+    paper: "#3f7a60",
     mode: "dark",
   },
   {
-    id: "sepia",
-    label: "Sepia",
-    bg: "#ddc9a3",
-    paper: "#faf3e0",
+    id: "deepsea",
+    label: "Deep Sea",
+    bg: "#142b39",
+    paper: "#3f7f9c",
     mode: "dark",
   },
+  { id: "plum", label: "Plum", bg: "#271730", paper: "#8a5aa8", mode: "dark" },
+  { id: "wine", label: "Wine", bg: "#2e1720", paper: "#b0505f", mode: "dark" },
   {
-    id: "slate",
-    label: "Slate",
-    bg: "#191c20",
-    paper: "#f4f4f2",
+    id: "amoled",
+    label: "Amoled",
+    bg: "#181818",
+    paper: "#5a5a5a",
     mode: "dark",
   },
 ];
 const THEME_IDS = THEMES.map((t) => t.id);
+
+// Used for first-time visitors AND for anyone whose saved theme no longer
+// exists (the old "light", "dark", "midnight", "sepia" and "slate" ids).
+export const DEFAULT_THEME_ID = "forest";
 
 function getStoredTheme() {
   try {
@@ -63,24 +63,19 @@ function storeTheme(theme) {
 // Keeps everything OUTSIDE the page content in sync with the active theme:
 //
 //  1. <meta name="theme-color"> — this is what tints Safari's top bar and the
-//     Android status bar. A static tag (or a pair of tags switched by
-//     `prefers-color-scheme`) follows the phone's system setting, NOT the
-//     theme picked in Profile, so e.g. a light-mode phone running Kwenta's
-//     dark theme gets a white strip across the top. Every existing tag is
-//     removed and one fresh tag is added (Safari can ignore in-place edits).
+//     Android status bar. A static tag follows the phone's system setting,
+//     NOT the theme picked in Profile. Every existing tag is removed and one
+//     fresh tag is added (Safari can ignore in-place edits).
 //  2. The <html> background — the area behind the page that shows in the
 //     safe-area/notch region and during rubber-band overscroll. Without a
 //     solid color here it can flash the browser default (white).
 //
 // The color is read from the theme's own --bg token so this can never drift
-// out of sync with style.css.
-//  3. The strip behind the clock/battery (iPhone Home Screen app). Measured
-//     from a screenshot, the old top scrim painted a neutral gray
-//     (≈ #999) fading out over safe-area + 22px — not any color in the
-//     theme, and light enough that iOS flipped the clock to black. It is
-//     replaced here by a plain opaque fill in the theme's own --bg color
-//     (no backdrop-filter, which is what lets iOS re-tint that edge), and
-//     the old `.status-bar-scrim` is hidden so the two never stack.
+// out of sync with themes.css.
+//  3. The strip behind the clock/battery (iPhone Home Screen app): a plain
+//     opaque fill in the theme's own --bg color (no backdrop-filter, which is
+//     what lets iOS re-tint that edge), and the old `.status-bar-scrim` is
+//     hidden so the two never stack.
 const TOP_FILL_ID = "statusBarFill";
 
 function ensureStatusBarFill() {
@@ -136,24 +131,17 @@ export function applyTheme(theme) {
 }
 
 export function currentTheme() {
-  return document.documentElement.getAttribute("data-theme") || "dark";
+  return (
+    document.documentElement.getAttribute("data-theme") || DEFAULT_THEME_ID
+  );
 }
 
-// Call once on startup: uses the saved preference (any of the 5 themes),
-// falling back to the system's light/dark preference for a first-time
-// visitor, defaulting to dark if neither is available. The 3 extra dark
-// themes are only ever reached by deliberately picking them in Profile —
-// there's no "system preference" for Midnight/Sepia/Slate to fall back to.
+// Call once on startup: uses the saved theme if it's still one of the five,
+// otherwise the default. There's no system light/dark lookup anymore — the
+// app is dark-only.
 export function initTheme() {
   const stored = getStoredTheme();
-  if (stored && THEME_IDS.includes(stored)) {
-    applyTheme(stored);
-    return;
-  }
-  const prefersLight =
-    window.matchMedia &&
-    window.matchMedia("(prefers-color-scheme: light)").matches;
-  applyTheme(prefersLight ? "light" : "dark");
+  applyTheme(stored && THEME_IDS.includes(stored) ? stored : DEFAULT_THEME_ID);
 }
 
 export function setTheme(themeId) {

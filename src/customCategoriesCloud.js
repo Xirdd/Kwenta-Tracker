@@ -4,8 +4,9 @@ import { getActiveHouseholdId } from "./household.js";
 import { registerRetryable, enqueueRetry } from "./syncQueue.js";
 
 // Cloud side of custom expense categories (kwenta_custom_categories, see
-// supabase/custom_categories.sql). Kept in its own file, same pattern as
-// budgetLimitsCloud.js, so sync.js doesn't need touching.
+// supabase/custom_categories.sql and supabase/custom_categories_icon.sql).
+// Kept in its own file, same pattern as budgetLimitsCloud.js, so sync.js
+// doesn't need touching.
 
 function scoped(query, householdId, userId) {
   return householdId
@@ -29,6 +30,7 @@ export async function cloudLoadCustomCategories() {
     id: r.id,
     label: r.label,
     color: r.color,
+    icon: r.icon || undefined, // missing -> categoryIcons.js falls back to the tag icon
     active: r.active,
   }));
 }
@@ -36,15 +38,28 @@ export async function cloudLoadCustomCategories() {
 async function upsert(cat) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
-  const { error } = await supabase.from("kwenta_custom_categories").upsert({
+  const row = {
     id: cat.id,
     user_id: user.id,
     household_id: getActiveHouseholdId(),
     label: cat.label,
     color: cat.color,
+    icon: cat.icon || null,
     active: cat.active !== false,
     updated_at: new Date().toISOString(),
-  });
+  };
+
+  let { error } = await supabase.from("kwenta_custom_categories").upsert(row);
+
+  // If the icon column hasn't been added yet (the SQL migration wasn't run),
+  // retry without it so the category itself still syncs. The icon then only
+  // lives on this device until the migration is applied.
+  if (error && /icon/i.test(error.message || "")) {
+    const { icon, ...withoutIcon } = row;
+    ({ error } = await supabase
+      .from("kwenta_custom_categories")
+      .upsert(withoutIcon));
+  }
   if (error) throw error;
 }
 

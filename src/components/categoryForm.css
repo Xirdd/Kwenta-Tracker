@@ -1,0 +1,77 @@
+/* ---------- Custom category form + icon picker ---------- */
+.cc-name-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.cc-name-row .field {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.cc-preview {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+}
+.icon-picker {
+  max-height: 200px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: color-mix(in srgb, var(--paper-2) 60%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px 10px 10px;
+}
+.icon-group-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 10px 2px 6px 2px;
+}
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 8px;
+}
+.icon-opt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  background: var(--paper);
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  padding: 0;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.12s ease;
+}
+.icon-opt:active {
+  transform: scale(0.94);
+}
+.icon-opt.selected {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 14%, var(--paper));
+}
+.icon-opt:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+/* The edit pencil on a custom budget card is the only way into the form, so
+   it gets a proper 44px tap target (customCategories.css makes it 28px). */
+.budget-header .icon-ghost-btn {
+  width: 44px;
+  height: 44px;
+  margin: -8px 0;
+}
