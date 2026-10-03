@@ -12,6 +12,7 @@ import {
   switchToLocalData,
   monthPortionOf,
 } from "./state.js";
+import { clearLocalData } from "./storage.js";
 import { materializeMonth } from "./recurring.js";
 import { getBill } from "./bills.js";
 import { getGoal } from "./goals.js";
@@ -59,6 +60,7 @@ import {
   openLoanForm,
   openLoanDetail,
 } from "./components/loanSheet.js";
+import { closeModal } from "./components/modal.js";
 import { initTheme } from "./theme.js";
 import { initAppLock } from "./appLock.js";
 import { initAppLockSheet } from "./components/appLockSheet.js";
@@ -75,6 +77,8 @@ import {
   onAuthChange,
   consumePendingPasswordSetup,
 } from "./auth.js";
+import { isAuthorized, setSessionPending } from "./authGuard.js";
+import { showAuthPage, hideAuthPage } from "./components/authPage.js";
 import {
   getActiveHousehold,
   getActiveHouseholdId,
@@ -89,12 +93,25 @@ import {
 import { requireMfaIfNeeded } from "./components/mfaChallengeSheet.js";
 import { needsMfaChallenge } from "./mfa.js";
 import { initMfaSetupSheet } from "./components/mfaSetupSheet.js";
+import { showToast } from "./toast.js";
 
+// THE GATE. Every screen in the app is drawn by this one function, so this is
+// the one place that decides whether protected content may exist at all. If
+// the guard says no, #app is emptied (nothing from the ledger stays in the
+// DOM, not even hidden) and the login page — or its loading view while the
+// session is still being checked — is shown instead.
 function render() {
+  const app = document.getElementById("app");
+  if (!isAuthorized()) {
+    app.innerHTML = "";
+    showAuthPage();
+    return;
+  }
+  hideAuthPage();
+
   const t = totals();
   const user = getCurrentUser();
   const household = getActiveHousehold();
-  const app = document.getElementById("app");
   app.innerHTML = `
     ${renderHeader(user, household)}
     <div class="side">
@@ -138,9 +155,11 @@ function renderSectionContent(t) {
   `;
 }
 
-// Ensures this month's recurring entries exist, then renders.
+// Ensures this month's recurring entries exist, then renders. Recurring
+// entries are only created for a signed-in, unlocked session — never behind
+// the login wall.
 function goToMonth() {
-  materializeMonth(state.monthKey);
+  if (isAuthorized()) materializeMonth(state.monthKey);
   render();
 }
 
@@ -157,6 +176,7 @@ function refreshRealtimeSubscription() {
 // as the realtime callback: another household member's change fires this
 // same reload, debounced, from src/realtime.js.
 async function onHouseholdChanged() {
+  if (!isAuthorized()) return;
   await switchToCloudData();
   goToMonth();
   refreshRealtimeSubscription();
@@ -201,7 +221,7 @@ function attachEvents() {
     onLoan: () => openLoanForm(null),
   });
 
-  // The account icon in the header now just jumps to the Profile tab.
+  // The account icon in the header just jumps to the Profile tab.
   document.getElementById("accountBtn").onclick = () => {
     state.section = "profile";
     render();
@@ -257,9 +277,7 @@ function attachEvents() {
 
 // Fades out and removes the branded splash screen (markup lives in
 // index.html so it's visible instantly on first paint, before this bundle
-// even finishes loading). Called once, right after the first real render —
-// see the end of init() below — so there's no gap between "splash gone" and
-// "actual app visible".
+// even finishes loading). Idempotent — safe to call more than once.
 function hideSplash() {
   const splash = document.getElementById("splash");
   if (!splash) return;
@@ -267,111 +285,149 @@ function hideSplash() {
   setTimeout(() => splash.remove(), 450); // matches the CSS fade duration
 }
 
-(async function init() {
-  initAppLock();
+// Set when the page was opened from the phone's share sheet. The shared item
+// waits in IndexedDB until someone is signed in and unlocked.
+let shareWaiting = false;
+let syncQueueStarted = false;
 
-  // Safety net: hideSplash() is idempotent (no-ops if already removed), so
-  // this just guarantees the splash can't get stuck forever if something
-  // in the auth/data chain below throws before reaching the normal call.
-  setTimeout(hideSplash, 6000);
+// The moment the wall comes down: loads the person's data, lifts the "pending"
+// state, and lands them on the Dashboard (Overview) — never on whatever screen
+// state was left over from before. `boot` is true for a page load with an
+// existing session, which also picks up the on-device cache; a fresh sign-in
+// reloads straight from the cloud.
+async function unlockApp({ boot = false } = {}) {
+  try {
+    if (boot) await initData();
+    else await switchToCloudData();
+  } catch (e) {
+    // Offline (or Supabase briefly down) with a session that's still valid:
+    // fall back to the copy kept on this device rather than a blank app.
+    console.error("Couldn't load from the cloud", e);
+    switchToLocalData();
+    showToast(
+      "Couldn't reach the cloud — showing what's saved on this device.",
+    );
+  }
 
-  initSyncQueue(); // retries any cloud writes that failed in a previous offline session
-
-  initTheme();
-  initSheet(render); // let sheets trigger a re-render after save/delete/sign-in/sign-out
-  initBillSheets(render);
-  initGoalSheets(render);
-  initLoanSheets(render);
-  initBudgetsSheet(render); // custom budget category create/edit/delete needs a re-render too
-  initAppLockSheet(render); // App Lock's setup/manage sheet needs a re-render too (Profile row text changes)
-  initSearchSheet(render); // jumping to a search result's period/tab needs the same re-render everything else uses
-  initEditProfileSheet(render); // editing name/birthday needs the Profile header to re-render too
-  initShareIntakeSheet(render); // saving a shared item as an expense needs a re-render too
-  initHouseholdSheet(onHouseholdChanged);
-  initProfileTab(render); // theme toggle inside Profile needs to trigger a re-render too
-  initDeleteAccountSheet(() => {
-    state.section = "overview";
-    render();
-  });
-  initMfaSetupSheet(render);
-
-  await initAuth();
-  await loadActiveHousehold(); // must resolve before the first data load, since it decides what scope to load
+  setSessionPending(false);
   refreshRealtimeSubscription();
 
-  // Re-load and re-render whenever the signed-in user changes (sign in, sign out, magic link landing).
-  let lastUserId = getCurrentUser()?.id || null;
-  onAuthChange(async (user) => {
-    const userId = user?.id || null;
-    if (userId === lastUserId) return;
-    lastUserId = userId;
-    await loadActiveHousehold();
+  // Started only once there's a session. Started earlier, a retry pass with
+  // nobody signed in would mark every queued write "done" and drop it.
+  if (!syncQueueStarted) {
+    syncQueueStarted = true;
+    initSyncQueue();
+  }
 
-    if (user) {
-      // Waits for any required 2FA challenge to complete BEFORE fetching
-      // cloud data. With aal2-enforced RLS, fetching any earlier — while
-      // still at aal1 — would silently return zero rows (RLS just filters
-      // them out, it doesn't error), and the app would render as if the
-      // account were empty. If no challenge is needed (the common case,
-      // no 2FA enabled), this callback fires immediately, so there's no
-      // added delay for most sign-ins.
-      await requireMfaIfNeeded(async () => {
-        await switchToCloudData();
-        refreshRealtimeSubscription();
-        goToMonth();
-      });
-      if (consumePendingPasswordSetup()) {
-        openSetPasswordSheet({ context: "auto" });
-      }
-    } else {
-      switchToLocalData();
-      unsubscribeRealtime(); // signed out — nothing to subscribe to anymore
-      refreshRealtimeSubscription();
-      goToMonth();
-    }
-  });
-
-  // Signed-out page loads (or ones where MFA isn't relevant) still need
-  // their initial data loaded — the branch above only covers the
-  // *signed-in* path, since only that one can hit the aal2 gate.
-  await initData();
+  state.section = "overview";
+  state.tab = "overview";
   goToMonth();
-  hideSplash(); // first real content is on screen now — safe to reveal it
+  hideSplash();
 
-  // Only worth checking when this load actually came from a share (the
-  // service worker's redirect appends ?shared=1) — on every ordinary open,
-  // this skips straight past without touching IndexedDB at all.
-  if (new URLSearchParams(window.location.search).has("shared")) {
-    window.history.replaceState(null, "", window.location.pathname);
+  if (shareWaiting) {
+    shareWaiting = false;
     const share = await takePendingShare().catch(() => null);
     if (share) openShareIntakeSheet(share);
   }
+  if (consumePendingPasswordSetup()) {
+    openSetPasswordSheet({ context: "auto" });
+  }
+}
 
-  // Catches the case where THIS page load IS the magic-link landing itself,
-  // or a returning session that's still short of aal2. By the time
-  // initAuth() resolved above, the session may already reflect the new
-  // sign-in — meaning lastUserId was initialized from that same
-  // already-established session, so the SIGNED_IN transition inside
-  // onAuthChange never actually fires (no change to detect).
-  //
-  // Checking needsMfaChallenge() directly first, rather than always calling
-  // requireMfaIfNeeded() and re-fetching inside its callback regardless: for
-  // the common case — no 2FA enabled, or a returning session already at
-  // aal2 — initData() above already fetched correctly, so re-fetching again
-  // here would just double the cloud calls on every normal app open. Only
-  // when a challenge is genuinely outstanding does this re-fetch after it
-  // completes, since that's the one case initData()'s earlier fetch would
-  // have returned empty (RLS filtering at aal1).
-  if (getCurrentUser()) {
-    const stillNeedsChallenge = await needsMfaChallenge().catch(() => false);
-    if (stillNeedsChallenge) {
-      await requireMfaIfNeeded(async () => {
-        await switchToCloudData();
-        goToMonth();
-      });
+(async function init() {
+  initAppLock();
+
+  // "Session unknown" counts as pending from the very first line, so neither
+  // the login form nor any app screen can flash before we know who this is.
+  setSessionPending(true);
+
+  // Safety net: if something below stalls (a slow network, say), show the
+  // branded loading view instead of a blank screen, and never leave the
+  // splash stuck forever. Both calls are idempotent.
+  setTimeout(() => {
+    if (!isAuthorized()) render();
+    hideSplash();
+  }, 6000);
+
+  initTheme();
+  initSheet(render); // let sheets trigger a re-render after save/delete
+  initBillSheets(render);
+  initGoalSheets(render);
+  initLoanSheets(render);
+  initBudgetsSheet(render); // custom budget category sheets need a re-render too
+  initAppLockSheet(render);
+  initSearchSheet(render);
+  initEditProfileSheet(render);
+  initShareIntakeSheet(render);
+  initHouseholdSheet(onHouseholdChanged);
+  initProfileTab(render);
+  initDeleteAccountSheet(() => {
+    state.section = "overview";
+    render(); // the account is gone, so the guard sends them to the login page
+  });
+  initMfaSetupSheet(render);
+
+  shareWaiting = new URLSearchParams(window.location.search).has("shared");
+  if (shareWaiting)
+    window.history.replaceState(null, "", window.location.pathname);
+
+  await initAuth(); // reads the stored session; processes a magic-link landing too
+
+  // Reacts to every later change of who is signed in (login, signup, logout,
+  // an expired session). The initial session is already handled below.
+  let lastUserId = getCurrentUser()?.id || null;
+  onAuthChange(async (user) => {
+    const userId = user?.id || null;
+    if (userId === lastUserId) return; // token refreshes etc. — same person
+    lastUserId = userId;
+
+    if (!user) {
+      // Signed out, or the session ended: put the wall back up and wipe
+      // everything protected — open sheets, the realtime feed, and the data
+      // in memory and in this device's cache (so the next person to log in
+      // here can never inherit it).
+      closeModal();
+      unsubscribeRealtime();
+      setSessionPending(false);
+      clearLocalData();
+      switchToLocalData(); // the cache was just cleared, so this empties memory too
+      await loadActiveHousehold(); // no user -> clears the active household
+      state.section = "overview";
+      state.tab = "overview";
+      render();
+      hideSplash();
+      return;
     }
-    if (consumePendingPasswordSetup()) {
-      openSetPasswordSheet({ context: "auto" });
-    }
+
+    // Signed in. Keep the wall up (showing the loading view) until any 2FA
+    // challenge is passed and the data has loaded.
+    setSessionPending(true);
+    showAuthPage();
+    await loadActiveHousehold();
+    await requireMfaIfNeeded(() => unlockApp());
+  });
+
+  // ── Page load ──────────────────────────────────────────────────────────
+  if (!getCurrentUser()) {
+    // Signed out: show the login page. Any data already on this device from
+    // before accounts were required is loaded into memory only (never drawn),
+    // so it can be moved into the account on first sign-in.
+    setSessionPending(false);
+    await initData();
+    goToMonth(); // the guard turns this into the login page
+    hideSplash();
+    return;
+  }
+
+  // Existing session (refresh, returning visit, or a magic-link landing).
+  await loadActiveHousehold(); // decides which data scope to load
+  const needsMfa = await needsMfaChallenge().catch(() => false);
+  if (needsMfa) {
+    // Signed in at aal1 but not past 2FA: nothing protected may show yet.
+    render(); // loading view behind the code prompt
+    hideSplash();
+    await requireMfaIfNeeded(() => unlockApp({ boot: true }));
+  } else {
+    await unlockApp({ boot: true });
   }
 })();
