@@ -42,6 +42,8 @@ export async function signInWithPassword(email, password) {
   return data;
 }
 
+// Creating an account always starts here, with a password. This is the ONLY
+// way to make a new account — see sendMagicLink below.
 export async function signUpWithPassword(email, password) {
   requireSupabase();
   const { data, error } = await supabase.auth.signUp({ email, password });
@@ -49,12 +51,19 @@ export async function signUpWithPassword(email, password) {
   return data;
 }
 
-// Passwordless: works for both new and existing accounts.
+// Passwordless LOGIN for an account that already exists. It deliberately
+// cannot create one: with shouldCreateUser left at its default (true), asking
+// for a magic link on an unknown email would silently create an account that
+// has no password — exactly the dead end signup is meant to prevent. With it
+// off, an unknown email gets an error instead ("Signups not allowed for otp").
 export async function sendMagicLink(email) {
   requireSupabase();
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: window.location.origin },
+    options: {
+      emailRedirectTo: window.location.origin,
+      shouldCreateUser: false,
+    },
   });
   if (error) throw error;
 }
@@ -62,7 +71,9 @@ export async function sendMagicLink(email) {
 const PENDING_PASSWORD_KEY = "kwenta_awaiting_password_setup";
 
 // Marks that the next successful sign-in came from a magic-link *signup*,
-// so the app knows to offer setting a password afterward.
+// so the app knows to offer setting a password afterward. Signup no longer
+// goes through a magic link, so nothing sets this flag anymore; it's kept so
+// an older flag left on a device still resolves cleanly.
 export function markPendingPasswordSetup() {
   try {
     localStorage.setItem(PENDING_PASSWORD_KEY, "1");
@@ -82,10 +93,34 @@ export function consumePendingPasswordSetup() {
   }
 }
 
+// Removes Supabase's stored session tokens from this device.
+function purgeStoredSession() {
+  try {
+    Object.keys(localStorage)
+      .filter((k) => /^sb-.+-auth-token(-code-verifier)?$/.test(k))
+      .forEach((k) => localStorage.removeItem(k));
+  } catch (e) {
+    /* ignore */
+  }
+}
+
 export async function signOut() {
   requireSupabase();
   const { error } = await supabase.auth.signOut();
-  if (error) throw error;
+  if (!error) return; // normal path: Supabase cleared the session and fired SIGNED_OUT
+
+  // Couldn't reach the server (offline, say). supabase-js leaves the session
+  // in place when that happens, which would make "Log out" silently do nothing
+  // and leave the person logged in. Clear it on this device ourselves, tell the
+  // app (so the login wall, data wipe and lock reset all run), then reload so
+  // the in-memory copy of the session is gone too.
+  console.error("Server sign-out failed; clearing the local session", error);
+  purgeStoredSession();
+  if (currentUser) {
+    currentUser = null;
+    listeners.forEach((cb) => cb(null));
+  }
+  setTimeout(() => window.location.reload(), 300);
 }
 
 // Sets/changes the password on the currently signed-in user (works for

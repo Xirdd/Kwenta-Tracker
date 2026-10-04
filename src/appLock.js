@@ -9,8 +9,13 @@ import "./appLock.css";
 
 // This is a convenience lock, not a replacement for your account password —
 // your real data is protected by Supabase auth + RLS regardless of whether
-// this is on. Treat "forgot PIN" accordingly (see resetLock() below): it
+// this is on. Treat "forgot PIN" accordingly (see clearLock() below): it
 // clears the local lock, it does not touch your account or your data.
+//
+// The lock belongs to a SIGNED-IN session. It only ever appears while someone
+// is signed in (see the canLock check in showLockIfNeeded), and logging out
+// wipes it completely (resetAppLock) — so a signed-out person is never asked
+// for a PIN or Face ID.
 
 const PIN_HASH_KEY = "kwenta_lock_pin_hash";
 const PIN_SALT_KEY = "kwenta_lock_pin_salt";
@@ -24,6 +29,7 @@ const AWAY_LOCK_MS = 2 * 60 * 1000;
 let hiddenAt = null;
 let overlayEl = null;
 let onUnlockedCallback = () => {};
+let canLock = () => true; // supplied by main.js: "is someone signed in?"
 
 function bytesToHex(buf) {
   return [...new Uint8Array(buf)]
@@ -64,11 +70,30 @@ export async function verifyPin(pin) {
 
 // Turns the lock off entirely (Profile → App Lock → Turn off, after
 // confirming the current PIN) or is called by the "Forgot PIN" reset flow.
+// Removes the PIN, its salt, the enabled flag, AND the Face ID / Touch ID
+// credential reference — nothing is left that could trigger a prompt.
 export function clearLock() {
   localStorage.removeItem(PIN_HASH_KEY);
   localStorage.removeItem(PIN_SALT_KEY);
   localStorage.removeItem(LOCK_ENABLED_KEY);
   localStorage.removeItem(BIOMETRIC_CRED_KEY);
+}
+
+// Called on logout (and whenever a session ends). Wipes every trace of the
+// lock — stored PIN, Face ID enrollment, timers — and takes down the lock
+// screen if it's currently showing, so nothing can prompt a signed-out person.
+//
+// One honest limit: the Face ID / Touch ID credential itself lives in the
+// device's secure hardware, which web code can't delete. That's harmless —
+// Kwenta forgets its id here, so nothing ever asks for it again. Re-enabling
+// App Lock after the next login creates a fresh one.
+export function resetAppLock() {
+  clearLock();
+  hiddenAt = null;
+  if (overlayEl) {
+    overlayEl.classList.remove("show");
+    overlayEl.innerHTML = ""; // drop the keypad and any half-entered PIN too
+  }
 }
 
 // ── Optional Face ID / Touch ID ──────────────────────────────────────────
@@ -227,17 +252,20 @@ function unlock() {
   onUnlockedCallback();
 }
 
+// The lock only exists for a signed-in session. Checked fresh every time, so
+// a signed-out visitor — including one whose session just expired — is never
+// shown the PIN screen or asked for Face ID.
 function showLockIfNeeded() {
-  if (!isLockEnabled()) return;
+  if (!canLock() || !isLockEnabled()) return;
   renderLockScreen();
 }
 
-// Called once at startup. `onUnlocked` lets main.js know the gate cleared —
-// not required for the initial data load (which proceeds regardless, so the
-// app is instantly ready underneath), only used to know when it's safe to,
-// say, dismiss a "resuming…" state if you ever add one.
-export function initAppLock(onUnlocked = () => {}) {
+// Call once at startup, AFTER the session is known. `onUnlocked` lets main.js
+// know the gate cleared. `isSignedIn` is a function returning whether anyone
+// is signed in right now; the lock is skipped entirely when it returns false.
+export function initAppLock(onUnlocked = () => {}, isSignedIn = () => true) {
   onUnlockedCallback = onUnlocked;
+  canLock = isSignedIn;
   showLockIfNeeded();
 
   document.addEventListener("visibilitychange", () => {

@@ -62,7 +62,7 @@ import {
 } from "./components/loanSheet.js";
 import { closeModal } from "./components/modal.js";
 import { initTheme } from "./theme.js";
-import { initAppLock } from "./appLock.js";
+import { initAppLock, resetAppLock } from "./appLock.js";
 import { initAppLockSheet } from "./components/appLockSheet.js";
 import { openSearchSheet, initSearchSheet } from "./components/searchSheet.js";
 import { initEditProfileSheet } from "./components/editProfileSheet.js";
@@ -335,8 +335,6 @@ async function unlockApp({ boot = false } = {}) {
 }
 
 (async function init() {
-  initAppLock();
-
   // "Session unknown" counts as pending from the very first line, so neither
   // the login form nor any app screen can flash before we know who this is.
   setSessionPending(true);
@@ -373,6 +371,15 @@ async function unlockApp({ boot = false } = {}) {
 
   await initAuth(); // reads the stored session; processes a magic-link landing too
 
+  // The PIN / Face ID lock belongs to a signed-in session, so it starts only
+  // now that we know whether there is one, and the second argument keeps it
+  // from ever appearing for a signed-out visitor (including after a session
+  // expires). The splash covers the app until this has had its say.
+  initAppLock(
+    () => {},
+    () => !!getCurrentUser(),
+  );
+
   // Reacts to every later change of who is signed in (login, signup, logout,
   // an expired session). The initial session is already handled below.
   let lastUserId = getCurrentUser()?.id || null;
@@ -388,6 +395,7 @@ async function unlockApp({ boot = false } = {}) {
       // here can never inherit it).
       closeModal();
       unsubscribeRealtime();
+      resetAppLock(); // PIN, Face ID enrollment, timers, and the lock screen itself
       setSessionPending(false);
       clearLocalData();
       switchToLocalData(); // the cache was just cleared, so this empties memory too
