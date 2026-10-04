@@ -4,6 +4,58 @@ import { clearLocalData } from "./storage.js";
 let currentUser = null;
 const listeners = [];
 
+// ── Email-link landings (password reset, expired links) ──────────────────
+// The link in a "reset your password" email comes back to the app with
+// "#...&type=recovery" in the URL, and Supabase signs the person in with a
+// recovery session and then wipes that URL. So this has to be read right now,
+// at import time, before that happens. A reset link must lead to the
+// "Set a new password" page, not straight into the app — the flag is kept in
+// sessionStorage so a reload on that page doesn't skip past it.
+const RECOVERY_KEY = "kwenta_password_recovery";
+let pendingLinkError = null;
+
+(function captureEmailLinkLanding() {
+  try {
+    const hash = window.location.hash || "";
+    if (/(?:^|[#&])type=recovery(?:&|$)/.test(hash)) {
+      sessionStorage.setItem(RECOVERY_KEY, "1");
+    }
+    const params = new URLSearchParams(hash.replace(/^#/, ""));
+    if (params.get("error_code") || params.get("error")) {
+      pendingLinkError =
+        "That email link has expired or was already used. Request a fresh one and try again.";
+    }
+  } catch (e) {
+    /* storage or URL parsing unavailable — treat as a normal page load */
+  }
+})();
+
+// True while this tab is in a password-recovery session that still needs its
+// new password. (Whether a session actually exists is checked in authGuard.js.)
+export function isRecoveryMode() {
+  try {
+    return sessionStorage.getItem(RECOVERY_KEY) === "1";
+  } catch (e) {
+    return false;
+  }
+}
+
+export function endRecoveryMode() {
+  try {
+    sessionStorage.removeItem(RECOVERY_KEY);
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+// The "link expired" message from the URL we landed on, once — so the login
+// page can show it a single time rather than on every render.
+export function consumeLinkError() {
+  const message = pendingLinkError;
+  pendingLinkError = null;
+  return message;
+}
+
 export function getCurrentUser() {
   return currentUser;
 }
@@ -15,6 +67,7 @@ export async function initAuth() {
   currentUser = data.session?.user || null;
   supabase.auth.onAuthStateChange((_event, session) => {
     currentUser = session?.user || null;
+    if (!currentUser) endRecoveryMode(); // logged out (or cancelled): no reset left to finish
     listeners.forEach((cb) => cb(currentUser));
   });
   return currentUser;
@@ -68,6 +121,19 @@ export async function sendMagicLink(email) {
   if (error) throw error;
 }
 
+// Emails a "choose a new password" link. Supabase reports success whether or
+// not the address has an account (on purpose — otherwise this could be used to
+// find out who's registered), so the UI words its confirmation the same way.
+// The link returns to the app root, which is already allowed as a redirect
+// URL because magic links use it too.
+export async function requestPasswordReset(email) {
+  requireSupabase();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  });
+  if (error) throw error;
+}
+
 const PENDING_PASSWORD_KEY = "kwenta_awaiting_password_setup";
 
 // Marks that the next successful sign-in came from a magic-link *signup*,
@@ -116,6 +182,7 @@ export async function signOut() {
   // the in-memory copy of the session is gone too.
   console.error("Server sign-out failed; clearing the local session", error);
   purgeStoredSession();
+  endRecoveryMode();
   if (currentUser) {
     currentUser = null;
     listeners.forEach((cb) => cb(null));

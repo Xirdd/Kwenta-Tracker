@@ -76,8 +76,14 @@ import {
   getCurrentUser,
   onAuthChange,
   consumePendingPasswordSetup,
+  endRecoveryMode,
 } from "./auth.js";
-import { isAuthorized, setSessionPending } from "./authGuard.js";
+import {
+  isAuthorized,
+  setSessionPending,
+  isRecoveryActive,
+  onRecoveryComplete,
+} from "./authGuard.js";
 import { showAuthPage, hideAuthPage } from "./components/authPage.js";
 import {
   getActiveHousehold,
@@ -380,6 +386,15 @@ async function unlockApp({ boot = false } = {}) {
     () => !!getCurrentUser(),
   );
 
+  // After a password reset: the new password is saved and the recovery session
+  // is now an ordinary signed-in one, so load the data and open the Dashboard.
+  onRecoveryComplete(async () => {
+    setSessionPending(true);
+    showAuthPage(); // loading view while the data loads
+    await loadActiveHousehold();
+    await unlockApp({ boot: true });
+  });
+
   // Reacts to every later change of who is signed in (login, signup, logout,
   // an expired session). The initial session is already handled below.
   let lastUserId = getCurrentUser()?.id || null;
@@ -420,10 +435,33 @@ async function unlockApp({ boot = false } = {}) {
     // Signed out: show the login page. Any data already on this device from
     // before accounts were required is loaded into memory only (never drawn),
     // so it can be moved into the account on first sign-in.
+    endRecoveryMode(); // a reset link that didn't produce a session leaves nothing to finish
     setSessionPending(false);
     await initData();
     goToMonth(); // the guard turns this into the login page
     hideSplash();
+    return;
+  }
+
+  // Arrived from the link in a "reset your password" email: the person is
+  // signed in with a recovery session, but must land on "Set a new password"
+  // — not the app. If they use 2FA, the code is asked for first, because
+  // Supabase won't change the password of an unverified 2FA session. Nothing
+  // protected loads until the new password is saved (onRecoveryComplete above).
+  if (isRecoveryActive()) {
+    const showReset = () => {
+      setSessionPending(false);
+      render(); // the guard turns this into the "Set a new password" page
+      hideSplash();
+    };
+    const needsMfa = await needsMfaChallenge().catch(() => false);
+    if (needsMfa) {
+      render(); // loading view behind the code prompt
+      hideSplash();
+      await requireMfaIfNeeded(showReset);
+    } else {
+      showReset();
+    }
     return;
   }
 

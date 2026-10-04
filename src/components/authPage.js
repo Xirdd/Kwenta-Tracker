@@ -4,8 +4,18 @@ import {
   signInWithPassword,
   signUpWithPassword,
   sendMagicLink,
+  requestPasswordReset,
+  updateUserPassword,
+  signOut,
+  getCurrentUser,
+  consumeLinkError,
 } from "../auth.js";
-import { isAuthorized, isSessionPending } from "../authGuard.js";
+import {
+  isAuthorized,
+  isSessionPending,
+  isRecoveryActive,
+  completeRecovery,
+} from "../authGuard.js";
 import { escapeHtml } from "../format.js";
 
 // The dedicated Login / Sign up screen. It's a full-screen layer on top of an
@@ -59,7 +69,15 @@ function gateEl() {
 // wipe what someone is typing.
 export function showAuthPage() {
   if (isAuthorized()) return;
-  const want = isSessionPending() ? "pending" : "form";
+  // Loading wins, then a password-recovery session (which must land on the
+  // "Set a new password" page), then whichever signed-out view is open.
+  const want = isSessionPending()
+    ? "pending"
+    : isRecoveryActive()
+      ? "reset"
+      : view === "forgot"
+        ? "forgot"
+        : "form";
   const existing = document.getElementById(GATE_ID);
   if (existing && !existing.classList.contains("hide") && view === want) return;
 
@@ -69,6 +87,8 @@ export function showAuthPage() {
   if (want === "form" && view !== "form") mode = "login"; // always open on Log in
   view = want;
   if (want === "pending") renderPending(el);
+  else if (want === "reset") renderReset(el);
+  else if (want === "forgot") renderForgot(el, "");
   else renderForm(el);
 }
 
@@ -142,6 +162,7 @@ function renderForm(el) {
             <input id="authPassword" name="password" type="password" autocomplete="current-password" placeholder="Your password"/>
             <button type="button" class="auth-eye" id="authEye" aria-label="Show password">${EYE_ICON}</button>
           </div>
+          <button type="button" class="auth-link auth-forgot only-login" id="authForgot">Forgot password?</button>
           <div class="auth-strength only-signup" id="authStrength" data-score="0" aria-live="polite">
             <div class="auth-strength-bars"><span></span><span></span><span></span><span></span></div>
             <span class="auth-strength-label" id="authStrengthLabel">At least ${MIN_PASSWORD} characters</span>
@@ -171,6 +192,11 @@ function renderForm(el) {
 
   wireForm();
   applyMode();
+
+  // Landed here from an email link that didn't work (expired, or already used).
+  // Shown after applyMode(), which clears messages.
+  const linkError = consumeLinkError();
+  if (linkError) setMessage("error", linkError);
 }
 
 function $(id) {
@@ -303,7 +329,20 @@ function friendlyError(e) {
     msg.includes("rate limit") ||
     e?.status === 429
   )
-    return "Too many attempts. Wait a minute and try again.";
+    return "Too many attempts. Wait a few minutes and try again.";
+  if (
+    code === "same_password" ||
+    msg.includes("different from the old password")
+  )
+    return "Choose a password you haven't used before.";
+  if (code === "insufficient_aal" || msg.includes("aal2"))
+    return "Confirm with your authenticator code first, then try again.";
+  if (
+    code === "session_not_found" ||
+    msg.includes("session missing") ||
+    msg.includes("session expired")
+  )
+    return "This reset link has expired. Cancel and request a new one.";
   if (msg.includes("failed to fetch") || msg.includes("network"))
     return "Can't reach the server. Check your connection and try again.";
   if (msg.includes("not configured")) return e.message;
@@ -318,6 +357,14 @@ function wireForm() {
   $("authTabSignup").onclick = () => {
     mode = "signup";
     applyMode();
+  };
+
+  // Opens the "email me a reset link" view, carrying over whatever email was
+  // already typed so nobody has to type it twice.
+  $("authForgot").onclick = () => {
+    const email = currentEmail();
+    view = "forgot";
+    renderForgot(gateEl(), email);
   };
 
   const pw = $("authPassword");
@@ -415,6 +462,198 @@ function wireForm() {
       setMessage("error", friendlyError(e));
     } finally {
       if ($("authMagic")) setBusy("authMagic", false);
+    }
+  };
+}
+
+// ── Forgot password: ask for a reset email ───────────────────────────────
+// Supabase's built-in mailer allows only a couple of emails an hour, so after
+// a send the button counts down before it can be used again. That avoids
+// hammering the limit — and the confirmation never says whether the address
+// has an account.
+const RESET_COOLDOWN_S = 60;
+let resetCooldownUntil = 0;
+let cooldownTimer = null;
+
+function runCooldown() {
+  clearInterval(cooldownTimer);
+  const tick = () => {
+    const btn = $("authSubmit");
+    if (!btn) {
+      clearInterval(cooldownTimer); // the view changed
+      return;
+    }
+    const left = Math.ceil((resetCooldownUntil - Date.now()) / 1000);
+    if (left > 0) {
+      btn.disabled = true;
+      btn.textContent = `Resend in ${left}s`;
+    } else {
+      clearInterval(cooldownTimer);
+      btn.disabled = false;
+      btn.textContent = "Send reset link";
+    }
+  };
+  tick();
+  cooldownTimer = setInterval(tick, 1000);
+}
+
+const BACK_ICON = svg(`<path d="m15 18-6-6 6-6"/>`);
+
+function renderForgot(el, email = "") {
+  el.innerHTML = `
+  <div class="auth-wrap">
+    ${brandHtml()}
+    <div class="auth-card" id="authCard">
+      <button type="button" class="auth-back" id="authBack">${BACK_ICON}Back to log in</button>
+      <div class="auth-copy">
+        <h2>Reset your password</h2>
+        <p>Enter the email you signed up with and we'll send you a link to choose a new password.</p>
+      </div>
+      <form id="authForm" novalidate>
+        <div class="auth-field">
+          <label for="authEmail">Email</label>
+          <div class="auth-input">
+            <span class="auth-input-icon">${MAIL_ICON}</span>
+            <input id="authEmail" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="you@example.com" value="${escapeHtml(email)}"/>
+          </div>
+        </div>
+        <div class="auth-alert auth-alert-error" id="authError" role="alert" hidden></div>
+        <div class="auth-alert auth-alert-info" id="authInfo" role="status" hidden></div>
+        <button type="submit" class="auth-primary" id="authSubmit">Send reset link</button>
+      </form>
+    </div>
+    <p class="auth-footnote">Your ledger is private to your account.</p>
+  </div>`;
+
+  $("authBack").onclick = () => {
+    clearInterval(cooldownTimer);
+    view = "form";
+    mode = "login";
+    renderForm(el);
+  };
+
+  $("authForm").onsubmit = async (ev) => {
+    ev.preventDefault();
+    if (Date.now() < resetCooldownUntil) return;
+    const addr = currentEmail();
+    if (!addr) return setMessage("error", "Enter your email.");
+    if (!/^\S+@\S+\.\S+$/.test(addr))
+      return setMessage("error", "Enter a valid email address.");
+
+    setMessage("error", "");
+    setBusy("authSubmit", true, "Sending…");
+    try {
+      await requestPasswordReset(addr);
+      resetCooldownUntil = Date.now() + RESET_COOLDOWN_S * 1000;
+      setMessage(
+        "info",
+        "If there's an account for that email, a reset link is on its way. It can take a minute — check your spam folder too.",
+      );
+    } catch (e) {
+      setMessage("error", friendlyError(e));
+    } finally {
+      if ($("authSubmit")) {
+        setBusy("authSubmit", false);
+        if (Date.now() < resetCooldownUntil) runCooldown();
+      }
+    }
+  };
+
+  if (Date.now() < resetCooldownUntil) runCooldown();
+}
+
+// ── Reset password: choose the new one ───────────────────────────────────
+// Shown when someone arrives from the link in a reset email. They're already
+// signed in with a short-lived recovery session, but the app stays locked
+// until the new password is saved (the guard in authGuard.js enforces that).
+function renderReset(el) {
+  const email = getCurrentUser()?.email || "your account";
+  el.innerHTML = `
+  <div class="auth-wrap">
+    ${brandHtml()}
+    <div class="auth-card" id="authCard">
+      <div class="auth-copy">
+        <h2>Set a new password</h2>
+        <p>Choose a new password for <strong>${escapeHtml(email)}</strong>.</p>
+      </div>
+      <form id="authForm" novalidate>
+        <div class="auth-field">
+          <label for="authPassword">New password</label>
+          <div class="auth-input">
+            <span class="auth-input-icon">${LOCK_ICON}</span>
+            <input id="authPassword" name="password" type="password" autocomplete="new-password" placeholder="At least ${MIN_PASSWORD} characters"/>
+            <button type="button" class="auth-eye" id="authEye" aria-label="Show password">${EYE_ICON}</button>
+          </div>
+          <div class="auth-strength" id="authStrength" data-score="0" aria-live="polite">
+            <div class="auth-strength-bars"><span></span><span></span><span></span><span></span></div>
+            <span class="auth-strength-label" id="authStrengthLabel">At least ${MIN_PASSWORD} characters</span>
+          </div>
+        </div>
+        <div class="auth-field">
+          <label for="authConfirm">Confirm new password</label>
+          <div class="auth-input">
+            <span class="auth-input-icon">${LOCK_ICON}</span>
+            <input id="authConfirm" name="confirm" type="password" autocomplete="new-password" placeholder="Type it again"/>
+          </div>
+        </div>
+        <div class="auth-alert auth-alert-error" id="authError" role="alert" hidden></div>
+        <div class="auth-alert auth-alert-info" id="authInfo" role="status" hidden></div>
+        <button type="submit" class="auth-primary" id="authSubmit">Update password</button>
+      </form>
+      <button type="button" class="auth-link auth-link-center" id="authCancelReset">Cancel and log out</button>
+    </div>
+    <p class="auth-footnote">Your ledger is private to your account.</p>
+  </div>`;
+
+  const pw = $("authPassword");
+  const confirm = $("authConfirm");
+  pw.oninput = updateStrength;
+
+  $("authEye").onclick = () => {
+    const showing = pw.type === "text";
+    pw.type = showing ? "password" : "text";
+    confirm.type = pw.type;
+    $("authEye").innerHTML = showing ? EYE_ICON : EYE_OFF_ICON;
+    $("authEye").setAttribute(
+      "aria-label",
+      showing ? "Show password" : "Hide password",
+    );
+  };
+
+  $("authForm").onsubmit = async (ev) => {
+    ev.preventDefault();
+    const password = pw.value;
+    if (password.length < MIN_PASSWORD)
+      return setMessage(
+        "error",
+        `Password needs at least ${MIN_PASSWORD} characters.`,
+      );
+    if (password !== confirm.value)
+      return setMessage("error", "Those two passwords don't match.");
+
+    setMessage("error", "");
+    setBusy("authSubmit", true, "Updating…");
+    try {
+      await updateUserPassword(password);
+      // Saved. main.js takes over: loads the data and opens the Dashboard.
+      completeRecovery();
+    } catch (e) {
+      setMessage("error", friendlyError(e));
+    } finally {
+      if ($("authSubmit")) setBusy("authSubmit", false);
+    }
+  };
+
+  // Backing out ends the recovery session, so nobody is left signed in
+  // without having finished the reset.
+  $("authCancelReset").onclick = async () => {
+    const buttons = document.querySelectorAll("#authCard button");
+    buttons.forEach((b) => (b.disabled = true));
+    try {
+      await signOut(); // main.js's auth listener returns to the login page
+    } catch (e) {
+      setMessage("error", friendlyError(e));
+      buttons.forEach((b) => (b.disabled = false));
     }
   };
 }
