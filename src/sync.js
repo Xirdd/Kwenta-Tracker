@@ -1,6 +1,11 @@
 import { supabase } from "./supabaseClient.js";
 import { getCurrentUser } from "./auth.js";
 import { getActiveHouseholdId } from "./household.js";
+import {
+  registerRetryable,
+  enqueueRetry,
+  isTransientError,
+} from "./syncQueue.js";
 
 export function isCloudMode() {
   return !!supabase && !!getCurrentUser();
@@ -13,6 +18,115 @@ function scoped(table, user, householdId) {
     : q.eq("user_id", user.id).is("household_id", null);
 }
 
+// supabase-js does NOT throw on a failed request — it resolves with
+// { data, error }. Every write below runs its result through this, so a
+// failure becomes a real rejected promise and the callers' existing
+// `.catch(notifySyncError)` actually fires.
+function check(result) {
+  if (result && result.error) throw result.error;
+  return result;
+}
+
+// ── Raw executors ────────────────────────────────────────────────────────
+// Each takes plain-JSON arguments (the user id / household id are captured
+// by the caller at the moment of the edit, NOT looked up again at replay
+// time), so the retry queue can store and replay them safely later.
+async function rawUpsert(table, row) {
+  check(await supabase.from(table).upsert(row));
+}
+
+async function rawDelete(table, match) {
+  let q = supabase.from(table).delete();
+  for (const [col, val] of Object.entries(match)) q = q.eq(col, val);
+  check(await q);
+}
+
+// Budgets are a special case (primary key is (user_id, category), so a
+// household's dedupe lives here instead of in a DB constraint).
+async function rawBudget({ category, amount, householdId, userId }) {
+  const clearing =
+    amount === undefined || amount === null || Number.isNaN(Number(amount));
+
+  if (householdId) {
+    const { data: existing, error: selectError } = await supabase
+      .from("kwenta_budgets")
+      .select("user_id")
+      .eq("household_id", householdId)
+      .eq("category", category)
+      .maybeSingle();
+    if (selectError) throw selectError;
+
+    if (clearing) {
+      if (existing)
+        check(
+          await supabase
+            .from("kwenta_budgets")
+            .delete()
+            .eq("household_id", householdId)
+            .eq("category", category),
+        );
+      return;
+    }
+    if (existing) {
+      check(
+        await supabase
+          .from("kwenta_budgets")
+          .update({ amount, updated_at: new Date().toISOString() })
+          .eq("household_id", householdId)
+          .eq("category", category),
+      );
+    } else {
+      check(
+        await supabase.from("kwenta_budgets").insert({
+          user_id: userId,
+          household_id: householdId,
+          category,
+          amount,
+        }),
+      );
+    }
+    return;
+  }
+
+  if (clearing) {
+    check(
+      await supabase
+        .from("kwenta_budgets")
+        .delete()
+        .eq("user_id", userId)
+        .eq("category", category)
+        .is("household_id", null),
+    );
+  } else {
+    check(
+      await supabase
+        .from("kwenta_budgets")
+        .upsert({ user_id: userId, category, amount, household_id: null }),
+    );
+  }
+}
+
+// Wraps a raw executor: on a TRANSIENT failure (offline, server hiccup) the
+// call is queued for automatic retry and the error is still thrown so the
+// person sees the toast. Permanent failures (permissions, constraint
+// violations) are thrown but NOT queued — retrying them forever can't help.
+function withRetry(kind, raw) {
+  registerRetryable(kind, raw);
+  return async (...args) => {
+    try {
+      await raw(...args);
+    } catch (e) {
+      if (isTransientError(e)) enqueueRetry(kind, args);
+      throw e;
+    }
+  };
+}
+
+const upsertRow = withRetry("upsertRow", rawUpsert);
+const deleteRow = withRetry("deleteRow", rawDelete);
+const writeBudget = withRetry("budget", rawBudget);
+
+// ── Load ────────────────────────────────────────────────────────────────
 export async function cloudLoadAll() {
   const user = getCurrentUser();
   if (!supabase || !user) return null;
@@ -36,13 +150,15 @@ export async function cloudLoadAll() {
     scoped("kwenta_loans", user, householdId),
   ]);
 
-  if (salaryRes.error) throw salaryRes.error;
-  if (txRes.error) throw txRes.error;
-  if (budgetRes.error) throw budgetRes.error;
-  if (recurringRes.error) throw recurringRes.error;
-  if (billsRes.error) throw billsRes.error;
-  if (goalsRes.error) throw goalsRes.error;
-  if (loansRes.error) throw loansRes.error;
+  [
+    salaryRes,
+    txRes,
+    budgetRes,
+    recurringRes,
+    billsRes,
+    goalsRes,
+    loansRes,
+  ].forEach(check);
 
   const salary = {};
   (salaryRes.data || []).forEach((r) => {
@@ -112,26 +228,26 @@ export async function cloudLoadAll() {
   return { salary, transactions, budgets, recurring, bills, goals, loans };
 }
 
+// ── Salary ──────────────────────────────────────────────────────────────
 export async function cloudUpsertSalary(monthKey, amount) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
   if (amount === undefined || amount === null || isNaN(amount)) {
-    await supabase
-      .from("kwenta_salary")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("month_key", monthKey);
+    await deleteRow("kwenta_salary", { user_id: user.id, month_key: monthKey });
   } else {
-    await supabase
-      .from("kwenta_salary")
-      .upsert({ user_id: user.id, month_key: monthKey, amount });
+    await upsertRow("kwenta_salary", {
+      user_id: user.id,
+      month_key: monthKey,
+      amount,
+    });
   }
 }
 
+// ── Transactions ────────────────────────────────────────────────────────
 export async function cloudUpsertTransaction(tx) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
-  await supabase.from("kwenta_transactions").upsert({
+  await upsertRow("kwenta_transactions", {
     id: tx.id,
     user_id: user.id,
     household_id: getActiveHouseholdId(),
@@ -152,70 +268,26 @@ export async function cloudUpsertTransaction(tx) {
 export async function cloudDeleteTransaction(id) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
-  await supabase
-    .from("kwenta_transactions")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("id", id);
+  await deleteRow("kwenta_transactions", { user_id: user.id, id });
 }
 
+// ── Budgets ─────────────────────────────────────────────────────────────
 export async function cloudUpsertBudget(category, amount) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
-  const householdId = getActiveHouseholdId();
-
-  if (householdId) {
-    const { data: existing } = await supabase
-      .from("kwenta_budgets")
-      .select("user_id")
-      .eq("household_id", householdId)
-      .eq("category", category)
-      .maybeSingle();
-
-    if (amount === undefined || amount === null || isNaN(amount)) {
-      if (existing)
-        await supabase
-          .from("kwenta_budgets")
-          .delete()
-          .eq("household_id", householdId)
-          .eq("category", category);
-      return;
-    }
-    if (existing) {
-      await supabase
-        .from("kwenta_budgets")
-        .update({ amount, updated_at: new Date().toISOString() })
-        .eq("household_id", householdId)
-        .eq("category", category);
-    } else {
-      await supabase.from("kwenta_budgets").insert({
-        user_id: user.id,
-        household_id: householdId,
-        category,
-        amount,
-      });
-    }
-    return;
-  }
-
-  if (amount === undefined || amount === null || isNaN(amount)) {
-    await supabase
-      .from("kwenta_budgets")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("category", category)
-      .is("household_id", null);
-  } else {
-    await supabase
-      .from("kwenta_budgets")
-      .upsert({ user_id: user.id, category, amount, household_id: null });
-  }
+  await writeBudget({
+    category,
+    amount: amount === undefined ? null : amount,
+    householdId: getActiveHouseholdId(),
+    userId: user.id,
+  });
 }
 
+// ── Recurring ───────────────────────────────────────────────────────────
 export async function cloudUpsertRecurring(rule) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
-  await supabase.from("kwenta_recurring").upsert({
+  await upsertRow("kwenta_recurring", {
     id: rule.id,
     user_id: user.id,
     household_id: getActiveHouseholdId(),
@@ -232,17 +304,14 @@ export async function cloudUpsertRecurring(rule) {
 export async function cloudDeleteRecurring(id) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
-  await supabase
-    .from("kwenta_recurring")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("id", id);
+  await deleteRow("kwenta_recurring", { user_id: user.id, id });
 }
 
+// ── Bills ───────────────────────────────────────────────────────────────
 export async function cloudUpsertBill(bill) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
-  await supabase.from("kwenta_bills").upsert({
+  await upsertRow("kwenta_bills", {
     id: bill.id,
     user_id: user.id,
     household_id: getActiveHouseholdId(),
@@ -259,17 +328,14 @@ export async function cloudUpsertBill(bill) {
 export async function cloudDeleteBill(id) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
-  await supabase
-    .from("kwenta_bills")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("id", id);
+  await deleteRow("kwenta_bills", { user_id: user.id, id });
 }
 
+// ── Goals ───────────────────────────────────────────────────────────────
 export async function cloudUpsertGoal(goal) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
-  await supabase.from("kwenta_goals").upsert({
+  await upsertRow("kwenta_goals", {
     id: goal.id,
     user_id: user.id,
     household_id: getActiveHouseholdId(),
@@ -283,17 +349,14 @@ export async function cloudUpsertGoal(goal) {
 export async function cloudDeleteGoal(id) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
-  await supabase
-    .from("kwenta_goals")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("id", id);
+  await deleteRow("kwenta_goals", { user_id: user.id, id });
 }
 
+// ── Loans (utang) ───────────────────────────────────────────────────────
 export async function cloudUpsertLoan(loan) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
-  await supabase.from("kwenta_loans").upsert({
+  await upsertRow("kwenta_loans", {
     id: loan.id,
     user_id: user.id,
     household_id: getActiveHouseholdId(),
@@ -309,13 +372,10 @@ export async function cloudUpsertLoan(loan) {
 export async function cloudDeleteLoan(id) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
-  await supabase
-    .from("kwenta_loans")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("id", id);
+  await deleteRow("kwenta_loans", { user_id: user.id, id });
 }
 
+// ── First sign-in: push local data up if the account is empty ──────────
 export async function cloudMigrateLocalDataIfEmpty(localData) {
   const existing = await cloudLoadAll();
   if (!existing) return false;

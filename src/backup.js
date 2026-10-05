@@ -1,17 +1,8 @@
 import { DATA, saveData } from "./state.js";
 import { supabase } from "./supabaseClient.js";
-import {
-  isCloudMode,
-  cloudUpsertSalary,
-  cloudUpsertTransaction,
-  cloudUpsertBudget,
-  cloudUpsertRecurring,
-  cloudUpsertBill,
-  cloudUpsertGoal,
-  cloudUpsertLoan,
-} from "./sync.js";
-import { cloudSetBudgetSecond } from "./budgetLimitsCloud.js";
-import { cloudUpsertCustomCategory } from "./customCategoriesCloud.js";
+import { isCloudMode } from "./sync.js";
+import { getActiveHouseholdId } from "./household.js";
+import { clearSyncQueue } from "./syncQueue.js";
 import {
   encryptJSON,
   decryptEnvelope,
@@ -50,10 +41,6 @@ function download(filename, text) {
   URL.revokeObjectURL(url);
 }
 
-// With no password, this is exactly the plain JSON backup it always was.
-// With one, the whole backup is encrypted first (see backupCrypto.js) and the
-// downloaded file contains only the ciphertext envelope — the filename says
-// "-encrypted" so it's obvious at a glance which kind you're holding.
 export async function exportBackup(password) {
   const backup = buildBackup();
   const stamp = new Date().toISOString().slice(0, 10);
@@ -79,10 +66,6 @@ function assertBackupShape(parsed) {
   }
 }
 
-// Resolves with the parsed backup for a plain file, OR with the still-locked
-// envelope for an encrypted one (check with isEncryptedBackup() below) — an
-// encrypted file isn't an error, it just needs a password before it can be
-// read, which is the caller's (backupSheet.js) job to ask for.
 export function parseBackupFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -119,64 +102,155 @@ export function isEncryptedBackup(parsed) {
   return isEncryptedEnvelope(parsed);
 }
 
-// Turns a locked envelope + password into the same backup object a plain
-// file would have given. A wrong password (or a damaged file) throws the
-// friendly error from backupCrypto.js.
 export async function unlockBackup(envelope, password) {
   const backup = await decryptEnvelope(envelope, password);
-  assertBackupShape(backup); // decrypting succeeded, but confirm what's inside is actually a Kwenta backup
+  assertBackupShape(backup);
   return backup;
 }
 
-export async function restoreBackup(backup) {
-  const d = backup.data || {};
-  DATA.salary = d.salary || {};
-  DATA.transactions = d.transactions || [];
-  DATA.budgets = d.budgets || {};
-  // Backups made before these existed just mean "nothing extra" — every
-  // category used one limit for both halves, and there were no custom ones.
-  DATA.budgetsSecond = d.budgetsSecond || {};
-  DATA.customCategories = d.customCategories || [];
-  DATA.recurring = d.recurring || [];
-  DATA.bills = d.bills || [];
-  DATA.goals = d.goals || [];
-  DATA.loans = d.loans || [];
-
-  saveData();
-
-  if (isCloudMode()) {
-    await restoreToCloud(DATA);
-  }
+// Fills in anything an older backup file doesn't have.
+function normalize(d = {}) {
+  return {
+    salary: d.salary || {},
+    transactions: d.transactions || [],
+    budgets: d.budgets || {},
+    budgetsSecond: d.budgetsSecond || {},
+    customCategories: d.customCategories || [],
+    recurring: d.recurring || [],
+    bills: d.bills || [],
+    goals: d.goals || [],
+    loans: d.loans || [],
+  };
 }
 
-async function restoreToCloud(data) {
-  const { error: wipeError } = await supabase.rpc("wipe_my_data");
-  if (wipeError) throw wipeError;
+// ORDER MATTERS. In cloud mode the server restore runs FIRST, as one atomic
+// database transaction (restore_my_data in supabase/phase1_restore_and_delete.sql):
+// either everything in the backup replaces everything on the server, or
+// nothing changes at all. Only after it succeeds is the in-memory copy and
+// the on-device cache replaced — so a failure at any point leaves both the
+// cloud AND what's on screen exactly as they were.
+export async function restoreBackup(backup) {
+  const next = normalize(backup.data);
 
-  const jobs = [];
-  Object.entries(data.salary || {}).forEach(([mk, amt]) => {
-    if (amt) jobs.push(cloudUpsertSalary(mk, amt));
-  });
-  (data.transactions || []).forEach((tx) =>
-    jobs.push(cloudUpsertTransaction(tx)),
-  );
-  Object.entries(data.budgets || {}).forEach(([cat, amt]) => {
-    if (amt) jobs.push(cloudUpsertBudget(cat, amt));
-  });
-  (data.recurring || []).forEach((rule) =>
-    jobs.push(cloudUpsertRecurring(rule)),
-  );
-  (data.bills || []).forEach((bill) => jobs.push(cloudUpsertBill(bill)));
-  (data.goals || []).forEach((goal) => jobs.push(cloudUpsertGoal(goal)));
-  (data.loans || []).forEach((loan) => jobs.push(cloudUpsertLoan(loan)));
-  (data.customCategories || []).forEach((cat) =>
-    jobs.push(cloudUpsertCustomCategory(cat)),
-  );
-  await Promise.all(jobs);
-
-  // Second-half limits go in AFTER the budget rows above exist — they update
-  // that same row, and running them in parallel with the inserts would race.
-  for (const [cat, amt] of Object.entries(data.budgetsSecond || {})) {
-    await cloudSetBudgetSecond(cat, amt);
+  if (isCloudMode()) {
+    await restoreToCloud(next);
+    clearSyncQueue(); // stale pre-restore edits must not replay on top of it
   }
+
+  DATA.salary = next.salary;
+  DATA.transactions = next.transactions;
+  DATA.budgets = next.budgets;
+  DATA.budgetsSecond = next.budgetsSecond;
+  DATA.customCategories = next.customCategories;
+  DATA.recurring = next.recurring;
+  DATA.bills = next.bills;
+  DATA.goals = next.goals;
+  DATA.loans = next.loans;
+  saveData();
+}
+
+// Builds the payload in database-column shape (snake_case), so the SQL
+// function can map it straight onto the tables.
+function buildRestorePayload(d) {
+  const salary = Object.entries(d.salary)
+    .filter(([, amt]) => amt)
+    .map(([month_key, amount]) => ({ month_key, amount }));
+
+  const transactions = d.transactions.map((tx) => ({
+    id: tx.id,
+    type: tx.type,
+    description: tx.desc || "",
+    amount: tx.amount,
+    category: tx.category,
+    date: tx.date,
+    recurring_id: tx.recurringId || null,
+    bill_id: tx.billId || null,
+    goal_id: tx.goalId || null,
+    loan_id: tx.loanId || null,
+    loan_kind: tx.loanKind || null,
+    tags: tx.tags && tx.tags.length ? tx.tags : null,
+  }));
+
+  const budgetCats = new Set([
+    ...Object.keys(d.budgets).filter((c) => Number(d.budgets[c]) > 0),
+    ...Object.keys(d.budgetsSecond).filter(
+      (c) => d.budgetsSecond[c] !== null && d.budgetsSecond[c] !== undefined,
+    ),
+  ]);
+  const budgets = [...budgetCats].map((category) => ({
+    category,
+    amount: Number(d.budgets[category]) || 0,
+    amount_second:
+      d.budgetsSecond[category] === undefined ||
+      d.budgetsSecond[category] === null
+        ? null
+        : Number(d.budgetsSecond[category]),
+  }));
+
+  const recurring = d.recurring.map((r) => ({
+    id: r.id,
+    type: r.type,
+    description: r.desc || "",
+    amount: r.amount,
+    category: r.category,
+    day_of_month: r.day,
+    start_month: r.startMonth,
+    active: r.active !== false,
+  }));
+
+  const bills = d.bills.map((b) => ({
+    id: b.id,
+    name: b.name,
+    category: b.category,
+    custom_category: b.customCategory || null,
+    due_day: b.dueDay,
+    estimated_amount:
+      b.estimatedAmount === undefined ? null : b.estimatedAmount,
+    active: b.active !== false,
+  }));
+
+  const goals = d.goals.map((g) => ({
+    id: g.id,
+    name: g.name,
+    target_amount: g.targetAmount,
+    target_month: g.targetMonth || null,
+    active: g.active !== false,
+  }));
+
+  const loans = d.loans.map((l) => ({
+    id: l.id,
+    person: l.person,
+    direction: l.direction,
+    amount: l.amount,
+    date: l.date,
+    note: l.note || null,
+    active: l.active !== false,
+  }));
+
+  const custom_categories = d.customCategories.map((c) => ({
+    id: c.id,
+    label: c.label,
+    color: c.color,
+    icon: c.icon || null,
+    active: c.active !== false,
+  }));
+
+  return {
+    salary,
+    transactions,
+    budgets,
+    recurring,
+    bills,
+    goals,
+    loans,
+    custom_categories,
+  };
+}
+
+async function restoreToCloud(d) {
+  const { error } = await supabase.rpc("restore_my_data", {
+    payload: buildRestorePayload(d),
+    p_household_id: getActiveHouseholdId(),
+  });
+  if (error) throw error;
 }

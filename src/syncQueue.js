@@ -1,14 +1,8 @@
-// A small retry queue for cloud writes that failed — the gap the README's
-// "Polish pass: sync failures are surfaced, not silent" section explicitly
-// called out as NOT yet built: "No retry queue yet (that's a bigger feature
-// — tracking failed writes and re-attempting on reconnect)."
-//
-// Design goal: don't touch the 25 existing call sites in sheet.js,
-// budgets.js, income.js, loans.js, recurring.js, bills.js, and goals.js.
-// Every cloud mutation already funnels through a small set of named
-// functions in sync.js (cloudUpsertTransaction, cloudUpsertBudget, etc.), so
-// this wraps *those* instead — one registration point per function, rather
-// than 25 call-site changes.
+// Retry queue for cloud writes that failed. sync.js wraps EVERY write
+// (transactions, salary, budgets, recurring, bills, goals, loans) with
+// withRetry(), which registers a replayable executor here and enqueues the
+// call on a transient failure. budgetLimitsCloud.js and
+// customCategoriesCloud.js register their own kinds the same way.
 
 const QUEUE_KEY = "kwenta_sync_queue_v1";
 const FLUSH_INTERVAL_MS = 30000;
@@ -35,17 +29,27 @@ function saveQueue(queue) {
   }
 }
 
-// Called once per retryable function, at module load time in sync.js —
-// maps a short string ("kind") to the real function, so queued jobs (which
-// are just plain JSON: { kind, args }) can be replayed later without
-// needing to serialize an actual function reference (impossible anyway).
+// True for failures worth retrying (no connection, timeouts, 429, 5xx).
+// PostgREST errors that carry a `code` (RLS denial 42501, constraint
+// violations 23xxx, bad request…) are permanent: retrying can never fix them.
+export function isTransientError(e) {
+  if (!e) return false;
+  const status = Number(e.status) || 0;
+  if (status === 408 || status === 429 || status >= 500) return true;
+  const msg = String(e.message || e).toLowerCase();
+  if (
+    /failed to fetch|networkerror|network request failed|load failed|timeout|timed out/.test(
+      msg,
+    )
+  )
+    return true;
+  return !e.code; // no Postgres/PostgREST code at all => never reached the DB
+}
+
 export function registerRetryable(kind, fn) {
   registry[kind] = fn;
 }
 
-// Called by sync.js whenever a registered function's cloud call fails.
-// `args` must be JSON-serializable (every current cloud function's
-// arguments already are: strings, numbers, and plain data objects).
 export function enqueueRetry(kind, args) {
   const queue = loadQueue();
   queue.push({
@@ -61,11 +65,24 @@ export function pendingSyncCount() {
   return loadQueue().length;
 }
 
-// Attempts every queued job once. Jobs that succeed are removed; jobs that
-// fail again stay queued for the next flush. Guarded against overlapping
-// runs (e.g. the 'online' event and the interval firing at the same time).
+// Wipes every queued write. Call on logout (so one person's unsynced edits
+// can never be replayed into the next person's session) and after a
+// successful backup restore (so stale pre-restore edits don't re-appear).
+export function clearSyncQueue() {
+  try {
+    localStorage.removeItem(QUEUE_KEY);
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+// Replays queued jobs in order, once. Succeeded jobs are removed; transient
+// failures stay queued; permanent failures are dropped (logged). Jobs that
+// were enqueued WHILE this ran are preserved — the old version overwrote the
+// queue at the end and silently lost them.
 export async function flushSyncQueue() {
   if (flushing) return;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
   const queue = loadQueue();
   if (queue.length === 0) return;
 
@@ -74,31 +91,25 @@ export async function flushSyncQueue() {
     const stillPending = [];
     for (const job of queue) {
       const fn = registry[job.kind];
-      if (!fn) {
-        // Unknown kind — e.g. an older queued job from before a rename.
-        // Drop it rather than let it sit forever with nothing able to run it.
-        continue;
-      }
+      if (!fn) continue; // unknown/renamed kind — drop it
       try {
         await fn(...job.args);
       } catch (e) {
-        stillPending.push(job);
+        if (isTransientError(e)) stillPending.push(job);
+        else console.error("Dropping unrecoverable queued write", job.kind, e);
       }
     }
-    saveQueue(stillPending);
+    const processed = new Set(queue.map((j) => j.id));
+    const added = loadQueue().filter((j) => !processed.has(j.id));
+    saveQueue([...stillPending, ...added]);
   } finally {
     flushing = false;
   }
 }
 
-// Call once on app startup. Retries automatically when the browser regains
-// connectivity, and every 30s while online regardless — the 'online' event
-// only fires for the device's own network coming back, but Supabase itself
-// being briefly unreachable wouldn't trigger it, so the interval catches
-// that case too.
 export function initSyncQueue() {
   window.addEventListener("online", flushSyncQueue);
   if (intervalHandle) clearInterval(intervalHandle);
   intervalHandle = setInterval(flushSyncQueue, FLUSH_INTERVAL_MS);
-  flushSyncQueue(); // in case jobs were queued in a previous session
+  flushSyncQueue();
 }

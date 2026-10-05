@@ -68,6 +68,27 @@ export function sumCentavos(items, pick = (x) => x) {
   return total;
 }
 
+// ── Peso-level helpers (what the rest of the app calls) ──────────────────
+// Stored amounts are still peso numbers (that's what Supabase's numeric
+// columns hold), so these convert each value to integer centavos, do the
+// arithmetic as whole numbers, and convert back once at the end. 0.1 + 0.2
+// style drift can't accumulate across a long list this way.
+
+// Sum of peso amounts. `pick` extracts the peso amount from each item.
+export function sumPesos(items, pick = (x) => x) {
+  let cents = 0;
+  for (const item of items) cents += pesosToCentavos(pick(item));
+  return centavosToPesos(cents);
+}
+
+export function addPesos(...values) {
+  return sumPesos(values);
+}
+
+export function subPesos(a, b) {
+  return centavosToPesos(pesosToCentavos(a) - pesosToCentavos(b));
+}
+
 // One-time converter for data saved BEFORE the centavos change (peso floats):
 // old localStorage data, old cloud-shaped objects, and version-1 backup files.
 export function dataPesosToCentavos(d = {}) {

@@ -1,12 +1,22 @@
+import { currentCurrencyConfig } from "./currency.js";
+
+// The symbol for whichever currency is picked in Profile — use this instead
+// of a hardcoded "₱" anywhere a symbol is drawn on its own (inputs, hints).
+export function currencySymbol() {
+  return currentCurrencyConfig().symbol;
+}
+
+// Display-only: formats the same number with the chosen currency's symbol,
+// grouping and decimals. It never converts between currencies.
 export function fmt(n) {
+  const cfg = currentCurrencyConfig();
   const num = Number(n) || 0;
-  return (
-    "₱" +
-    num.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
-  );
+  const digits = cfg.decimals ?? 2;
+  const abs = Math.abs(num).toLocaleString(cfg.locale || "en-US", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+  return `${num < 0 ? "-" : ""}${cfg.symbol}${abs}`;
 }
 
 export function uid(prefix = "t") {
