@@ -198,6 +198,28 @@ export async function updateUserPassword(password) {
   if (error) throw error;
 }
 
+// Checks the CURRENT user's password on the server (verify_my_password in
+// supabase/phase2_security.sql). Unlike signInWithPassword it never touches
+// the session, so a 2FA (aal2) session stays aal2. Resolves true/false for
+// right/wrong; throws a friendly Error for "locked out" and "no password".
+export async function verifyCurrentPassword(password) {
+  requireSupabase();
+  const { data, error } = await supabase.rpc("verify_my_password", {
+    p_password: password,
+  });
+  if (error) throw error;
+  if (data === "ok") return true;
+  if (data === "locked")
+    throw new Error(
+      "Too many wrong attempts. Wait about 15 minutes and try again.",
+    );
+  if (data === "no_password")
+    throw new Error(
+      "This account has no password set. Log out and use “Forgot password?” on the login page to create one.",
+    );
+  return false;
+}
+
 // ── Profile (name/birthday) ──────────────────────────────────────────────
 // Stored in Supabase auth's own user_metadata (raw_user_meta_data) rather
 // than a new table — it's already part of the session object, so it needs
@@ -223,18 +245,32 @@ export async function updateUserProfile({ fullName, birthday }) {
   if (data?.user) currentUser = data.user;
 }
 
-// Wipes every transaction/budget/goal/loan/bill/recurring rule the current
-// user owns, removes them from any household, clears the local offline
-// cache, and signs out. Does NOT delete the underlying auth.users row —
-// that needs the service-role key, which a client must never hold. See
-// supabase/functions/delete-account/ for the optional server-side piece
-// that removes the account record itself.
+// Permanently deletes the account: the delete-account Edge Function removes
+// every row the person owns AND the sign-in record itself (it needs the
+// service-role key, which only exists server-side). See
+// supabase/functions/delete-account/index.ts — it must be deployed.
 export async function deleteMyAccountData() {
   requireSupabase();
-  const { error } = await supabase.rpc("delete_my_account_data");
-  if (error) throw error;
+  const { data, error } = await supabase.functions.invoke("delete-account", {
+    body: { confirm: "DELETE" },
+  });
+  if (error) {
+    // FunctionsHttpError keeps the server's JSON message on error.context
+    let message = error.message;
+    try {
+      const body = await error.context?.json?.();
+      if (body?.error) message = body.error;
+    } catch (e) {
+      /* keep the generic message */
+    }
+    throw new Error(message);
+  }
+  if (data?.error) throw new Error(data.error);
   clearLocalData();
-  await signOut();
+  // The server already deleted the user, so a normal signOut() would fail
+  // trying to reach a session that no longer exists. "local" only clears this
+  // device's session and still fires the SIGNED_OUT event.
+  await supabase.auth.signOut({ scope: "local" });
 }
 
 // Returns every active session for the current user, newest-active first,
