@@ -1,19 +1,20 @@
 import { openModal, closeModal } from "./modal.js";
-import { getCurrentUser, signInWithPassword } from "../auth.js";
+import { verifyCurrentPassword } from "../auth.js";
+import { escapeHtml } from "../format.js";
 
 // Opens a "confirm your password" gate before a sensitive action, calling
-// onConfirmed() only after the password is verified with a fresh
-// signInWithPassword call — this re-validates identity without disrupting
-// the existing session (main.js's change-detection guard ignores the
-// resulting auth event since the user id hasn't actually changed).
+// onConfirmed() only after the password is verified.
 //
-// Includes a deliberate escape hatch for magic-link-only accounts that have
-// no password to confirm. Supabase returns the same generic error for
-// "wrong password" and "no password set" (by design — distinguishing them
-// would leak which emails have a password), so there's no reliable way to
-// detect that case ahead of time and skip the prompt automatically. This is
-// a pragmatic tradeoff for a personal-scale app, not a perfect gate — worth
-// knowing if this pattern gets reused somewhere higher-stakes later.
+// Verification happens on the server (verify_my_password in
+// supabase/phase2_security.sql) and never touches the current session — the
+// old approach re-signed-in from the browser, which swapped a 2FA session for
+// a fresh aal1 one and, once 2FA is enforced by RLS, would have locked the
+// person out of their own data afterwards.
+//
+// There is deliberately NO "I signed up via magic link" escape hatch any
+// more: every account is created with a password, so that button was only a
+// way to skip the check. An older account that really has no password is told
+// how to create one (Forgot password? on the login page).
 export function requirePasswordConfirmation(
   onConfirmed,
   { title = "Confirm your password", message } = {},
@@ -22,33 +23,25 @@ export function requirePasswordConfirmation(
 }
 
 function render(onConfirmed, title, message, error) {
-  const user = getCurrentUser();
-
   openModal(
     `
     <div class="grabber"></div>
-    <h3>${title}</h3>
-    <p class="auth-message">${message || "For your security, re-enter your password to continue."}</p>
+    <h3>${escapeHtml(title)}</h3>
+    <p class="auth-message">${escapeHtml(message || "For your security, re-enter your password to continue.")}</p>
     <div class="field">
       <label>Password</label>
       <input id="reauthPassword" type="password" placeholder="Your current password" autocomplete="current-password"/>
     </div>
-    ${error ? `<p class="auth-message" style="color:var(--coral);">${error}</p>` : ""}
+    ${error ? `<p class="auth-message" style="color:var(--coral);">${escapeHtml(error)}</p>` : ""}
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="reauthCancelBtn">Cancel</button>
       <button class="btn btn-primary" id="reauthConfirmBtn">Confirm</button>
     </div>
-    <button class="delete-account-link" id="reauthNoPasswordBtn" style="margin-top:12px;">I signed up via magic link — I don't have a password</button>
   `,
     closeModal,
   );
 
   document.getElementById("reauthCancelBtn").onclick = closeModal;
-
-  document.getElementById("reauthNoPasswordBtn").onclick = () => {
-    closeModal();
-    onConfirmed(); // nothing to verify against — falls back to trusting the existing session
-  };
 
   document.getElementById("reauthConfirmBtn").onclick = async () => {
     const password = document.getElementById("reauthPassword").value;
@@ -60,15 +53,25 @@ function render(onConfirmed, title, message, error) {
     btn.disabled = true;
     btn.textContent = "Confirming…";
     try {
-      await signInWithPassword(user.email, password);
+      const ok = await verifyCurrentPassword(password);
+      if (!ok) {
+        render(
+          onConfirmed,
+          title,
+          message,
+          "That password didn't match — try again.",
+        );
+        return;
+      }
       closeModal();
       onConfirmed();
     } catch (e) {
+      // "Too many attempts", "no password set", or a network problem.
       render(
         onConfirmed,
         title,
         message,
-        "That password didn't match — try again, or use the link below if you don't have one set.",
+        e.message || "Couldn't check your password. Please try again.",
       );
     }
   };
