@@ -1,4 +1,3 @@
-import { jsPDF } from "jspdf";
 import {
   state,
   DATA,
@@ -11,7 +10,14 @@ import { catInfo } from "./categories.js";
 import { currentCurrencyConfig } from "./currency.js";
 import { getUserProfile } from "./auth.js";
 import { showToast } from "./toast.js";
+import { addPesos, sumPesos } from "./money.js";
 
+// NOTE: jsPDF is deliberately NOT imported at the top of this file. It's a
+// large library that only the "Statement" button needs, so it's pulled in with
+// a dynamic import() inside exportMonthlyStatementPDF() below — Vite turns
+// that into a separate chunk that's only fetched the first time someone taps
+// Statement, instead of being part of every page load.
+//
 // A designed, shareable one-or-two-page statement for the period currently
 // being viewed — separate from the CSV export (raw rows for a spreadsheet)
 // and the JSON backup (for restoring into Kwenta itself). This one is for
@@ -20,7 +26,7 @@ import { showToast } from "./toast.js";
 //
 // Amounts are written with the currency CODE ("PHP 1,234.00"), not the ₱
 // symbol: jsPDF's built-in fonts only cover Western Latin, so the peso sign
-// rendered as "±" in the previous version of this file. The code is also how
+// rendered as "±" in an earlier version of this file. The code is also how
 // Philippine bank statements write it, and it works for every currency the
 // app lets you pick.
 
@@ -59,12 +65,6 @@ const MONTHS = [
 function rgb(hex) {
   const h = hex.replace("#", "");
   return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
-}
-function mix(hex, withHex, amount) {
-  const a = rgb(hex);
-  const b = rgb(withHex);
-  const m = a.map((v, i) => Math.round(v * (1 - amount) + b[i] * amount));
-  return "#" + m.map((v) => v.toString(16).padStart(2, "0")).join("");
 }
 const fill = (doc, hex) => doc.setFillColor(...rgb(hex));
 const ink = (doc, hex) => doc.setTextColor(...rgb(hex));
@@ -238,7 +238,13 @@ function drawSummaryCards(doc, y, t) {
 
 export async function exportMonthlyStatementPDF() {
   try {
-    const logo = await loadLogo();
+    showToast("Preparing your statement…", { duration: 2500 });
+    // Fetched on first use only (see the note at the top of this file). A
+    // second tap reuses the already-loaded module.
+    const [{ jsPDF }, logo] = await Promise.all([
+      import("jspdf"),
+      loadLogo(),
+    ]);
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const periodLabel = monthLabel(state.monthKey);
     const { fullName } = getUserProfile();
@@ -281,10 +287,10 @@ export async function exportMonthlyStatementPDF() {
     const exp = monthTx("expense");
     const byCat = {};
     exp.forEach((e) => {
-      byCat[e.category] = (byCat[e.category] || 0) + Number(e.amount || 0);
+      byCat[e.category] = addPesos(byCat[e.category] || 0, e.amount);
     });
     const entries = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
-    const totalSpent = entries.reduce((s, [, v]) => s + v, 0);
+    const totalSpent = sumPesos(entries, ([, v]) => v);
 
     sectionTitle(
       "Where the money went",

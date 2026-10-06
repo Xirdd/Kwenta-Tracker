@@ -1,5 +1,11 @@
 import { supabase } from "./supabaseClient.js";
 
+// Every table whose changes should show up live for the other household
+// members. kwenta_custom_categories was missing, so a category someone added,
+// renamed or deleted only appeared for the others after a manual refresh.
+// Each table here must ALSO be in the supabase_realtime publication with
+// replica identity full — see
+// supabase/migrations/20261010000000_realtime_custom_categories.sql.
 const SHARED_TABLES = [
   "kwenta_transactions",
   "kwenta_budgets",
@@ -7,6 +13,7 @@ const SHARED_TABLES = [
   "kwenta_bills",
   "kwenta_goals",
   "kwenta_loans",
+  "kwenta_custom_categories",
 ];
 
 let channel = null;
