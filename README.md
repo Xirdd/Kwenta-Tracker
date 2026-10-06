@@ -53,6 +53,7 @@ kwenta/
     ├── backup.js, backupCrypto.js   full backup/restore (optionally encrypted)
     ├── export.js (CSV), pdfExport.js (statement; jsPDF is lazy-loaded)
     ├── push.js, sw.js, shareStore.js, shareParse.js
+    ├── notices.js (+ .css)   offline/unsynced banner + "update available" prompt
     ├── insights.js, theme.js, themes.css, periodMode.js, toast.js, undo.js
     └── components/           one file per screen / sheet (…Tab.js, …Sheet.js)
 ```
@@ -208,6 +209,40 @@ protected by a shared secret — see the header of its `index.ts`).
 **Statement**, so it's a separate chunk instead of part of every page load.
 (The service worker still precaches it after install so the statement works
 offline.)
+
+## Accessibility
+
+Every dialog goes through `src/components/modal.js`, which provides the
+behaviour once for all of them: `role="dialog"` + `aria-modal`, labelled by the
+dialog heading; **Escape** closes it (using the same handler as tapping outside,
+so non-dismissible dialogs — the 2FA code prompt, recovery codes — stay
+non-dismissible); **Tab / Shift+Tab are trapped** inside; the page behind is
+`inert`; focus moves into the dialog on open and back to the opener on close;
+and a closed sheet is `inert` so its leftover controls can't be tabbed to. New
+dialogs get all of this for free by using `openModal()`; give them an `<h3>` so
+they have an accessible name. Tap targets stay ≥ 44×44 px.
+
+## Notices: offline, unsynced, update available
+
+`src/notices.js` shows two banners at the top of the screen:
+
+- **Offline / unsynced** — "You're offline…" with no connection, and
+  "N changes waiting to sync" whenever the retry queue still holds anything.
+- **Update available** — the service worker is registered with
+  `registerType: "prompt"`, so a new version downloads in the background but
+  _waits_; tapping **Update** posts `SKIP_WAITING` (handled in `src/sw.js`) and
+  reloads. This avoids a new worker swapping in under a page still running old
+  code. The app also checks for a new version hourly while it stays open.
+
+The service worker only exists in production builds, so the update banner never
+appears under `npm run dev`.
+
+## First-run walkthrough
+
+`components/onboardingSheet.js` shows a 4-step tour once per account per device,
+only for accounts that look brand new (no transactions, bills, goals, loans or
+salary). It's marked as seen the moment it's shown, so a reload never repeats it.
+It never opens on top of a shared-item intake or the set-password prompt.
 
 ## Bills, Goals, Utang
 

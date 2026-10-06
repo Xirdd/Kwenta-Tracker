@@ -1,0 +1,77 @@
+/* ---------- Offline / update banners ---------- */
+/* z-index 49: above the login page (48) so an offline login screen still says
+   so, below the sheet layer (scrim 50, sheet 51) and the app lock (999). */
+#noticeStack {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  left: 0;
+  right: 0;
+  z-index: 49;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  pointer-events: none; /* only the banners themselves take taps */
+}
+.notice {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 432px;
+  padding: 8px 8px 8px 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-card);
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.notice[hidden] {
+  display: none;
+}
+.notice-offline {
+  border-color: color-mix(in srgb, #ffb020 50%, var(--line));
+}
+.notice-update {
+  border-color: color-mix(in srgb, var(--gold) 50%, var(--line));
+}
+.notice-text {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 0;
+}
+.notice-actions {
+  display: flex;
+  flex-shrink: 0;
+}
+/* 44px minimum tap target, like every other control in the app */
+.notice-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  background: none;
+  border: none;
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--gold);
+  cursor: pointer;
+}
+.notice-btn.secondary {
+  color: var(--ink-soft);
+}
+.notice-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* The dialog container is focused programmatically (modal.js) — no ring. */
+.sheet:focus {
+  outline: none;
+}

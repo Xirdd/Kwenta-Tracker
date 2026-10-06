@@ -1,6 +1,7 @@
 import "./style.css";
 import "./tabsShared.css";
-import { initSyncQueue } from "./syncQueue.js";
+import { initSyncQueue, clearSyncQueue } from "./syncQueue.js";
+import { initNotices } from "./notices.js";
 
 import {
   state,
@@ -70,6 +71,7 @@ import {
   initShareIntakeSheet,
   openShareIntakeSheet,
 } from "./components/shareIntakeSheet.js";
+import { maybeShowOnboarding } from "./components/onboardingSheet.js";
 import { takePendingShare } from "./shareStore.js";
 import {
   initAuth,
@@ -163,7 +165,8 @@ function renderSectionContent(t) {
 
 // Ensures this month's recurring entries exist, then renders. Recurring
 // entries are only created for a signed-in, unlocked session — never behind
-// the login wall.
+// the login wall. (materializeMonth itself refuses periods that haven't
+// started yet, so browsing ahead never writes anything.)
 function goToMonth() {
   if (isAuthorized()) materializeMonth(state.monthKey);
   render();
@@ -302,6 +305,12 @@ let syncQueueStarted = false;
 // existing session, which also picks up the on-device cache; a fresh sign-in
 // reloads straight from the cloud.
 async function unlockApp({ boot = false } = {}) {
+  // With 2FA enforced by the database, the household lookup that ran BEFORE the
+  // code prompt was denied for a 2FA account (the session was still aal1) and
+  // came back "no household". Now that the session is fully unlocked, ask
+  // again — otherwise the personal data would load instead of the household's.
+  await loadActiveHousehold().catch(() => {});
+
   try {
     if (boot) await initData();
     else await switchToCloudData();
@@ -330,20 +339,31 @@ async function unlockApp({ boot = false } = {}) {
   goToMonth();
   hideSplash();
 
+  // At most one thing opens on arrival: a shared item, the set-password
+  // prompt, or — for a brand-new account — the first-run walkthrough.
+  let openedSomething = false;
   if (shareWaiting) {
     shareWaiting = false;
     const share = await takePendingShare().catch(() => null);
-    if (share) openShareIntakeSheet(share);
+    if (share) {
+      openShareIntakeSheet(share);
+      openedSomething = true;
+    }
   }
   if (consumePendingPasswordSetup()) {
     openSetPasswordSheet({ context: "auto" });
+    openedSomething = true;
   }
+  if (!openedSomething) maybeShowOnboarding();
 }
 
 (async function init() {
   // "Session unknown" counts as pending from the very first line, so neither
   // the login form nor any app screen can flash before we know who this is.
   setSessionPending(true);
+
+  // Offline banner + "update available" prompt. Independent of sign-in.
+  initNotices();
 
   // Safety net: if something below stalls (a slow network, say), show the
   // branded loading view instead of a blank screen, and never leave the
@@ -401,6 +421,12 @@ async function unlockApp({ boot = false } = {}) {
   onAuthChange(async (user) => {
     const userId = user?.id || null;
     if (userId === lastUserId) return; // token refreshes etc. — same person
+
+    // Queued offline saves belong to whoever was signed in. Wipe them on
+    // logout, and if the account changes without a logout in between, so they
+    // can never be replayed into someone else's account.
+    if (!user || lastUserId) clearSyncQueue();
+
     lastUserId = userId;
 
     if (!user) {

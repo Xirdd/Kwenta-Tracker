@@ -32,6 +32,22 @@ const ICONS = {
 // icons/categoryIcons.js; iconPaths() turns it into SVG markup, falling back
 // to the price tag for a missing or unknown id.
 
+// Custom categories can arrive from other household members, so anything that
+// gets written into an HTML attribute (data-cat="…", style="background:…") is
+// validated first. (The database enforces the same rules — see the
+// kwenta_cc_* constraints in the phase 2 security migration.) Labels are
+// plain text here and are escaped at every place they're drawn.
+const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+const SAFE_COLOR = /^#[0-9A-Fa-f]{6}$/;
+const FALLBACK_COLOR = "#8c8c7a";
+const safeColor = (c) => (SAFE_COLOR.test(String(c)) ? c : FALLBACK_COLOR);
+
+function activeCustomCategories() {
+  return (DATA.customCategories || [])
+    .filter((c) => c.active !== false && SAFE_ID.test(String(c.id)))
+    .map((c) => ({ ...c, color: safeColor(c.color) }));
+}
+
 // A curated palette for custom categories to pick from — reuses hues already
 // used elsewhere in the app so a custom category never clashes.
 export const CUSTOM_CATEGORY_COLORS = [
@@ -96,9 +112,7 @@ export function catInfo(id) {
   if (builtin) return builtin;
   const legacy = LEGACY_CATEGORIES.find((c) => c.id === id);
   if (legacy) return legacy;
-  const custom = (DATA.customCategories || []).find(
-    (c) => c.id === id && c.active !== false,
-  );
+  const custom = activeCustomCategories().find((c) => c.id === id);
   if (custom) {
     return {
       id: custom.id,
@@ -121,15 +135,13 @@ export function catInfo(id) {
 export function allExpenseCategories() {
   const others = CATEGORIES[CATEGORIES.length - 1];
   const fixed = CATEGORIES.slice(0, -1);
-  const custom = (DATA.customCategories || [])
-    .filter((c) => c.active !== false)
-    .map((c) => ({
-      id: c.id,
-      label: c.label,
-      color: c.color,
-      icon: iconPaths(c.icon),
-      custom: true,
-    }));
+  const custom = activeCustomCategories().map((c) => ({
+    id: c.id,
+    label: c.label,
+    color: c.color,
+    icon: iconPaths(c.icon),
+    custom: true,
+  }));
   return [...fixed, ...custom, others];
 }
 
@@ -162,8 +174,11 @@ export function incCatInfo(id) {
 // look used everywhere a plain colored dot used to be (transaction rows,
 // category picker, budgets, etc.). Background is the category color at low
 // opacity, icon itself is full-strength — the standard Mint/YNAB pattern.
+// The color is validated again here because this is the one place it's written
+// into a style attribute for every category.
 export function categoryIconBadge(cat, size = 36) {
-  return `<span class="cat-icon-badge" style="background:${cat.color}26;color:${cat.color};width:${size}px;height:${size}px;">
+  const color = safeColor(cat.color);
+  return `<span class="cat-icon-badge" style="background:${color}26;color:${color};width:${size}px;height:${size}px;">
     <svg width="${Math.round(size * 0.5)}" height="${Math.round(size * 0.5)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${cat.icon || ICONS.other}</svg>
   </span>`;
 }
