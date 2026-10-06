@@ -137,9 +137,14 @@ Defense in depth — each layer assumes the one above can be bypassed:
    never touches the session — a browser re-sign-in would downgrade a 2FA
    session. There is **no magic-link bypass**; an account without a password
    uses "Forgot password?" to create one.
-4. **App Lock** (`appLock.js`): PBKDF2-hashed PIN, growing delays after 5 wrong
-   PINs, forced sign-out at 10, and "Forgot PIN?" needs the account password.
-   It is a client-side convenience lock, not a security boundary.
+4. **App Lock** (`appLock.js`): on creation you choose a **4-digit PIN**, a
+   **6-digit PIN** or a **password** (6–64 characters). A PIN unlocks the moment
+   its own last digit is typed — never earlier; a password is typed and
+   submitted with Unlock. (PINs made before types existed keep working and
+   unlock with an Unlock button until they're changed.) Stored as a PBKDF2
+   hash, growing delays after 5 wrong attempts, forced sign-out at 10, and
+   "Forgot PIN?" needs the account password. It is a client-side convenience
+   lock, not a security boundary.
 5. **XSS**: custom category names are escaped wherever drawn; ids/colors are
    validated in `categories.js` and by database CHECK constraints.
 6. **CSP / headers** in `vercel.json`.
@@ -237,12 +242,29 @@ they have an accessible name. Tap targets stay ≥ 44×44 px.
 The service worker only exists in production builds, so the update banner never
 appears under `npm run dev`.
 
+**Layout:** the banners are one solid bar pinned to the top of the screen. Its
+background runs under the iPhone status bar / notch / Dynamic Island
+(`padding-top: env(safe-area-inset-top)`), its text sits below that, and
+`notices.js` publishes the bar's height as `--notice-h` so the page content is
+pushed down by exactly that much rather than being covered.
+
 ## First-run walkthrough
 
 `components/onboardingSheet.js` shows a 4-step tour once per account per device,
 only for accounts that look brand new (no transactions, bills, goals, loans or
 salary). It's marked as seen the moment it's shown, so a reload never repeats it.
 It never opens on top of a shared-item intake or the set-password prompt.
+
+## Zoom lock (native-app feel)
+
+Double-tap and pinch zoom are disabled so the PWA behaves like a native app:
+`maximum-scale=1, user-scalable=no` in the viewport tag (`index.html`),
+`touch-action: manipulation` on the roots (`mobile.css`), and iOS `gesture*`
+event cancelling plus a double-tap guard for non-interactive areas
+(`mobileShell.js`). Text is also non-selectable except in inputs and the few
+things people copy by hand (invite code, recovery codes, 2FA secret). Note this
+removes pinch-to-zoom as an accessibility aid; if low-vision users matter,
+add an in-app text-size setting instead of re-enabling zoom.
 
 ## Bills, Goals, Utang
 

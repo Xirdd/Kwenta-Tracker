@@ -1,31 +1,36 @@
 /* ---------- Offline / update banners ---------- */
-/* z-index 49: above the login page (48) so an offline login screen still says
+/* One solid bar pinned to the very top of the screen. Its own background runs
+   under the iPhone status bar / notch / Dynamic Island (padding-top is the
+   safe-area inset), and its text sits BELOW that — so it can never be covered
+   by the system UI. notices.js measures the banner rows and publishes their
+   height as --notice-h; the page content is pushed down by exactly that much
+   (rules below) instead of the banner floating on top of the header.
+
+   z-index 49: above the login page (48) so an offline login screen still says
    so, below the sheet layer (scrim 50, sheet 51) and the app lock (999). */
 #noticeStack {
   position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  top: 0;
   left: 0;
   right: 0;
   z-index: 49;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 0 14px;
-  pointer-events: none; /* only the banners themselves take taps */
+  display: none;
+  padding-top: env(safe-area-inset-top, 0px);
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 8px 20px -14px rgba(0, 0, 0, 0.6);
 }
+html.has-notice #noticeStack {
+  display: block;
+}
+
 .notice {
-  pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
-  max-width: 432px;
-  padding: 8px 8px 8px 14px;
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-card);
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 6px 8px 6px 18px;
   font-family: "Inter", sans-serif;
   font-size: 12.5px;
   font-weight: 600;
@@ -35,11 +40,14 @@
 .notice[hidden] {
   display: none;
 }
+.notice + .notice:not([hidden]) {
+  border-top: 1px solid var(--line);
+}
 .notice-offline {
-  border-color: color-mix(in srgb, #ffb020 50%, var(--line));
+  background: color-mix(in srgb, #ffb020 14%, transparent);
 }
 .notice-update {
-  border-color: color-mix(in srgb, var(--gold) 50%, var(--line));
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
 }
 .notice-text {
   flex: 1;
@@ -69,6 +77,27 @@
 .notice-btn:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+/* ── Push the page down by the banner's height ──
+   .app already reserves the safe-area inset at its top, and the banner covers
+   that same strip, so only the banner's own (content) height is added. */
+html.has-notice .app {
+  padding-top: calc(env(safe-area-inset-top, 0px) + var(--notice-h, 0px));
+}
+/* The login page is its own fixed layer with its own top padding. */
+html.has-notice #authGate {
+  padding-top: calc(
+    env(safe-area-inset-top, 0px) + var(--notice-h, 0px) + 32px
+  );
+}
+@media (min-width: 860px) {
+  html.has-notice .app {
+    padding-top: calc(40px + var(--notice-h, 0px));
+  }
+  html.has-notice .side {
+    top: calc(28px + var(--notice-h, 0px));
+  }
 }
 
 /* The dialog container is focused programmatically (modal.js) — no ring. */

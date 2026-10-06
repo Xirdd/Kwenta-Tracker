@@ -1,84 +1,302 @@
 /* ---------- App lock ---------- */
+/* Sized to feel like the iOS / Android system passcode screen: small round
+   keys that scale with the screen width (never huge on a big phone, never
+   cramped on a small one), a compact header, and everything inside the safe
+   areas. 100dvh (with a 100vh fallback) tracks the real visible height as
+   mobile browser toolbars come and go. */
 #appLockOverlay {
+  --key: clamp(54px, 15.5vw, 66px); /* keypad key diameter */
+  --key-gap: clamp(12px, 3.6vw, 18px);
   position: fixed;
   inset: 0;
   z-index: 999;
   display: none;
   align-items: center;
   justify-content: center;
-  background: var(--bg);
-  padding: 24px;
+  overflow-y: auto;
+  background: radial-gradient(
+    900px 520px at 50% -10%,
+    var(--bg-glow) 0%,
+    var(--bg) 60%
+  );
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 24px
+    calc(env(safe-area-inset-bottom, 0px) + 16px) 24px;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 #appLockOverlay.show {
   display: flex;
 }
-.lock-card {
+/* Short screens (iPhone SE / landscape-ish): tighten everything a little. */
+@media (max-height: 700px) {
+  #appLockOverlay {
+    --key: clamp(46px, 13vw, 54px);
+    --key-gap: 10px;
+  }
+}
+
+.lock-screen {
   width: 100%;
-  max-width: 340px;
+  max-width: 300px;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
 }
+.lock-screen-form {
+  max-width: 340px;
+}
+
+/* ── Header ── */
+.lock-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 22px;
+}
 .lock-peso {
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 18px auto;
-  border-radius: 20px;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 14px;
+  border-radius: 15px;
   background: var(--gradient-accent);
   color: var(--on-accent);
+  font-family: "Inter", sans-serif;
   font-weight: 800;
-  font-size: 28px;
+  font-size: 21px;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: var(--shadow-pop);
 }
-.lock-card h2 {
-  font-size: 19px;
-  font-weight: 700;
-  color: var(--ink);
+.lock-head h2 {
   margin: 0 0 6px 0;
+  font-family: "Inter", sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
 }
 .lock-sub {
-  font-size: 13px;
+  margin: 0;
+  min-height: 1.4em;
+  font-size: 12.5px;
+  line-height: 1.4;
   color: var(--ink-soft);
-  margin: 0 0 22px 0;
 }
+.lock-sub strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.lock-sub.error {
+  color: var(--coral);
+  font-weight: 600;
+}
+.lock-sub[hidden] {
+  display: none;
+}
+
+/* ── PIN dots ── */
 .lock-dots {
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 26px;
+  gap: 14px;
+  margin-bottom: clamp(22px, 5vh, 34px);
+  height: 14px;
 }
 .lock-dots span {
-  width: 13px;
-  height: 13px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  border: 1.5px solid var(--ink-soft);
+  border: 1.5px solid color-mix(in srgb, var(--ink) 45%, transparent);
   background: transparent;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    transform 0.12s ease;
 }
 .lock-dots span.filled {
   background: var(--gold);
   border-color: var(--gold);
+  transform: scale(1.08);
 }
+/* A wrong passcode shakes the dots / field, like the system lock screen. */
+@keyframes lockShake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  18% {
+    transform: translateX(-9px);
+  }
+  36% {
+    transform: translateX(8px);
+  }
+  54% {
+    transform: translateX(-6px);
+  }
+  72% {
+    transform: translateX(4px);
+  }
+}
+.lock-dots.shake,
+.lock-input.shake {
+  animation: lockShake 0.42s ease;
+}
+
+/* ── Keypad ── */
 .lock-keypad {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(3, var(--key));
+  grid-auto-rows: var(--key);
+  gap: var(--key-gap);
+  justify-content: center;
+  margin-bottom: 18px;
 }
-.lock-keypad button {
-  aspect-ratio: 1;
+.lock-key {
+  width: var(--key);
+  height: var(--key);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
-  border: none;
-  background: var(--paper-2);
+  border: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   color: var(--ink);
-  font-size: 20px;
+  font-family: "Inter", sans-serif;
+  font-size: 23px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  transition:
+    background 0.08s ease,
+    transform 0.08s ease;
+}
+.lock-key:active:not(:disabled) {
+  transform: scale(0.93);
+  background: color-mix(in srgb, var(--gold) 26%, transparent);
+}
+.lock-key:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+/* Backspace / Face ID: no circle, just the icon — like the system keypad. */
+.lock-key-ghost {
+  background: transparent;
+  border-color: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  color: var(--ink-soft);
+}
+.lock-key-ghost:active:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+/* ── Password field + buttons ── */
+.lock-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lock-input {
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: color-mix(in srgb, var(--paper-2) 75%, transparent);
+  color: var(--ink);
+  font-family: "Inter", sans-serif;
+  font-size: 16px; /* 16px keeps iOS from zooming the page on focus */
+  text-align: center;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.lock-input:focus {
+  border-color: var(--gold);
+}
+.lock-input:disabled {
+  opacity: 0.45;
+}
+.lock-unlock,
+.lock-secondary {
+  min-height: 46px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 14px;
+  font-family: "Inter", sans-serif;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.lock-unlock {
+  width: 100%;
+  background: var(--gradient-accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-pop);
+}
+.lock-secondary {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--ink);
+}
+.lock-unlock:active:not(:disabled),
+.lock-secondary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.lock-unlock:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.lock-row {
+  display: flex;
+  gap: 10px;
+}
+.lock-row .lock-unlock {
+  flex: 1;
+}
+.lock-row .lock-secondary {
+  flex: 0 0 auto;
+}
+
+/* ── Text links ── */
+.lock-link {
+  min-height: 44px;
+  padding: 0 12px;
+  background: none;
+  border: none;
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
   font-weight: 600;
+  color: var(--ink-soft);
   cursor: pointer;
 }
-.lock-keypad button:active {
-  background: var(--paper);
+.lock-link:active {
+  color: var(--gold);
 }
-#lockBackspaceBtn,
-#lockBiometricBtn {
-  background: transparent;
-  font-size: 18px;
+.lock-link[hidden] {
+  display: none;
+}
+.lock-bio-link {
+  color: var(--gold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lock-dots.shake,
+  .lock-input.shake {
+    animation: none;
+  }
+  .lock-dots span,
+  .lock-key,
+  .lock-unlock,
+  .lock-secondary {
+    transition: none;
+  }
 }

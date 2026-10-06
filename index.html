@@ -2,9 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Zoom is locked so the PWA behaves like a native app: no double-tap zoom,
+         no pinch zoom, and no iOS auto-zoom when an input is focused.
+         viewport-fit=cover lets the layout extend under the notch; the app
+         pads itself with env(safe-area-inset-*). The CSS side of this is in
+         src/mobile.css, and src/mobileShell.js covers the iOS gesture events
+         that the meta tag alone doesn't stop. -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+      content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <title>Kwenta — Budget Ledger</title>
 

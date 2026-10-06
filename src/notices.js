@@ -2,7 +2,7 @@ import "./notices.css";
 import { registerSW } from "virtual:pwa-register";
 import { pendingSyncCount } from "./syncQueue.js";
 
-// Two small banners stacked at the top of the screen:
+// Two banner rows in one solid bar at the very top of the screen:
 //
 //  1. Offline / unsynced — "You're offline…" while the device has no
 //     connection, and "N changes waiting to sync" while anything is still in
@@ -11,6 +11,11 @@ import { pendingSyncCount } from "./syncQueue.js";
 //     waiting. With registerType "prompt" (vite.config.js) it does NOT swap in
 //     under a page that's still running the old code; tapping Update tells the
 //     waiting service worker to take over and reloads.
+//
+// Layout: the bar's background runs under the iPhone status bar / notch (see
+// notices.css), and whenever any row is visible this file publishes the rows'
+// total height as the CSS variable --notice-h and sets html.has-notice, which
+// pushes the page content down by that amount instead of covering it.
 //
 // All text is set with textContent (never innerHTML).
 
@@ -32,6 +37,32 @@ function button(label, className, onClick) {
   b.type = "button";
   b.onclick = onClick;
   return b;
+}
+
+// Shows/hides the bar and tells the rest of the page how tall it is.
+function syncLayout() {
+  if (!stack) return;
+  const root = document.documentElement;
+  const anyVisible = !offlineEl.hidden || !updateEl.hidden;
+
+  if (!anyVisible) {
+    root.classList.remove("has-notice");
+    root.style.removeProperty("--notice-h");
+    return;
+  }
+  // The class has to be on BEFORE measuring: the bar is display:none without it.
+  root.classList.add("has-notice");
+  // Total bar height minus the safe-area padding it carries on top (that strip
+  // is already reserved by the page's own top padding).
+  const inset = parseFloat(getComputedStyle(stack).paddingTop) || 0;
+  const h = Math.max(0, Math.round(stack.offsetHeight - inset));
+  root.style.setProperty("--notice-h", `${h}px`);
+}
+
+function setHidden(node, hidden) {
+  if (node.hidden === hidden) return;
+  node.hidden = hidden;
+  syncLayout();
 }
 
 function buildStack() {
@@ -61,7 +92,7 @@ function buildStack() {
   actions.appendChild(updateBtn);
   actions.appendChild(
     button("Later", "notice-btn secondary", () => {
-      updateEl.hidden = true;
+      setHidden(updateEl, true);
     }),
   );
   updateEl.appendChild(actions);
@@ -69,6 +100,12 @@ function buildStack() {
   stack.appendChild(offlineEl);
   stack.appendChild(updateEl);
   document.body.appendChild(stack);
+
+  // Text wrapping onto a second line, rotating the phone, or the safe-area
+  // inset changing all resize the bar — keep --notice-h in step.
+  if (typeof ResizeObserver === "function") {
+    new ResizeObserver(() => syncLayout()).observe(stack);
+  }
 }
 
 function plural(n, word) {
@@ -84,12 +121,12 @@ function refreshOffline() {
       pending > 0
         ? `You're offline — ${plural(pending, "change")} waiting to sync.`
         : "You're offline — changes are saved on this device and will sync when you're back.";
-    offlineEl.hidden = false;
+    setHidden(offlineEl, false);
   } else if (pending > 0) {
     offlineText.textContent = `${plural(pending, "change")} waiting to sync — retrying automatically.`;
-    offlineEl.hidden = false;
+    setHidden(offlineEl, false);
   } else {
-    offlineEl.hidden = true;
+    setHidden(offlineEl, true);
   }
 }
 
@@ -108,7 +145,7 @@ export function initNotices() {
       updateSW = registerSW({
         immediate: true,
         onNeedRefresh() {
-          updateEl.hidden = false;
+          setHidden(updateEl, false);
         },
         onRegisteredSW(_url, registration) {
           // Look for a new version hourly while the app stays open (a PWA on a

@@ -1,10 +1,16 @@
 import { openModal, closeModal } from "./modal.js";
 import { requirePasswordConfirmation } from "./reauthSheet.js";
 import { getCurrentUser } from "../auth.js";
+import { escapeHtml } from "../format.js";
 import {
   isLockEnabled,
   setPin,
   clearLock,
+  getLockType,
+  lockTypeLabel,
+  LOCK_TYPES,
+  MIN_PASSWORD_LENGTH,
+  MAX_PASSWORD_LENGTH,
   biometricAvailable,
   hasBiometricEnrolled,
   enrollBiometric,
@@ -17,46 +23,126 @@ export function initAppLockSheet(rerenderCallback) {
   onChange = rerenderCallback;
 }
 
+// Which type is selected while creating a passcode. Reset to the simplest one
+// each time the flow starts.
+let chosenType = "pin4";
+
 export function openAppLockSheet() {
-  isLockEnabled() ? renderManage() : renderSetup();
+  if (isLockEnabled()) {
+    renderManage();
+  } else {
+    chosenType = "pin4";
+    renderSetup("new");
+  }
 }
 
-function renderSetup(step = "new", firstPin, error) {
+function validSecret(type, secret) {
+  if (type === "pin4") return /^\d{4}$/.test(secret);
+  if (type === "pin6") return /^\d{6}$/.test(secret);
+  return (
+    secret.length >= MIN_PASSWORD_LENGTH && secret.length <= MAX_PASSWORD_LENGTH
+  );
+}
+
+function invalidMessage(type) {
+  if (type === "pin4") return "A 4-digit PIN needs exactly 4 digits.";
+  if (type === "pin6") return "A 6-digit PIN needs exactly 6 digits.";
+  return `A password needs ${MIN_PASSWORD_LENGTH}–${MAX_PASSWORD_LENGTH} characters.`;
+}
+
+// step: "new" (choose a type, enter it) or "confirm" (enter it again).
+function renderSetup(step = "new", firstSecret, error) {
   const isConfirm = step === "confirm";
+  const isPassword = chosenType === "password";
+  const typeInfo = LOCK_TYPES.find((t) => t.id === chosenType);
+
+  const inputAttrs = isPassword
+    ? `type="password" autocomplete="new-password" maxlength="${MAX_PASSWORD_LENGTH}" placeholder="${isConfirm ? "Re-enter your password" : "Letters, numbers, symbols"}" autocapitalize="none" autocorrect="off" spellcheck="false"`
+    : `type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="${typeInfo.length}" placeholder="${"•".repeat(typeInfo.length)}" class="mfa-code-input"`;
+
   openModal(`
     <div class="grabber"></div>
-    <h3>${isConfirm ? "Confirm your PIN" : "Set a PIN"}</h3>
-    <p class="auth-message">${isConfirm ? "Enter it once more to confirm." : "4–6 digits. This stays on this device only — it isn't part of your account."}</p>
+    <h3>${isConfirm ? "Confirm your passcode" : "Set a passcode"}</h3>
+    <p class="auth-message">${
+      isConfirm
+        ? "Enter it once more to confirm."
+        : "Choose how you want to unlock Kwenta on this device. It stays on this device only — it isn't part of your account."
+    }</p>
+    ${
+      isConfirm
+        ? ""
+        : `
     <div class="field">
-      <label>PIN</label>
-      <input id="lockPinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••" class="mfa-code-input"/>
+      <label>Security type</label>
+      <div class="auth-tabs" id="lockTypeTabs" role="radiogroup" aria-label="Security type">
+        ${LOCK_TYPES.map(
+          (t) =>
+            `<button type="button" class="auth-tab ${t.id === chosenType ? "active" : ""}" role="radio" aria-checked="${t.id === chosenType}" data-type="${t.id}">${escapeHtml(t.label)}</button>`,
+        ).join("")}
+      </div>
+    </div>`
+    }
+    <div class="field">
+      <label for="lockSecretInput">${isPassword ? "Password" : `${typeInfo.length}-digit PIN`}</label>
+      <input id="lockSecretInput" ${inputAttrs}/>
+      ${
+        !isConfirm
+          ? `<p class="field-hint">${
+              isPassword
+                ? `${MIN_PASSWORD_LENGTH}–${MAX_PASSWORD_LENGTH} characters. Letters, numbers and symbols all work.`
+                : `Exactly ${typeInfo.length} digits — Kwenta unlocks as soon as you've typed the last one.`
+            }</p>`
+          : ""
+      }
     </div>
-    ${error ? `<p class="auth-message" style="color:var(--coral);">${error}</p>` : ""}
+    ${error ? `<p class="auth-message" style="color:var(--coral);">${escapeHtml(error)}</p>` : ""}
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="lockCancelBtn">Cancel</button>
       <button class="btn btn-primary" id="lockNextBtn">${isConfirm ? "Confirm" : "Next"}</button>
     </div>
   `);
 
-  const input = document.getElementById("lockPinInput");
+  // Switching type re-renders the field for that type (4 boxes, 6 boxes, or a
+  // free-text password) — nothing typed yet is lost because nothing is typed.
+  document.querySelectorAll("#lockTypeTabs [data-type]").forEach((btn) => {
+    btn.onclick = () => {
+      chosenType = btn.dataset.type;
+      renderSetup("new");
+    };
+  });
+
+  const input = document.getElementById("lockSecretInput");
   input.focus();
   document.getElementById("lockCancelBtn").onclick = closeModal;
 
+  // PINs: keep only digits as they're typed, so a stray letter can't sneak in.
+  if (!isPassword) {
+    input.oninput = () => {
+      input.value = input.value.replace(/\D/g, "").slice(0, typeInfo.length);
+    };
+  }
+  input.onkeydown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      document.getElementById("lockNextBtn").click();
+    }
+  };
+
   document.getElementById("lockNextBtn").onclick = async () => {
-    const pin = input.value.trim();
-    if (!/^\d{4,6}$/.test(pin)) {
-      renderSetup(step, firstPin, "PIN needs to be 4–6 digits.");
+    const secret = input.value; // not trimmed: a password may contain spaces
+    if (!validSecret(chosenType, secret)) {
+      renderSetup(step, firstSecret, invalidMessage(chosenType));
       return;
     }
     if (!isConfirm) {
-      renderSetup("confirm", pin);
+      renderSetup("confirm", secret);
       return;
     }
-    if (pin !== firstPin) {
+    if (secret !== firstSecret) {
       renderSetup("new", undefined, "Those two didn't match — start again.");
       return;
     }
-    await setPin(pin);
+    await setPin(secret, chosenType);
     offerBiometric();
   };
 }
@@ -72,13 +158,14 @@ async function offerBiometric() {
     `
     <div class="grabber"></div>
     <h3>Use Face ID / Touch ID too?</h3>
-    <p class="auth-message">Unlock faster with your face or fingerprint — your PIN still works as a backup, and is required if biometrics ever fail.</p>
+    <p class="auth-message">Unlock faster with your face or fingerprint — your passcode still works as a backup, and is required if biometrics ever fail.</p>
     <div class="sheet-actions" style="flex-direction:column;">
       <button class="btn btn-primary" id="lockEnableBiometricBtn">Turn it on</button>
       <button class="btn btn-ghost" id="lockSkipBiometricBtn">Not now</button>
     </div>
   `,
     () => {
+      closeModal();
       onChange();
     },
   );
@@ -90,7 +177,7 @@ async function offerBiometric() {
     try {
       await enrollBiometric();
     } catch (e) {
-      // Cancelled or unsupported mid-flow — the PIN alone is still fully set up either way.
+      // Cancelled or unsupported mid-flow — the passcode alone is still fully set up either way.
     }
     closeModal();
     onChange();
@@ -99,13 +186,20 @@ async function offerBiometric() {
 
 function renderManage(message) {
   const biometricOn = hasBiometricEnrolled();
+  const type = getLockType();
+  const noun = lockTypeLabel(type);
   openModal(`
     <div class="grabber"></div>
     <h3>App Lock</h3>
-    <p class="auth-message">A PIN is required to open Kwenta on this device${biometricOn ? ", with Face ID / Touch ID as a shortcut" : ""}.</p>
-    ${message ? `<p class="auth-message" style="color:var(--coral);">${message}</p>` : ""}
+    <p class="auth-message">A ${escapeHtml(noun)} is required to open Kwenta on this device${biometricOn ? ", with Face ID / Touch ID as a shortcut" : ""}.</p>
+    ${
+      type === "pin-legacy"
+        ? `<p class="auth-message">Your PIN was made before 4-digit, 6-digit and password options existed, so it unlocks with an Unlock button. Change it to pick a type and unlock automatically.</p>`
+        : ""
+    }
+    ${message ? `<p class="auth-message" style="color:var(--coral);">${escapeHtml(message)}</p>` : ""}
     <div class="sheet-actions" style="flex-direction:column;">
-      <button class="btn btn-ghost" id="lockChangePinBtn">Change PIN</button>
+      <button class="btn btn-ghost" id="lockChangePinBtn">Change passcode</button>
       <button class="btn btn-ghost" id="lockToggleBiometricBtn">${biometricOn ? "Turn off Face ID / Touch ID" : "Turn on Face ID / Touch ID"}</button>
       <button class="btn btn-ghost" id="lockCloseBtn">Close</button>
       <button class="btn btn-danger" id="lockTurnOffBtn">Turn off App Lock</button>
@@ -113,8 +207,10 @@ function renderManage(message) {
   `);
 
   document.getElementById("lockCloseBtn").onclick = closeModal;
-  document.getElementById("lockChangePinBtn").onclick = () =>
+  document.getElementById("lockChangePinBtn").onclick = () => {
+    chosenType = type === "pin-legacy" ? "pin4" : type;
     renderSetup("new");
+  };
 
   document.getElementById("lockToggleBiometricBtn").onclick = async () => {
     if (biometricOn) {
@@ -156,13 +252,13 @@ function confirmTurnOff() {
     requirePasswordConfirmation(doTurnOff, {
       title: "Confirm your password",
       message:
-        "Turning off App Lock removes the PIN requirement on this device — confirm it's really you.",
+        "Turning off App Lock removes the passcode requirement on this device — confirm it's really you.",
     });
   } else {
     openModal(`
       <div class="grabber"></div>
       <h3>Turn off App Lock?</h3>
-      <p class="auth-message">Kwenta will open without a PIN on this device from now on.</p>
+      <p class="auth-message">Kwenta will open without a passcode on this device from now on.</p>
       <div class="sheet-actions">
         <button class="btn btn-ghost" id="lockKeepBtn">Keep it on</button>
         <button class="btn btn-danger" id="lockConfirmOffBtn">Turn off</button>
