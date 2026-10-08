@@ -1,0 +1,126 @@
+/* ---------- UI polish & uniformity ---------- */
+/* Loaded once from main.js, after style.css. Fixes layout bugs seen on a real
+   iPhone and brings the form controls in line with the rest of the theme. */
+
+/* ── Sheets must never scroll sideways ──
+   The add-expense sheet was wider than the screen: the third category column
+   ("Transporta…") and the date field ran off the right edge. */
+.sheet {
+  overflow-x: hidden;
+}
+.field input,
+.field select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* ── Category picker in the add/edit sheet ──
+   `1fr` columns can't shrink below their content's width, which is what pushed
+   the grid off-screen. minmax(0, 1fr) lets them shrink, and two columns give
+   long names ("Memberships & Subscriptions") room instead of cramming three. */
+.cat-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.cat-opt {
+  min-width: 0;
+  min-height: 52px;
+  padding: 8px 10px;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.cat-opt .cat-icon-badge {
+  flex-shrink: 0;
+}
+
+/* ── Date / month inputs ──
+   iOS draws these with their own intrinsic width and centred text. */
+.field input[type="date"],
+.field input[type="month"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  text-align: left;
+}
+.field input[type="date"]::-webkit-date-and-time-value,
+.field input[type="month"]::-webkit-date-and-time-value {
+  text-align: left;
+}
+
+/* ── "Repeats every month" checkbox ──
+   Replaces the oversized default white checkbox with one that matches the
+   theme (rounded, accent-filled when ticked). */
+.field label.checkbox-row input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  flex-shrink: 0;
+  display: grid;
+  place-content: center;
+  border-radius: 8px;
+  border: 1.5px solid var(--line);
+  background: var(--paper-2);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+.field label.checkbox-row input[type="checkbox"]::after {
+  content: "";
+  width: 11px;
+  height: 6px;
+  margin-top: -2px;
+  border-left: 2.5px solid var(--on-accent);
+  border-bottom: 2.5px solid var(--on-accent);
+  transform: rotate(-45deg) scale(0);
+  transition: transform 0.12s ease;
+}
+.field label.checkbox-row input[type="checkbox"]:checked {
+  background: var(--gold);
+  border-color: transparent;
+}
+.field label.checkbox-row input[type="checkbox"]:checked::after {
+  transform: rotate(-45deg) scale(1);
+}
+.field label.checkbox-row input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ── Header: profile photo button (next to Search) ── */
+.icon-btn-account {
+  position: relative;
+  overflow: hidden;
+}
+.icon-btn-account .avatar-initial {
+  position: relative;
+  z-index: 0;
+}
+.icon-btn-account.has-avatar {
+  padding: 0;
+  background: var(--paper-2);
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+}
+.header-avatar {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field label.checkbox-row input[type="checkbox"],
+  .field label.checkbox-row input[type="checkbox"]::after {
+    transition: none;
+  }
+}

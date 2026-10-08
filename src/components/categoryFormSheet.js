@@ -38,7 +38,12 @@ function colorSwatchRow(selected) {
 // `cat` is the raw custom-category object from DATA.customCategories (null to
 // create). `draft` carries what was typed so a validation error re-opens the
 // form without wiping the fields.
-export function openCategoryForm(cat, draft = {}) {
+//
+// `returnTo` (optional) is a function to call once the form is finished —
+// saved, cancelled or deleted. The Expenses "Customize categories" menu passes
+// itself here so people land back on that list instead of the page behind it.
+// The Budgets tab passes nothing and behaves exactly as before.
+export function openCategoryForm(cat, draft = {}, returnTo = null) {
   const isEdit = !!cat;
   const labelVal = draft.label ?? cat?.label ?? "";
   const limitVal =
@@ -47,23 +52,34 @@ export function openCategoryForm(cat, draft = {}) {
   let chosenIcon = draft.icon ?? cat?.icon ?? DEFAULT_ICON_ID;
   const perHalf = periodKeyHasHalf(state.monthKey);
 
+  const finish = () => {
+    closeModal();
+    onChange();
+    if (returnTo) returnTo();
+  };
+  const cancel = () => {
+    closeModal();
+    if (returnTo) returnTo();
+  };
+
   const previewHtml = () =>
     categoryIconBadge({ color: chosenColor, icon: iconPaths(chosenIcon) }, 48);
 
-  openModal(`
+  openModal(
+    `
     <div class="grabber"></div>
-    <h3>${isEdit ? "Edit category" : "New budget category"}</h3>
+    <h3>${isEdit ? "Edit category" : "New category"}</h3>
     <div class="cc-name-row">
       <span class="cc-preview" id="ccPreview">${previewHtml()}</span>
       <div class="field">
-        <label>Name</label>
+        <label for="ccLabel">Name</label>
         <input id="ccLabel" type="text" maxlength="40" placeholder="e.g. Gym Supplements, Pet Care" value="${escapeHtml(labelVal)}"/>
       </div>
     </div>
     <div class="field amount">
-      <label>Budget limit <span class="opt">(optional)</span></label>
+      <label for="ccLimit">Budget limit <span class="opt">(optional)</span></label>
       <input id="ccLimit" type="number" inputmode="decimal" min="0" placeholder="0.00" value="${limitVal}"/>
-      <p class="field-hint">${perHalf ? "Applies to each half-month. You can set a different limit for the 16th–end on the card." : "Applies to each month."}</p>
+      <p class="field-hint">${perHalf ? "Applies to each half-month. You can set a different limit for the 16th–end on the Budgets card." : "Applies to each month."}</p>
     </div>
     <div class="field">
       <label>Color</label>
@@ -73,13 +89,15 @@ export function openCategoryForm(cat, draft = {}) {
       <label>Icon</label>
       ${renderIconPicker(chosenIcon)}
     </div>
-    ${draft.error ? `<p class="auth-message" style="color:var(--coral);">${draft.error}</p>` : ""}
+    ${draft.error ? `<p class="auth-message" style="color:var(--coral);">${escapeHtml(draft.error)}</p>` : ""}
     <div class="sheet-actions">
       ${isEdit ? `<button class="btn btn-danger" id="ccDeleteBtn">Delete</button>` : ""}
       <button class="btn btn-ghost" id="ccCancelBtn">Cancel</button>
       <button class="btn btn-primary" id="ccSaveBtn">Save</button>
     </div>
-  `);
+  `,
+    cancel,
+  );
 
   document.querySelectorAll("#ccColorRow .color-swatch-btn").forEach((btn) => {
     btn.onclick = () => {
@@ -97,7 +115,7 @@ export function openCategoryForm(cat, draft = {}) {
     document.getElementById("ccPreview").innerHTML = previewHtml();
   });
 
-  document.getElementById("ccCancelBtn").onclick = closeModal;
+  document.getElementById("ccCancelBtn").onclick = cancel;
 
   document.getElementById("ccSaveBtn").onclick = () => {
     const typed = {
@@ -106,7 +124,8 @@ export function openCategoryForm(cat, draft = {}) {
       color: chosenColor,
       icon: chosenIcon,
     };
-    const fail = (error) => openCategoryForm(cat, { ...typed, error });
+    const fail = (error) =>
+      openCategoryForm(cat, { ...typed, error }, returnTo);
     const label = typed.label.trim();
 
     if (!label) return fail("Give this category a name.");
@@ -133,17 +152,16 @@ export function openCategoryForm(cat, draft = {}) {
       // Show it right away, even if the visible-category selection was customized.
       addVisibleCategory(created.id);
     }
-    closeModal();
-    onChange();
+    finish();
   };
 
   if (isEdit) {
     document.getElementById("ccDeleteBtn").onclick = () =>
-      confirmDeleteCategory(cat);
+      confirmDeleteCategory(cat, returnTo);
   }
 }
 
-function confirmDeleteCategory(cat) {
+function confirmDeleteCategory(cat, returnTo) {
   const used = DATA.transactions.filter(
     (t) => t.type === "expense" && t.category === cat.id,
   ).length;
@@ -151,7 +169,8 @@ function confirmDeleteCategory(cat) {
     ? `${used} logged expense${used === 1 ? "" : "s"} will show under "Others" from now on, and its budget limit is removed.`
     : "Its budget limit is removed. No expenses are logged under it.";
 
-  openModal(`
+  openModal(
+    `
     <div class="grabber"></div>
     <h3>Delete "${escapeHtml(cat.label)}"?</h3>
     <p class="auth-message">${impact} You can undo for a few seconds after.</p>
@@ -159,8 +178,11 @@ function confirmDeleteCategory(cat) {
       <button class="btn btn-ghost" id="ccKeepBtn">Keep it</button>
       <button class="btn btn-danger" id="ccConfirmDeleteBtn">Delete</button>
     </div>
-  `);
-  document.getElementById("ccKeepBtn").onclick = () => openCategoryForm(cat);
+  `,
+    () => openCategoryForm(cat, {}, returnTo),
+  );
+  document.getElementById("ccKeepBtn").onclick = () =>
+    openCategoryForm(cat, {}, returnTo);
   document.getElementById("ccConfirmDeleteBtn").onclick = () => {
     closeModal();
     // deleteCustomCategory() clears the limits too — capture them so Undo
@@ -184,5 +206,6 @@ function confirmDeleteCategory(cat) {
       },
       commit: () => deleteCustomCategory(cat.id),
     });
+    if (returnTo) returnTo();
   };
 }

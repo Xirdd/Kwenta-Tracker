@@ -1,0 +1,86 @@
+/* ---------- Expenses: search + Categories button ---------- */
+/* The category chips that used to sit under the search box (and overlapped on
+   narrow phones) are gone. One 44px "Categories" button opens a bottom sheet
+   instead (expenseCategoriesSheet.js). */
+.expense-toolbar {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.expense-toolbar .expense-search {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.expense-cat-btn {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--line);
+  background: color-mix(in srgb, var(--paper) 70%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: var(--ink);
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    transform 0.12s ease;
+}
+.expense-cat-btn:active {
+  transform: scale(0.97);
+}
+.expense-cat-btn.active {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.expense-cat-btn svg {
+  flex-shrink: 0;
+}
+
+/* "Showing: <category> ✕" — only while a category filter is on. */
+.active-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -2px 0 12px 0;
+  padding: 4px 4px 4px 12px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--gold) 12%, var(--paper-2));
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.active-filter-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.active-filter-label span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.active-filter button {
+  flex-shrink: 0;
+  width: 44px;
+  height: 36px;
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  font-size: 16px;
+  cursor: pointer;
+}
+.active-filter button:active {
+  color: var(--coral);
+}

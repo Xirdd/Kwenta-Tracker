@@ -1,4 +1,4 @@
-// The + button is now a single, non-expanding action button. Which form it
+// The + button is a single, non-expanding action button. Which form it
 // opens depends entirely on where you are: Expenses -> add expense, Income
 // -> add income, Bills -> add bill, Goals -> add goal, Utang -> add loan.
 // There's no ambiguity to resolve with a popup menu anymore, since each of
@@ -12,14 +12,15 @@
 const HIDDEN_TABS = new Set(["overview", "budgets"]);
 
 export function shouldShowFab(section, tab) {
-  if (section === "profile") return false;
+  // Settings and Profile are plain screens — nothing to "add" there.
+  if (section === "settings" || section === "profile") return false;
   if (section === "overview") return !HIDDEN_TABS.has(tab);
   return true; // goals, loans
 }
 
 export function renderFab(section, tab) {
   if (!shouldShowFab(section, tab)) return "";
-  return `<button class="fab" id="fabBtn">+</button>`;
+  return `<button class="fab" id="fabBtn" aria-label="Add">+</button>`;
 }
 
 // handlers: { onExpense, onIncome, onBill, onGoal, onLoan }

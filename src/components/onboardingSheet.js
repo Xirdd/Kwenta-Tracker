@@ -27,7 +27,7 @@ const STEPS = [
   {
     icon: "🔒",
     title: "Private by default",
-    body: "In Profile you can turn on two-factor authentication and an App Lock PIN, or share a household budget with a code. Your salary always stays private, even in a household.",
+    body: "In Settings you can turn on two-factor authentication and an App Lock passcode, or share a household budget with a code. Your photo and name live under the person icon at the top. Your salary always stays private, even in a household.",
   },
 ];
 

@@ -506,7 +506,7 @@ function renderForgotScreen(error) {
       <div class="lock-head">
         <div class="lock-peso" aria-hidden="true">₱</div>
         <h2>Reset your ${noun}</h2>
-        <p class="lock-sub">Enter your <strong>account</strong> password. This removes the lock on this device — you can set a new one in Profile.</p>
+        <p class="lock-sub">Enter your <strong>account</strong> password. This removes the lock on this device — you can set a new one in Settings.</p>
       </div>
       <form class="lock-form" id="lockForgotForm" novalidate>
         <input id="lockForgotPassword" class="lock-input" type="password" autocomplete="current-password" placeholder="Account password" aria-label="Account password"/>

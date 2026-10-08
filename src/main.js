@@ -1,5 +1,6 @@
 import "./style.css";
 import "./tabsShared.css";
+import "./polish.css";
 import { initSyncQueue, clearSyncQueue } from "./syncQueue.js";
 import { initNotices } from "./notices.js";
 
@@ -39,10 +40,16 @@ import {
   renderUtangLedgerCard,
 } from "./components/loansTab.js";
 import {
-  renderProfileTab,
-  attachProfileEvents,
-  initProfileTab,
-} from "./components/profileTab.js";
+  renderSettingsTab,
+  attachSettingsEvents,
+  initSettingsTab,
+} from "./components/settingsTab.js";
+import {
+  renderProfilePage,
+  attachProfilePageEvents,
+  initProfilePage,
+} from "./components/profilePage.js";
+import { wireAvatarFallbacks } from "./avatar.js";
 import { initDeleteAccountSheet } from "./components/deleteAccountSheet.js";
 import { initSheet, openForm } from "./components/sheet.js";
 import { attachQuickAddEvents } from "./components/quickAddBar.js";
@@ -135,12 +142,12 @@ function render() {
 }
 
 // The sidebar (month nav / balance card / sub-tabs) only makes sense for
-// Overview, which is month-scoped. Goals, Utang, and Profile aren't, so they
-// get their own sidebar content (or none) instead of the Net Balance card.
+// Overview, which is month-scoped. Goals, Utang, Settings and Profile aren't,
+// so they get their own sidebar content (or none) instead of the Net Balance card.
 function renderSideContent(t) {
   if (state.section === "goals") return "";
   if (state.section === "loans") return renderUtangLedgerCard();
-  if (state.section === "profile") return "";
+  if (state.section === "settings" || state.section === "profile") return "";
   return `
     ${renderMonthNav()}
     ${renderLedgerCard(t)}
@@ -149,11 +156,13 @@ function renderSideContent(t) {
 }
 
 // Overview owns the existing sub-tabs (Overview/Income/Expenses/Budgets/Bills).
-// Goals, Utang, and Profile are full screens with no sub-tabs.
+// Goals, Utang, Settings (bottom nav) and Profile (header icon) are full
+// screens with no sub-tabs.
 function renderSectionContent(t) {
   if (state.section === "goals") return renderGoalsTab();
   if (state.section === "loans") return renderLoansTab();
-  if (state.section === "profile") return renderProfileTab();
+  if (state.section === "settings") return renderSettingsTab();
+  if (state.section === "profile") return renderProfilePage();
   return `
     ${state.tab === "overview" ? renderOverview(t) : ""}
     ${state.tab === "income" ? renderIncome(t) : ""}
@@ -230,7 +239,8 @@ function attachEvents() {
     onLoan: () => openLoanForm(null),
   });
 
-  // The account icon in the header just jumps to the Profile tab.
+  // The person icon in the header (next to Search) opens the Profile page.
+  // App settings are the separate bottom-nav "Settings" tab.
   document.getElementById("accountBtn").onclick = () => {
     state.section = "profile";
     render();
@@ -244,8 +254,10 @@ function attachEvents() {
   attachIncomeEvents();
   attachBudgetEvents();
   attachExpenseEvents();
-  attachProfileEvents();
+  attachSettingsEvents();
+  attachProfilePageEvents();
   attachQuickAddEvents();
+  wireAvatarFallbacks(); // drop a photo that fails to load, showing the initial instead
 
   document.querySelectorAll("[data-edit]").forEach((row) => {
     row.onclick = () => {
@@ -384,7 +396,8 @@ async function unlockApp({ boot = false } = {}) {
   initEditProfileSheet(render);
   initShareIntakeSheet(render);
   initHouseholdSheet(onHouseholdChanged);
-  initProfileTab(render);
+  initSettingsTab(render);
+  initProfilePage(render);
   initDeleteAccountSheet(() => {
     state.section = "overview";
     render(); // the account is gone, so the guard sends them to the login page
