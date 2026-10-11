@@ -10,8 +10,14 @@ function requireSupabase() {
 // Starts enrolling a new TOTP (authenticator app) factor. Returns a
 // ready-to-render QR code SVG plus the raw secret as a manual-entry
 // fallback for anyone who can't scan it.
+//
+// Any half-finished enrollment from an earlier attempt (the sheet was
+// cancelled or dismissed before the code was verified) is removed first.
+// Those "unverified" factors used to pile up and eventually made enrolling
+// fail.
 export async function enrollTotp() {
   requireSupabase();
+  await removeUnverifiedFactors();
   const { data, error } = await supabase.auth.mfa.enroll({
     factorType: "totp",
   });
@@ -23,9 +29,34 @@ export async function enrollTotp() {
   };
 }
 
-// A newly enrolled factor stays "unverified" (inactive) until you prove you
-// can generate a real code from it once — this completes that proof.
-export async function verifyTotpEnrollment(factorId, code) {
+async function removeUnverifiedFactors() {
+  try {
+    const { data } = await supabase.auth.mfa.listFactors();
+    const stale = (data?.all || []).filter((f) => f.status === "unverified");
+    for (const f of stale) {
+      await supabase.auth.mfa.unenroll({ factorId: f.id });
+    }
+  } catch (e) {
+    /* best effort — enroll() below reports any real problem */
+  }
+}
+
+// Called when the setup sheet is cancelled before verification.
+export async function cancelEnrollment(factorId) {
+  if (!supabase || !factorId) return;
+  try {
+    await supabase.auth.mfa.unenroll({ factorId });
+  } catch (e) {
+    /* best effort */
+  }
+}
+
+// One challenge + verify round trip. Used both to activate a newly enrolled
+// factor (it stays "unverified" until you prove you can generate a real code
+// from it once) and at sign-in, where the session already passed the first
+// factor (password or magic link) but is still only at aal1 — this completes
+// the upgrade to aal2. These were two byte-for-byte identical functions.
+async function challengeAndVerify(factorId, code) {
   requireSupabase();
   const { data: challenge, error: challengeError } =
     await supabase.auth.mfa.challenge({ factorId });
@@ -38,21 +69,8 @@ export async function verifyTotpEnrollment(factorId, code) {
   if (verifyError) throw verifyError;
 }
 
-// Used at sign-in time: the session already passed the first factor
-// (password or magic link) but is still only at aal1 — this completes the
-// upgrade to aal2.
-export async function challengeAndVerifyTotp(factorId, code) {
-  requireSupabase();
-  const { data: challenge, error: challengeError } =
-    await supabase.auth.mfa.challenge({ factorId });
-  if (challengeError) throw challengeError;
-  const { error: verifyError } = await supabase.auth.mfa.verify({
-    factorId,
-    challengeId: challenge.id,
-    code,
-  });
-  if (verifyError) throw verifyError;
-}
+export const verifyTotpEnrollment = challengeAndVerify;
+export const challengeAndVerifyTotp = challengeAndVerify;
 
 export async function listTotpFactors() {
   requireSupabase();
@@ -100,6 +118,8 @@ export async function generateRecoveryCodes() {
 // recovery code doesn't upgrade the session to aal2 (there's no real TOTP
 // proof happening), it just verifies enough identity to remove the second
 // factor and let the person back in — same pattern GitHub/Google use.
+// The database now throttles wrong guesses (5 per 15 minutes) and raises an
+// error — shown to the person as-is — when the limit is hit.
 export async function verifyRecoveryCode(code) {
   requireSupabase();
   const { data, error } = await supabase.rpc("verify_mfa_recovery_code", {

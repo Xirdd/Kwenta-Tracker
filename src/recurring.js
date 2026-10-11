@@ -1,5 +1,5 @@
 import { DATA, saveData, periodRange, periodKeyHasHalf } from "./state.js";
-import { uid } from "./format.js";
+import { uid, todayISO } from "./format.js";
 import { getPeriodMode } from "./periodMode.js";
 import {
   isCloudMode,
@@ -56,9 +56,8 @@ export function createRecurringRule({ type, desc, amount, category, date }) {
     // has a 3-segment one ("2026-09-1"). String comparison against a
     // DIFFERENTLY-shaped periodKey in materializeMonth() below still sorts
     // sensibly (a "2026-09" prefix always compares before "2026-09-1" or
-    // "2026-09-2" — the exact same cross-format tolerance this app already
-    // relied on for the original monthly-to-semi-monthly migration), so
-    // switching modes after a rule exists doesn't stop it from firing.
+    // "2026-09-2"), so switching modes after a rule exists doesn't stop it
+    // from firing.
     startMonth: periodKeyOfDate(date),
     active: true,
   };
@@ -88,17 +87,20 @@ export function stopRecurringRule(id) {
 // transaction for it, creating one if it's missing. Safe to call repeatedly
 // (idempotent).
 //
+// A period that hasn't STARTED yet is skipped. main.js and the README both
+// claimed this, but the check was missing — tapping "next month" wrote real
+// transactions (and cloud rows) for months that hadn't begun.
+//
 // In semi-monthly mode (a 3-segment periodKey), a rule only fires in the
-// half its day falls into — the other half simply doesn't materialize it,
-// same as before this setting existed. In monthly mode (a 2-segment
-// periodKey), there's no "other half" to skip: every active rule fires once
-// for the month regardless of which half its day would have landed in.
+// half its day falls into. In monthly mode (a 2-segment periodKey), every
+// active rule fires once for the month.
 export function materializeMonth(periodKey) {
+  const { start, end } = periodRange(periodKey);
+  if (start > todayISO()) return false;
+
   let changed = false;
   const isHalfMonth = periodKeyHasHalf(periodKey);
-  const parts = periodKey.split("-").map(Number);
-  const [y, m, half] = parts;
-  const { end } = periodRange(periodKey);
+  const [y, m, half] = periodKey.split("-").map(Number);
   const lastDayOfMonth = Number(end.split("-")[2]);
 
   DATA.recurring.forEach((rule) => {

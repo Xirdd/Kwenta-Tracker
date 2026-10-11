@@ -1,5 +1,6 @@
 import { DATA, saveData } from "./state.js";
-import { uid } from "./format.js";
+import { uid, currencySymbol } from "./format.js";
+import { sumPesos } from "./money.js";
 import {
   isCloudMode,
   cloudUpsertGoal,
@@ -37,10 +38,20 @@ export function updateGoal(goal, { name, targetAmount, targetMonth }) {
   if (isCloudMode()) cloudUpsertGoal(goal).catch((e) => notifySyncError(e));
 }
 
+// Deleting a goal also deletes its contribution transactions. They used to be
+// left behind: invisible (goal transactions are excluded from every total and
+// list) but still synced, exported to CSV and findable through search.
 export function deleteGoal(id) {
+  const linked = DATA.transactions.filter((t) => t.goalId === id);
+  DATA.transactions = DATA.transactions.filter((t) => t.goalId !== id);
   DATA.goals = DATA.goals.filter((g) => g.id !== id);
   saveData();
-  if (isCloudMode()) cloudDeleteGoal(id).catch((e) => notifySyncError(e));
+  if (isCloudMode()) {
+    cloudDeleteGoal(id).catch((e) => notifySyncError(e));
+    linked.forEach((t) =>
+      cloudDeleteTransaction(t.id).catch((e) => notifySyncError(e)),
+    );
+  }
 }
 
 // All contributions ever made toward a goal, regardless of which month is currently being viewed.
@@ -50,10 +61,12 @@ export function contributionsFor(goalId) {
     .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 }
 
+// Doesn't go through contributionsFor(): sorting just to add things up was
+// wasted work on every goal card render.
 export function savedAmount(goalId) {
-  return contributionsFor(goalId).reduce(
-    (s, t) => s + Number(t.amount || 0),
-    0,
+  return sumPesos(
+    DATA.transactions.filter((t) => t.goalId === goalId),
+    (t) => t.amount,
   );
 }
 
@@ -83,13 +96,9 @@ export function removeContribution(tx) {
 
 // Goal target dates stay full calendar months ("by December") — deliberately
 // NOT semi-monthly periods, since "by the 1st half of December" reads
-// strangely for a long-range savings target. This is now its own
-// independent month-key function rather than importing monthKeyOf from
-// state.js (which returns semi-monthly period keys like "2026-09-1" now,
-// for Overview/Income/Expenses/Budgets). Note: monthsBetween() below would
-// have kept producing the right number even with a period key passed in
-// (JS destructuring just ignores the extra "-1"/"-2" segment) — but that's
-// accidental correctness, not something worth relying on going forward.
+// strangely for a long-range savings target. This is its own independent
+// month-key function (bills.js has its own too) rather than importing
+// state.js's period keys.
 export function currentRealMonthKey() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -127,6 +136,7 @@ export function paceHint(goal) {
   return `Save about ${perMonthLabel(perMonth)}/month to reach it by ${monthLabel(goal.targetMonth)}.`;
 }
 
+// Was a hardcoded "₱", ignoring the currency picked in Settings.
 function perMonthLabel(n) {
-  return "₱" + Math.ceil(n).toLocaleString("en-US");
+  return currencySymbol() + Math.ceil(n).toLocaleString("en-US");
 }

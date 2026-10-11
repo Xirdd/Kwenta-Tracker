@@ -23,6 +23,25 @@ export function uid(prefix = "t") {
   return prefix + Date.now() + Math.random().toString(16).slice(2, 8);
 }
 
+// Today (or any Date) as "YYYY-MM-DD" in the DEVICE'S local time zone.
+//
+// Do not use `new Date().toISOString().slice(0, 10)` for this: toISOString()
+// is UTC, so for a phone in the Philippines (UTC+8) it returns YESTERDAY's
+// date between midnight and 8 am — new entries were defaulting to the wrong day.
+export function todayISO(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// "YYYY-MM-DD" -> a Date at LOCAL midnight. `new Date("2026-09-16")` parses as
+// UTC midnight, which is still the 15th for anyone west of UTC.
+export function parseISODate(iso) {
+  const [y, m, d] = String(iso).split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
 export function formatDate(iso) {
   if (!iso) return "";
   const [y, m, d] = iso.split("-").map(Number);

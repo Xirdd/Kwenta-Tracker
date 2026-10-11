@@ -27,6 +27,17 @@ function check(result) {
   return result;
 }
 
+// HOUSEHOLD OWNERSHIP
+// Shared tables are keyed by (user_id, id): the row belongs to whoever
+// CREATED it, even when the whole household can see and edit it. Loaded
+// objects therefore carry `userId`, and every write sends the row's real
+// owner. Previously every write used the CURRENT user's id, so:
+//   - editing a row another member created inserted a second copy under
+//     YOUR id (the original stayed, so the entry appeared twice), and
+//   - deleting it matched nothing (filtered by your id) and the entry came
+//     back on the next reload.
+const ownerOf = (item, user) => item.userId || user.id;
+
 // ── Raw executors ────────────────────────────────────────────────────────
 // Each takes plain-JSON arguments (the user id / household id are captured
 // by the caller at the moment of the edit, NOT looked up again at replay
@@ -35,9 +46,21 @@ async function rawUpsert(table, row) {
   check(await supabase.from(table).upsert(row));
 }
 
+// Kept for salary rows and for any "deleteRow" jobs already sitting in a
+// device's retry queue from an older version.
 async function rawDelete(table, match) {
   let q = supabase.from(table).delete();
   for (const [col, val] of Object.entries(match)) q = q.eq(col, val);
+  check(await q);
+}
+
+// Deletes one row by id, scoped exactly like loads are: a household's rows,
+// or my own personal rows. Row Level Security still decides what is allowed.
+async function rawDeleteById({ table, id, householdId, userId }) {
+  let q = supabase.from(table).delete().eq("id", id);
+  q = householdId
+    ? q.eq("household_id", householdId)
+    : q.eq("user_id", userId).is("household_id", null);
   check(await q);
 }
 
@@ -124,7 +147,19 @@ function withRetry(kind, raw) {
 
 const upsertRow = withRetry("upsertRow", rawUpsert);
 const deleteRow = withRetry("deleteRow", rawDelete);
+const deleteById = withRetry("deleteById", rawDeleteById);
 const writeBudget = withRetry("budget", rawBudget);
+
+function removeById(table, id) {
+  const user = getCurrentUser();
+  if (!supabase || !user) return Promise.resolve();
+  return deleteById({
+    table,
+    id,
+    householdId: getActiveHouseholdId(),
+    userId: user.id,
+  });
+}
 
 // ── Load ────────────────────────────────────────────────────────────────
 export async function cloudLoadAll() {
@@ -167,6 +202,7 @@ export async function cloudLoadAll() {
 
   const transactions = (txRes.data || []).map((r) => ({
     id: r.id,
+    userId: r.user_id,
     type: r.type,
     desc: r.description || "",
     amount: Number(r.amount),
@@ -187,6 +223,7 @@ export async function cloudLoadAll() {
 
   const recurring = (recurringRes.data || []).map((r) => ({
     id: r.id,
+    userId: r.user_id,
     type: r.type,
     desc: r.description || "",
     amount: Number(r.amount),
@@ -198,6 +235,7 @@ export async function cloudLoadAll() {
 
   const bills = (billsRes.data || []).map((r) => ({
     id: r.id,
+    userId: r.user_id,
     name: r.name,
     category: r.category,
     customCategory: r.custom_category || undefined,
@@ -209,6 +247,7 @@ export async function cloudLoadAll() {
 
   const goals = (goalsRes.data || []).map((r) => ({
     id: r.id,
+    userId: r.user_id,
     name: r.name,
     targetAmount: Number(r.target_amount),
     targetMonth: r.target_month || undefined,
@@ -217,6 +256,7 @@ export async function cloudLoadAll() {
 
   const loans = (loansRes.data || []).map((r) => ({
     id: r.id,
+    userId: r.user_id,
     person: r.person,
     direction: r.direction,
     amount: Number(r.amount),
@@ -249,7 +289,7 @@ export async function cloudUpsertTransaction(tx) {
   if (!supabase || !user) return;
   await upsertRow("kwenta_transactions", {
     id: tx.id,
-    user_id: user.id,
+    user_id: ownerOf(tx, user),
     household_id: getActiveHouseholdId(),
     type: tx.type,
     description: tx.desc || "",
@@ -266,9 +306,7 @@ export async function cloudUpsertTransaction(tx) {
 }
 
 export async function cloudDeleteTransaction(id) {
-  const user = getCurrentUser();
-  if (!supabase || !user) return;
-  await deleteRow("kwenta_transactions", { user_id: user.id, id });
+  await removeById("kwenta_transactions", id);
 }
 
 // ── Budgets ─────────────────────────────────────────────────────────────
@@ -289,7 +327,7 @@ export async function cloudUpsertRecurring(rule) {
   if (!supabase || !user) return;
   await upsertRow("kwenta_recurring", {
     id: rule.id,
-    user_id: user.id,
+    user_id: ownerOf(rule, user),
     household_id: getActiveHouseholdId(),
     type: rule.type,
     description: rule.desc || "",
@@ -302,9 +340,7 @@ export async function cloudUpsertRecurring(rule) {
 }
 
 export async function cloudDeleteRecurring(id) {
-  const user = getCurrentUser();
-  if (!supabase || !user) return;
-  await deleteRow("kwenta_recurring", { user_id: user.id, id });
+  await removeById("kwenta_recurring", id);
 }
 
 // ── Bills ───────────────────────────────────────────────────────────────
@@ -313,7 +349,7 @@ export async function cloudUpsertBill(bill) {
   if (!supabase || !user) return;
   await upsertRow("kwenta_bills", {
     id: bill.id,
-    user_id: user.id,
+    user_id: ownerOf(bill, user),
     household_id: getActiveHouseholdId(),
     name: bill.name,
     category: bill.category,
@@ -326,9 +362,7 @@ export async function cloudUpsertBill(bill) {
 }
 
 export async function cloudDeleteBill(id) {
-  const user = getCurrentUser();
-  if (!supabase || !user) return;
-  await deleteRow("kwenta_bills", { user_id: user.id, id });
+  await removeById("kwenta_bills", id);
 }
 
 // ── Goals ───────────────────────────────────────────────────────────────
@@ -337,7 +371,7 @@ export async function cloudUpsertGoal(goal) {
   if (!supabase || !user) return;
   await upsertRow("kwenta_goals", {
     id: goal.id,
-    user_id: user.id,
+    user_id: ownerOf(goal, user),
     household_id: getActiveHouseholdId(),
     name: goal.name,
     target_amount: goal.targetAmount,
@@ -347,9 +381,7 @@ export async function cloudUpsertGoal(goal) {
 }
 
 export async function cloudDeleteGoal(id) {
-  const user = getCurrentUser();
-  if (!supabase || !user) return;
-  await deleteRow("kwenta_goals", { user_id: user.id, id });
+  await removeById("kwenta_goals", id);
 }
 
 // ── Loans (utang) ───────────────────────────────────────────────────────
@@ -358,7 +390,7 @@ export async function cloudUpsertLoan(loan) {
   if (!supabase || !user) return;
   await upsertRow("kwenta_loans", {
     id: loan.id,
-    user_id: user.id,
+    user_id: ownerOf(loan, user),
     household_id: getActiveHouseholdId(),
     person: loan.person,
     direction: loan.direction,
@@ -370,12 +402,16 @@ export async function cloudUpsertLoan(loan) {
 }
 
 export async function cloudDeleteLoan(id) {
-  const user = getCurrentUser();
-  if (!supabase || !user) return;
-  await deleteRow("kwenta_loans", { user_id: user.id, id });
+  await removeById("kwenta_loans", id);
 }
 
 // ── First sign-in: push local data up if the account is empty ──────────
+// Local objects may carry a `userId` from an earlier cloud load (they're kept
+// in the on-device cache). It must be dropped here: this data is being
+// adopted by the CURRENT account, and writing another user's id would be
+// refused by Row Level Security.
+const adopt = (item) => ({ ...item, userId: undefined });
+
 export async function cloudMigrateLocalDataIfEmpty(localData) {
   const existing = await cloudLoadAll();
   if (!existing) return false;
@@ -394,17 +430,23 @@ export async function cloudMigrateLocalDataIfEmpty(localData) {
     if (amt) jobs.push(cloudUpsertSalary(mk, amt));
   });
   (localData.transactions || []).forEach((tx) =>
-    jobs.push(cloudUpsertTransaction(tx)),
+    jobs.push(cloudUpsertTransaction(adopt(tx))),
   );
   Object.entries(localData.budgets || {}).forEach(([cat, amt]) => {
     if (amt) jobs.push(cloudUpsertBudget(cat, amt));
   });
   (localData.recurring || []).forEach((rule) =>
-    jobs.push(cloudUpsertRecurring(rule)),
+    jobs.push(cloudUpsertRecurring(adopt(rule))),
   );
-  (localData.bills || []).forEach((bill) => jobs.push(cloudUpsertBill(bill)));
-  (localData.goals || []).forEach((goal) => jobs.push(cloudUpsertGoal(goal)));
-  (localData.loans || []).forEach((loan) => jobs.push(cloudUpsertLoan(loan)));
+  (localData.bills || []).forEach((bill) =>
+    jobs.push(cloudUpsertBill(adopt(bill))),
+  );
+  (localData.goals || []).forEach((goal) =>
+    jobs.push(cloudUpsertGoal(adopt(goal))),
+  );
+  (localData.loans || []).forEach((loan) =>
+    jobs.push(cloudUpsertLoan(adopt(loan))),
+  );
   await Promise.all(jobs);
   return true;
 }
