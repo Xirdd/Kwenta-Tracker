@@ -1,5 +1,6 @@
 import { DATA, saveData } from "./state.js";
 import { uid } from "./format.js";
+import { sumPesos, subPesos, addPesos } from "./money.js";
 import {
   isCloudMode,
   cloudUpsertLoan,
@@ -71,10 +72,21 @@ export function updateLoan(loan, { person, amount, date, note }) {
   if (isCloudMode()) cloudUpsertLoan(loan).catch((e) => notifySyncError(e));
 }
 
+// Deleting a loan now deletes its principal + repayment transactions too.
+// Before, they were left behind: invisible (loan transactions are excluded
+// from every total and list) but still in the cloud, in CSV exports, and in
+// search results, where opening one edited a ghost entry.
 export function deleteLoan(id) {
+  const linked = DATA.transactions.filter((t) => t.loanId === id);
+  DATA.transactions = DATA.transactions.filter((t) => t.loanId !== id);
   DATA.loans = DATA.loans.filter((l) => l.id !== id);
   saveData();
-  if (isCloudMode()) cloudDeleteLoan(id).catch((e) => notifySyncError(e));
+  if (isCloudMode()) {
+    cloudDeleteLoan(id).catch((e) => notifySyncError(e));
+    linked.forEach((t) =>
+      cloudDeleteTransaction(t.id).catch((e) => notifySyncError(e)),
+    );
+  }
 }
 
 export function transactionsFor(loanId) {
@@ -87,12 +99,16 @@ export function repaymentsFor(loanId) {
   return transactionsFor(loanId).filter((t) => t.loanKind === "repayment");
 }
 
+// Hot path (called for every card, plus sorting): no sorting, and the sum is
+// done in whole centavos so repeated repayments can't drift.
 export function remainingAmount(loan) {
-  const repaid = repaymentsFor(loan.id).reduce(
-    (s, t) => s + Number(t.amount || 0),
-    0,
+  const repaid = sumPesos(
+    DATA.transactions.filter(
+      (t) => t.loanId === loan.id && t.loanKind === "repayment",
+    ),
+    (t) => t.amount,
   );
-  return Math.max(0, loan.amount - repaid);
+  return Math.max(0, subPesos(loan.amount, repaid));
 }
 
 export function isSettled(loan) {
@@ -130,8 +146,8 @@ export function loanTotals() {
   let youOwe = 0;
   DATA.loans.forEach((loan) => {
     const remaining = remainingAmount(loan);
-    if (loan.direction === "lent") owedToYou += remaining;
-    else youOwe += remaining;
+    if (loan.direction === "lent") owedToYou = addPesos(owedToYou, remaining);
+    else youOwe = addPesos(youOwe, remaining);
   });
   return { owedToYou, youOwe };
 }

@@ -1,6 +1,21 @@
 import { DATA } from "../state.js";
 import { fmt, escapeHtml, formatDate } from "../format.js";
-import { remainingAmount, isSettled, loanTotals } from "../loans.js";
+import { remainingAmount, loanTotals } from "../loans.js";
+import { goalAccentColor } from "./goalsTab.js";
+
+// Up to two letters: "Ate Jhen" -> "AJ", "Mark" -> "M".
+function initialsOf(name) {
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length === 0) return "?";
+  const letters =
+    parts.length === 1
+      ? parts[0].charAt(0)
+      : parts[0].charAt(0) + parts[1].charAt(0);
+  return letters.toUpperCase();
+}
 
 export function renderLoansTab() {
   const loans = DATA.loans;
@@ -14,32 +29,46 @@ export function renderLoansTab() {
     </div>`;
   }
 
-  const sorted = loans.slice().sort((a, b) => {
-    const aSettled = isSettled(a);
-    const bSettled = isSettled(b);
-    if (aSettled !== bSettled) return aSettled ? 1 : -1;
-    return (b.date || "").localeCompare(a.date || "");
-  });
+  // The remaining balance is computed once per loan. The old sort called
+  // isSettled() (which re-scanned every transaction) on every comparison.
+  const rows = loans
+    .map((loan) => ({ loan, remaining: remainingAmount(loan) }))
+    .sort((a, b) => {
+      const aSettled = a.remaining <= 0;
+      const bSettled = b.remaining <= 0;
+      if (aSettled !== bSettled) return aSettled ? 1 : -1;
+      return (b.loan.date || "").localeCompare(a.loan.date || "");
+    });
 
-  const cards = sorted
-    .map((loan) => {
-      const remaining = remainingAmount(loan);
+  const cards = rows
+    .map(({ loan, remaining }) => {
       const settled = remaining <= 0;
       const owedToYou = loan.direction === "lent";
       const paidPct =
         loan.amount > 0 ? ((loan.amount - remaining) / loan.amount) * 100 : 0;
+      // This colour carries meaning (green = owed to you, coral = you owe).
+      const accent = settled
+        ? "var(--muted)"
+        : owedToYou
+          ? "var(--green)"
+          : "var(--coral)";
+      const avatar = goalAccentColor(loan.person || loan.id);
 
       return `
-    <div class="loan-card" data-loan="${loan.id}">
+    <div class="loan-card ${settled ? "settled" : ""}" data-loan="${loan.id}" style="--loan-accent:${accent};">
+      <div class="loan-glow"></div>
       <div class="loan-top">
-        <div class="loan-person">${escapeHtml(loan.person)}</div>
+        <div class="loan-person-row">
+          <span class="loan-avatar" style="background:${avatar}26;color:${avatar};" aria-hidden="true">${escapeHtml(initialsOf(loan.person))}</span>
+          <div class="loan-person">${escapeHtml(loan.person)}</div>
+        </div>
         <span class="loan-badge ${settled ? "settled" : owedToYou ? "owed" : "owes"}">${settled ? "Settled" : owedToYou ? "Owes you" : "You owe"}</span>
       </div>
       <div class="goal-amounts">
         <span class="goal-saved">${fmt(remaining)}</span>
         <span class="goal-of">of ${fmt(loan.amount)}</span>
       </div>
-      <div class="bar-track"><div class="bar-fill" style="width:${Math.max(paidPct, 2)}%;background:${settled ? "var(--green)" : owedToYou ? "var(--green)" : "var(--coral)"}"></div></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.max(paidPct, 2)}%;background:${settled || owedToYou ? "var(--green)" : "var(--coral)"}"></div></div>
       <div class="loan-meta">${formatDate(loan.date)}${loan.note ? ` · ${escapeHtml(loan.note)}` : ""}</div>
     </div>`;
     })

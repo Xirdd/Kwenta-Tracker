@@ -4,6 +4,7 @@ import {
   cloudLoadAll,
   cloudMigrateLocalDataIfEmpty,
 } from "./sync.js";
+import { getCurrentUser } from "./auth.js";
 import {
   cloudLoadBudgetsSecond,
   cloudSetBudgetSecond,
@@ -263,7 +264,10 @@ async function pushSideTables(local) {
 // Loads DATA from the cloud if signed in, otherwise from localStorage.
 export async function initData() {
   if (isCloudMode()) {
-    const local = loadData(); // in case this is the very first sign-in on this device
+    // Scoped to the signed-in user: a cache saved under a different account
+    // (see storage.js) comes back empty here instead of migrating into this
+    // one — see REVIEW.md item 1.
+    const local = loadData(getCurrentUser()?.id); // in case this is the very first sign-in on this device
     const migrated = await cloudMigrateLocalDataIfEmpty(local);
     if (migrated) await pushSideTables(local);
     const cloud = await cloudLoadAll();
@@ -315,8 +319,10 @@ function replaceData(next) {
 
 // Always mirrors to localStorage as an offline cache; cloud writes happen
 // separately at each mutation site (see components/sheet.js, income.js, budgets.js).
+// Tagged with the signed-in user's id (see storage.js) so this cache can
+// never be read back into a different account on the same device.
 export function saveData() {
-  persist(DATA);
+  persist(DATA, getCurrentUser()?.id);
 }
 
 // Goal contributions and utang principal/repayments are logged as real
@@ -344,8 +350,25 @@ export function monthTx(type, { excludeSeparatelyTracked = true } = {}) {
   });
 }
 
+// The salary entered for a period. A Monthly-mode key ("2026-09") with no
+// salary of its own adds up any half-month entries ("2026-09-1" / "2026-09-2")
+// made before the Budget period setting was switched to Monthly — without
+// this, that whole month's salary silently read as zero the moment someone
+// switched modes, even though its transactions kept showing up fine (they're
+// read by date range, not by this key). A Semi-monthly key is unaffected:
+// it only ever reads its own entry.
+export function salaryFor(key) {
+  const direct = DATA.salary[key];
+  if (direct !== undefined && direct !== null) return Number(direct) || 0;
+  if (periodKeyHasHalf(key)) return 0;
+  return (
+    (Number(DATA.salary[`${key}-1`]) || 0) +
+    (Number(DATA.salary[`${key}-2`]) || 0)
+  );
+}
+
 export function totals() {
-  const salary = Number(DATA.salary[state.monthKey]) || 0;
+  const salary = salaryFor(state.monthKey);
   const extraIncome = monthTx("income").reduce(
     (s, t) => s + Number(t.amount || 0),
     0,
@@ -400,7 +423,7 @@ export function monthsBack(n) {
 
 export function trendTotals(periodKey) {
   const { start, end } = periodRange(periodKey);
-  const salary = Number(DATA.salary[periodKey]) || 0;
+  const salary = salaryFor(periodKey);
   const extra = DATA.transactions
     .filter(
       (x) =>

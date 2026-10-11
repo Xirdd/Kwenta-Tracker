@@ -1,12 +1,23 @@
-import { DATA } from "./state.js";
+import { DATA, periodRange, periodKeyHasHalf, monthLabel } from "./state.js";
 import { catInfo, incCatInfo } from "./categories.js";
-import { csvEscape } from "./format.js";
+import { csvEscape, todayISO } from "./format.js";
 
 export function exportCSV() {
   const rows = [["Date", "Type", "Category", "Description", "Amount"]];
 
-  Object.entries(DATA.salary).forEach(([mk, amt]) => {
-    if (amt) rows.push([mk + "-01", "Income", "Salary", "Monthly salary", amt]);
+  // Salary is keyed by PERIOD ("2026-09" or "2026-09-1"), not by a date. The
+  // old code wrote `key + "-01"`, which produced "2026-09-1-01" for
+  // semi-monthly keys — not a date at all. The row's date is now that
+  // period's first day.
+  Object.entries(DATA.salary).forEach(([key, amt]) => {
+    if (!amt) return;
+    rows.push([
+      periodRange(key).start,
+      "Income",
+      "Salary",
+      periodKeyHasHalf(key) ? `Salary, ${monthLabel(key)}` : "Monthly salary",
+      amt,
+    ]);
   });
 
   DATA.transactions
@@ -31,8 +42,7 @@ export function exportCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download =
-    "kwenta_export_" + new Date().toISOString().slice(0, 10) + ".csv";
+  a.download = "kwenta_export_" + todayISO() + ".csv";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

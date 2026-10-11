@@ -6,6 +6,9 @@ Supabase, deployed on Vercel. Built mobile-first for iPhone Safari.
 
 ## Getting started
 
+Requires **Node 22 or newer** (`supabase-js` and Vite 8 need it; `package.json`
+declares it in `engines`).
+
 ```bash
 npm install
 npm run dev       # local dev server with hot reload
@@ -27,7 +30,10 @@ the login/sign-up page.
 ```
 kwenta/
 ├── index.html                shell page: #app, #scrim, #sheet mount points, splash
-├── vite.config.js            Vite + PWA (injectManifest, share target)
+├── public/
+│   ├── theme-init.js         sets data-theme before first paint (external: the CSP blocks inline scripts)
+│   └── icons, favicon …
+├── vite.config.js            Vite + PWA (injectManifest, prompt updates, share target)
 ├── vercel.json               security headers + Content-Security-Policy
 ├── supabase/
 │   ├── migrations/           ← all database changes live here (see "Database")
@@ -37,8 +43,8 @@ kwenta/
 │       └── send-push/        web-push delivery, called by pg_net
 └── src/
     ├── main.js               entry: auth gate, render loop, event wiring
-    ├── state.js              DATA store, period state, totals, trend math
-    ├── storage.js            localStorage cache (offline copy)
+    ├── state.js              DATA store, period state, totals, salaryFor(), trend math
+    ├── storage.js            localStorage cache (offline copy; flushed when the app is backgrounded)
     ├── sync.js               all Supabase reads/writes (errors thrown, retry-queued)
     ├── syncQueue.js          offline retry queue for failed writes
     ├── realtime.js           household live updates (Supabase Realtime)
@@ -47,7 +53,8 @@ kwenta/
     ├── appLock.js            device PIN / Face ID lock
     ├── household.js          create/join/leave, invite codes, members
     ├── money.js              whole-centavo arithmetic helpers
-    ├── format.js / currency.js  display formatting, currency choice
+    ├── format.js / currency.js  display formatting, currency choice, local-date helpers
+    ├── dom.js                small shared DOM helpers (flashField)
     ├── categories.js, customCategories*.js, budgetView.js, budgetLimitsCloud.js
     ├── recurring.js, bills.js, goals.js, loans.js
     ├── backup.js, backupCrypto.js   full backup/restore (optionally encrypted)
@@ -70,7 +77,15 @@ Naming convention: logic lives at the top of `src/`; UI lives in
 - Signed in (always, now): `sync.js` reads/writes Supabase at each mutation;
   `localStorage` is kept as an offline cache.
 - **Any HTML built from user-controlled text must go through `escapeHtml()`.**
-  Custom category names can come from other household members.
+  Custom category names, bill categories and utang names can all come from other
+  household members — including `${category.label}`, which is easy to forget.
+
+## Dates
+
+Never build "today" with `new Date().toISOString().slice(0, 10)` — that is the
+**UTC** date, which is yesterday for a phone in the Philippines between midnight
+and 8 am. Use `todayISO()` from `format.js`. Likewise use `parseISODate()` rather
+than `new Date("YYYY-MM-DD")`, which parses as UTC midnight.
 
 ## Money
 
@@ -80,7 +95,7 @@ every **total** is computed in whole centavos via `money.js` (`sumPesos`,
 helpers for any new sum.
 
 Display goes through `fmt()` (`format.js`), which follows the currency chosen in
-Profile (symbol, grouping, decimals). It is **display only — nothing is
+Settings (symbol, grouping, decimals). It is **display only — nothing is
 converted between currencies.** Use `currencySymbol()` instead of a literal "₱".
 The PDF statement writes currency codes ("PHP 1,234.00") because jsPDF's
 built-in fonts can't draw "₱".
@@ -99,6 +114,13 @@ transactions, salary, budgets, recurring rules, bills, goals, loans, custom
 categories and second-half budget limits. It is **wiped on logout / account
 change** so one person's unsynced edits can never replay into another account.
 
+**Row ownership in households.** Shared tables are keyed by `(user_id, id)`: a
+row belongs to whoever created it, even though the whole household can edit it.
+Loaded objects carry `userId`, and `sync.js` writes the row's real owner back —
+so editing a housemate's entry updates it in place instead of creating a second
+copy. Deletes are by `id`, scoped to the household (or to your own personal
+rows) and still checked by Row Level Security.
+
 ## Restore
 
 Restoring a backup calls the `restore_my_data` SQL function, which deletes and
@@ -110,15 +132,20 @@ recovery for a forgotten backup password.
 ## Recurring entries
 
 An active rule creates its transaction for a period when you view it — but
-**never for a period that hasn't started yet**, so browsing ahead writes nothing.
-Past and current periods catch up as usual.
+**never for a period that hasn't started yet** (`materializeMonth` checks the
+period's start date), so browsing ahead writes nothing. Past and current periods
+catch up as usual.
 
 ## Budget periods
 
-Profile → Budget period: **Semi-monthly** (1st–15th / 16th–end, default) or
+Settings → Budget period: **Semi-monthly** (1st–15th / 16th–end, default) or
 **Monthly**. Period keys are `YYYY-MM-H` or `YYYY-MM`; the shape of a key, not
 the current setting, decides how it's read, so old data keeps its meaning when
 you switch. Bills and Goals are always monthly.
+
+Salary follows the same rule: in Monthly mode a month with no salary of its own
+adds up its `-1` / `-2` half-month entries (`salaryFor()` in `state.js`), so
+switching modes doesn't make last month's salary read as zero.
 
 ## Security model
 
@@ -130,7 +157,8 @@ Defense in depth — each layer assumes the one above can be bypassed:
    (`kwenta_require_mfa`) additionally requires an `aal2` session for any
    account with a verified 2FA factor, so 2FA is enforced by the _database_, not
    just the UI. Recovery-code functions are deliberately left open so a lost
-   authenticator can still be recovered.
+   authenticator can still be recovered — which is why they are **rate-limited**
+   (5 wrong guesses per 15 minutes) and generate codes with pgcrypto.
 3. **Password confirmation** (`reauthSheet.js`) for deleting the account,
    disabling 2FA, changing the password, turning off App Lock. It calls
    `verify_my_password` on the server (throttled to 5 wrong tries / 15 min) and
@@ -147,7 +175,15 @@ Defense in depth — each layer assumes the one above can be bypassed:
    lock, not a security boundary.
 5. **XSS**: custom category names are escaped wherever drawn; ids/colors are
    validated in `categories.js` and by database CHECK constraints.
-6. **CSP / headers** in `vercel.json`.
+6. **CSP / headers** in `vercel.json`. `script-src 'self'` means **no inline
+   `<script>` anywhere** — that's why the theme bootstrap is the external
+   `public/theme-init.js`.
+7. **Function privileges**: Postgres grants `EXECUTE` to everyone by default and
+   Supabase exposes every function in `public` as an API endpoint. Internal
+   helpers (`notify_user_push`, `_kwenta_send_push`, trigger functions, cron
+   entry points) are revoked from `anon`/`authenticated`; the functions the app
+   calls are granted to `authenticated` only. Every `SECURITY DEFINER` function
+   pins its `search_path`. When adding a function, decide which group it is in.
 
 ### Households
 
@@ -160,12 +196,14 @@ categories. **Salary is never shared** (no `household_id` column).
   can see the member list. Removed members lose access; entries they added stay.
 - Leaving only deletes your membership.
 - Realtime keeps members in sync; every shared table must be in the
-  `supabase_realtime` publication with `replica identity full`.
-- Every change is logged to `kwenta_household_activity` by database triggers.
+  `supabase_realtime` publication with `replica identity full`. A reload
+  triggered by realtime waits while you are typing in a field.
+- Every change is logged to `kwenta_household_activity` by **one** trigger
+  function (`_kwenta_log_activity`), attributed to whoever made the change.
 
 ### Delete account
 
-Profile → Delete my account (password confirmation, then type `DELETE`) calls
+Settings → Delete my account (password confirmation, then type `DELETE`) calls
 the **`delete-account` Edge Function**, which verifies the user, requires 2FA if
 enabled, runs `delete_my_account_data()` as the user, then deletes the
 `auth.users` row with the service-role key (which only ever exists server-side).
@@ -178,6 +216,10 @@ A household survives its creator leaving (`created_by` is `ON DELETE SET NULL`).
   turning it on requires the login forms to send a captcha token first.
 - `kwenta_household_members` must have **no INSERT policy** for `authenticated`
   (joining must go through `join_household_by_code`).
+- `kwenta_app_settings` needs `push_function_url` (the full `send-push` URL) and
+  `push_function_secret` (same value as the function's `PUSH_FUNCTION_SECRET`)
+  for push notifications. Check what's scheduled with
+  `select jobname, schedule, command from cron.job;`.
 
 ## Database & migrations
 
@@ -208,12 +250,26 @@ Edge Functions deploy separately:
 `npx supabase functions deploy send-push --no-verify-jwt` (called by Postgres,
 protected by a shared secret — see the header of its `index.ts`).
 
+### Push notifications: how alerts work
+
+- **Budget alerts** — an `AFTER INSERT` trigger on `kwenta_transactions`
+  (`check_budget_alert`) compares the half-month's spending with that half's
+  limit and sends **once per half-month per category** (tracked in
+  `kwenta_budget_alert_log`). It can't see the per-device "Monthly" budget-period
+  setting, so in Monthly mode it can only alert late, never falsely.
+- **Bill reminders** — `check_upcoming_bills()` (run daily by `pg_cron`) reminds
+  once per month, 0–3 days before the due date, if the bill isn't paid yet.
+  `kwenta_send_bill_reminders()` just calls it.
+- Signing out removes this device's push subscription, so a shared or
+  handed-down phone doesn't keep receiving the previous account's alerts.
+
 ## Performance
 
 `jsPDF` is loaded with a dynamic `import()` the first time someone taps
 **Statement**, so it's a separate chunk instead of part of every page load.
 (The service worker still precaches it after install so the statement works
-offline.)
+offline.) Only the fonts the CSS actually uses (Inter, IBM Plex Mono) are
+requested. Loan and goal balances are summed without sorting.
 
 ## Accessibility
 
@@ -270,16 +326,19 @@ add an in-app text-size setting instead of re-enabling zoom.
 
 - **Bills** are templates (name, category, due day, estimated amount) — nothing
   is auto-logged. Tapping one and entering what you paid creates the real
-  expense, linked via `billId`. Undo deletes it.
+  expense, linked via `billId`. Undo deletes it. Deleting a bill keeps the
+  payments already made (they were real expenses).
 - **Goals** are a target (and optional target month). Contributions are real
-  `savings` expenses linked via `goalId`; progress sums all months.
+  `savings` expenses linked via `goalId`; progress sums all months. **Deleting a
+  goal deletes its contributions.**
 - **Utang** records a person, direction (`lent` / `borrowed`, fixed once
   created), amount and date. Principal and repayments are real transactions
-  linked via `loanId`. Remaining = amount − repayments.
-- Goal and utang transactions are **excluded from Net Balance, totals, trends
-  and the Expenses list** (`isSeparatelyTracked` in `state.js`) — they appear in
-  their own tabs. `monthTx(type, { excludeSeparatelyTracked: false })` gives the
-  unfiltered view.
+  linked via `loanId`. Remaining = amount − repayments. **Deleting a loan
+  deletes its principal and repayments.**
+- Goal and utang transactions are **excluded from Net Balance, totals, trends,
+  the Expenses list and search** (`isSeparatelyTracked` in `state.js`) — they
+  appear in their own tabs. `monthTx(type, { excludeSeparatelyTracked: false })`
+  gives the unfiltered view.
 
 ## Other features
 
@@ -290,23 +349,29 @@ add an in-app text-size setting instead of re-enabling zoom.
 - **Insights** tiles on Overview (biggest swing, savings rate, over-budget…).
 - **Themes**: five dark themes (Forest, Deep Sea, Plum, Wine, Amoled) — they
   change background tones only; accent/semantic colors never change.
-- **Exports**: CSV, a designed PDF statement, and full JSON backup.
-- **Push notifications** (bill due, budget exceeded) via `pg_cron` → `pg_net` →
-  `send-push`. On iPhone, install to the Home Screen first (iOS 16.4+).
+- **Exports**: CSV (salary rows are dated by period start), a designed PDF
+  statement, and full JSON backup.
+- **Push notifications** (bill due, budget exceeded) via `pg_cron` / triggers →
+  `pg_net` → `send-push`. On iPhone, install to the Home Screen first (iOS 16.4+).
 - **PWA**: `vite-plugin-pwa` (injectManifest) precaches the app shell; Supabase
   calls are never cached. Android can share a receipt/text into Kwenta
   (`shareStore.js`); iOS doesn't support receiving shares.
-- **Devices** list and "sign out other devices" under Profile.
+- **Devices** list and "sign out other devices" under Settings.
 
 ## Editing tips
 
 - **Add a category:** edit `src/categories.js`. IDs never change, only labels.
 - **Colors/fonts:** `:root` tokens at the top of `src/style.css`; theme
-  backgrounds in `src/themes.css`.
+  backgrounds in `src/themes.css`. If you add a theme, also add its id to
+  `public/theme-init.js` and `THEMES` in `src/theme.js`.
 - **Add a database column/table:** `npm run db:new`, never the dashboard.
 - **Add a table that household members share:** add it to `SHARED_TABLES` in
   `realtime.js`, to the realtime publication, set `replica identity full`, add
-  a `kwenta_require_mfa` restrictive policy, and add it to `restore_my_data`.
+  a `kwenta_require_mfa` restrictive policy, add it to `restore_my_data`, and add
+  its trigger in the `_kwenta_log_activity` list.
+- **Add a SQL function:** pin `search_path` if it is `SECURITY DEFINER`, and
+  `revoke execute … from public, anon` — then grant to `authenticated` only if
+  the app calls it.
 
 ## Known limitations
 
@@ -315,3 +380,9 @@ add an in-app text-size setting instead of re-enabling zoom.
 - Amounts are stored as peso numbers; only arithmetic is centavo-exact.
 - The sync queue stores plain JSON in `localStorage`; it's cleared on logout.
 - Currency and period mode are per-device settings.
+- **Restoring a backup while in a household** re-inserts every member's entries
+  under your account (the backup doesn't record who owned what), so they appear
+  twice. Restore is safe for personal ledgers.
+- Joining a household shares all of your existing personal entries with it
+  (everything except salary), without a confirmation step.
+- Budget alerts on the server follow the semi-monthly limits only (see above).
