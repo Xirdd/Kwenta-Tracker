@@ -1,6 +1,7 @@
 import { DATA, saveData } from "./state.js";
 import { supabase } from "./supabaseClient.js";
-import { isCloudMode } from "./sync.js";
+import { isCloudMode, cloudLoadAll } from "./sync.js";
+import { getCurrentUser } from "./auth.js";
 import { getActiveHouseholdId } from "./household.js";
 import { clearSyncQueue } from "./syncQueue.js";
 import {
@@ -17,6 +18,10 @@ function buildBackup() {
     exportedAt: new Date().toISOString(),
     data: {
       salary: DATA.salary,
+      // transactions/recurring/bills/goals/loans/customCategories already
+      // carry a `userId` field when loaded from the cloud (see sync.js) —
+      // that's what lets a household restore below put back only the
+      // entries this account owns, instead of duplicating everyone else's.
       transactions: DATA.transactions,
       budgets: DATA.budgets,
       budgetsSecond: DATA.budgetsSecond,
@@ -25,6 +30,7 @@ function buildBackup() {
       bills: DATA.bills,
       goals: DATA.goals,
       loans: DATA.loans,
+      wallets: DATA.wallets,
     },
   };
 }
@@ -120,23 +126,85 @@ function normalize(d = {}) {
     bills: d.bills || [],
     goals: d.goals || [],
     loans: d.loans || [],
+    wallets: d.wallets || [],
   };
+}
+
+// Keeps only the items THIS account owns. A row with no `userId` (an older
+// backup, made before items carried one, or something that only ever lived
+// locally) is treated as the restorer's own — same as it always was.
+function keepOwnedBy(items, userId) {
+  return items.filter((item) => !item.userId || item.userId === userId);
+}
+
+// While in a household, a backup export can contain every member's shared
+// entries — DATA holds the whole household's data, not just yours (see
+// sync.js's cloudLoadAll). restore_my_data's own delete step only clears
+// the RESTORING user's rows, by design, so other members' data is never
+// touched on the server. But the old client sent the WHOLE backup back as
+// the thing to re-insert, so every other member's entries got duplicated —
+// a second copy, now owned by whoever restored. This filters the payload
+// down to this account's own items first; everyone else's data is left
+// exactly as it already is on the server.
+function scopeForRestore(data, { householdId, userId }) {
+  if (!householdId) return data; // personal ledger — restore applies to all of it, as before
+  return {
+    ...data,
+    transactions: keepOwnedBy(data.transactions, userId),
+    recurring: keepOwnedBy(data.recurring, userId),
+    bills: keepOwnedBy(data.bills, userId),
+    goals: keepOwnedBy(data.goals, userId),
+    loans: keepOwnedBy(data.loans, userId),
+    wallets: keepOwnedBy(data.wallets, userId),
+    customCategories: keepOwnedBy(data.customCategories, userId),
+  };
+}
+
+// What backupSheet.js shows in its before/after preview — the counts a
+// household restore will ACTUALLY apply, not the full (possibly
+// everyone's-data) contents of the file.
+export function scopedRestoreData(backup) {
+  const user = getCurrentUser();
+  return scopeForRestore(normalize(backup.data), {
+    householdId: getActiveHouseholdId(),
+    userId: user?.id,
+  });
 }
 
 // ORDER MATTERS. In cloud mode the server restore runs FIRST, as one atomic
 // database transaction (restore_my_data in supabase/phase1_restore_and_delete.sql):
-// either everything in the backup replaces everything on the server, or
+// either everything in the (scoped) payload replaces this account's rows, or
 // nothing changes at all. Only after it succeeds is the in-memory copy and
 // the on-device cache replaced — so a failure at any point leaves both the
 // cloud AND what's on screen exactly as they were.
 export async function restoreBackup(backup) {
-  const next = normalize(backup.data);
+  const householdId = getActiveHouseholdId();
+  const user = getCurrentUser();
+  const next = scopeForRestore(normalize(backup.data), {
+    householdId,
+    userId: user?.id,
+  });
 
   if (isCloudMode()) {
-    await restoreToCloud(next);
+    await restoreToCloud(next, householdId);
     clearSyncQueue(); // stale pre-restore edits must not replay on top of it
+
+    if (householdId) {
+      // Other members' rows were never touched — reload from the cloud
+      // rather than reconstructing DATA from `next` alone, so their data
+      // (which this restore deliberately left out of `next`) stays visible.
+      const cloud = await cloudLoadAll();
+      if (cloud) {
+        applyToState(cloud);
+        return;
+      }
+    }
   }
 
+  applyToState(next);
+}
+
+function applyToState(next) {
   DATA.salary = next.salary;
   DATA.transactions = next.transactions;
   DATA.budgets = next.budgets;
@@ -146,6 +214,7 @@ export async function restoreBackup(backup) {
   DATA.bills = next.bills;
   DATA.goals = next.goals;
   DATA.loans = next.loans;
+  DATA.wallets = next.wallets;
   saveData();
 }
 
@@ -227,6 +296,14 @@ function buildRestorePayload(d) {
     active: l.active !== false,
   }));
 
+  const wallets = d.wallets.map((w) => ({
+    id: w.id,
+    name: w.name,
+    provider: w.provider || "other",
+    starting_balance: w.startingBalance || 0,
+    active: w.active !== false,
+  }));
+
   const custom_categories = d.customCategories.map((c) => ({
     id: c.id,
     label: c.label,
@@ -243,14 +320,18 @@ function buildRestorePayload(d) {
     bills,
     goals,
     loans,
+    wallets,
     custom_categories,
   };
 }
 
-async function restoreToCloud(d) {
+// `householdId` is passed through explicitly (rather than re-read inside)
+// so this always restores into whichever household the scoping above was
+// computed for, even if something changed it mid-call.
+async function restoreToCloud(d, householdId) {
   const { error } = await supabase.rpc("restore_my_data", {
     payload: buildRestorePayload(d),
-    p_household_id: getActiveHouseholdId(),
+    p_household_id: householdId,
   });
   if (error) throw error;
 }

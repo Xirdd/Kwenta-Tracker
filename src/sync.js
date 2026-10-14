@@ -175,6 +175,7 @@ export async function cloudLoadAll() {
     billsRes,
     goalsRes,
     loansRes,
+    walletsRes,
   ] = await Promise.all([
     supabase.from("kwenta_salary").select("*").eq("user_id", user.id),
     scoped("kwenta_transactions", user, householdId),
@@ -183,6 +184,7 @@ export async function cloudLoadAll() {
     scoped("kwenta_bills", user, householdId),
     scoped("kwenta_goals", user, householdId),
     scoped("kwenta_loans", user, householdId),
+    scoped("kwenta_wallets", user, householdId),
   ]);
 
   [
@@ -193,6 +195,7 @@ export async function cloudLoadAll() {
     billsRes,
     goalsRes,
     loansRes,
+    walletsRes,
   ].forEach(check);
 
   const salary = {};
@@ -213,6 +216,7 @@ export async function cloudLoadAll() {
     goalId: r.goal_id || undefined,
     loanId: r.loan_id || undefined,
     loanKind: r.loan_kind || undefined,
+    walletId: r.wallet_id || undefined,
     tags: r.tags && r.tags.length ? r.tags : undefined,
   }));
 
@@ -265,7 +269,25 @@ export async function cloudLoadAll() {
     active: r.active,
   }));
 
-  return { salary, transactions, budgets, recurring, bills, goals, loans };
+  const wallets = (walletsRes.data || []).map((r) => ({
+    id: r.id,
+    userId: r.user_id,
+    name: r.name,
+    provider: r.provider || "other",
+    startingBalance: Number(r.starting_balance) || 0,
+    active: r.active,
+  }));
+
+  return {
+    salary,
+    transactions,
+    budgets,
+    recurring,
+    bills,
+    goals,
+    loans,
+    wallets,
+  };
 }
 
 // ── Salary ──────────────────────────────────────────────────────────────
@@ -301,6 +323,7 @@ export async function cloudUpsertTransaction(tx) {
     goal_id: tx.goalId || null,
     loan_id: tx.loanId || null,
     loan_kind: tx.loanKind || null,
+    wallet_id: tx.walletId || null,
     tags: tx.tags && tx.tags.length ? tx.tags : null,
   });
 }
@@ -405,6 +428,25 @@ export async function cloudDeleteLoan(id) {
   await removeById("kwenta_loans", id);
 }
 
+// ── Wallets (GCash, GoTyme, Maribank, …) ───────────────────────────────
+export async function cloudUpsertWallet(wallet) {
+  const user = getCurrentUser();
+  if (!supabase || !user) return;
+  await upsertRow("kwenta_wallets", {
+    id: wallet.id,
+    user_id: ownerOf(wallet, user),
+    household_id: getActiveHouseholdId(),
+    name: wallet.name,
+    provider: wallet.provider || "other",
+    starting_balance: wallet.startingBalance || 0,
+    active: wallet.active,
+  });
+}
+
+export async function cloudDeleteWallet(id) {
+  await removeById("kwenta_wallets", id);
+}
+
 // ── First sign-in: push local data up if the account is empty ──────────
 // Local objects may carry a `userId` from an earlier cloud load (they're kept
 // in the on-device cache). It must be dropped here: this data is being
@@ -422,7 +464,8 @@ export async function cloudMigrateLocalDataIfEmpty(localData) {
     existing.recurring.length === 0 &&
     existing.bills.length === 0 &&
     existing.goals.length === 0 &&
-    existing.loans.length === 0;
+    existing.loans.length === 0 &&
+    existing.wallets.length === 0;
   if (!isEmpty) return false;
 
   const jobs = [];
@@ -446,6 +489,9 @@ export async function cloudMigrateLocalDataIfEmpty(localData) {
   );
   (localData.loans || []).forEach((loan) =>
     jobs.push(cloudUpsertLoan(adopt(loan))),
+  );
+  (localData.wallets || []).forEach((wallet) =>
+    jobs.push(cloudUpsertWallet(adopt(wallet))),
   );
   await Promise.all(jobs);
   return true;

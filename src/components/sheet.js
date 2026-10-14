@@ -4,8 +4,10 @@ import {
   INCOME_CATEGORIES,
   categoryIconBadge,
 } from "../categories.js";
-import { uid, escapeHtml } from "../format.js";
+import { uid, escapeHtml, todayISO } from "../format.js";
 import { openModal, closeModal } from "./modal.js";
+import { flashField } from "../dom.js";
+import { activeWallets } from "../wallets.js";
 import {
   isCloudMode,
   cloudUpsertTransaction,
@@ -27,15 +29,34 @@ export function initSheet(rerenderCallback) {
 
 export const closeSheet = closeModal;
 
+function walletOptions(selectedId) {
+  const wallets = activeWallets();
+  if (wallets.length === 0) return "";
+  return `
+    <div class="field">
+      <label>Wallet <span class="opt">(optional — GCash, GoTyme, Maribank, etc.)</span></label>
+      <select id="fWallet">
+        <option value="">Not tracked</option>
+        ${wallets
+          .map(
+            (w) =>
+              `<option value="${w.id}" ${w.id === selectedId ? "selected" : ""}>${escapeHtml(w.name)}</option>`,
+          )
+          .join("")}
+      </select>
+    </div>`;
+}
+
 export function openForm(type, tx, presetCategory) {
   // Custom categories (see categories.js/customCategories.js) only apply to
   // expenses — the picker for income entries is unchanged.
   const cats = type === "expense" ? allExpenseCategories() : INCOME_CATEGORIES;
   const selectedCat = tx ? tx.category : presetCategory || cats[0].id;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   const dateVal = tx ? tx.date : today;
   const descVal = tx ? tx.desc || "" : "";
   const amtVal = tx ? tx.amount : "";
+  const selectedWalletId = tx ? tx.walletId || "" : "";
   const wasRecurring = !!(tx && tx.recurringId);
   const heading = tx
     ? `Edit ${type === "expense" ? "expense" : "income"}`
@@ -68,9 +89,10 @@ export function openForm(type, tx, presetCategory) {
     <div class="field">
       <label>Category</label>
       <div class="cat-grid" id="catGrid">
-        ${cats.map((c) => `<div class="cat-opt ${c.id === selectedCat ? "selected" : ""}" data-cat="${c.id}">${categoryIconBadge(c, 32)}${c.label}</div>`).join("")}
+        ${cats.map((c) => `<div class="cat-opt ${c.id === selectedCat ? "selected" : ""}" data-cat="${c.id}">${categoryIconBadge(c, 32)}${escapeHtml(c.label)}</div>`).join("")}
       </div>
     </div>
+    ${walletOptions(selectedWalletId)}
     <div class="field">
       <label>Tags <span class="opt">(optional — search by these too)</span></label>
       <div class="tag-input-wrap" id="tagInputWrap">
@@ -181,6 +203,8 @@ export function openForm(type, tx, presetCategory) {
     const amount = Number(document.getElementById("fAmount").value);
     const date = document.getElementById("fDate").value || today;
     const repeatsChecked = document.getElementById("fRepeats").checked;
+    const walletField = document.getElementById("fWallet");
+    const walletId = walletField ? walletField.value || undefined : undefined;
     if (document.getElementById("tagTextInput").value.trim()) addTagFromInput();
     if (!amount || amount <= 0) {
       flashField("fAmount");
@@ -193,6 +217,7 @@ export function openForm(type, tx, presetCategory) {
       tx.amount = amount;
       tx.category = chosenCat;
       tx.date = date;
+      tx.walletId = walletId;
       tx.tags = tags.length ? tags : undefined;
       saved = tx;
 
@@ -221,6 +246,7 @@ export function openForm(type, tx, presetCategory) {
         amount,
         category: chosenCat,
         date,
+        walletId,
         tags: tags.length ? tags : undefined,
       };
       if (repeatsChecked) {
@@ -247,14 +273,6 @@ export function openForm(type, tx, presetCategory) {
   if (tx) {
     document.getElementById("deleteBtn").onclick = () => confirmDelete(tx);
   }
-}
-
-function flashField(id) {
-  const el = document.getElementById(id);
-  el.style.borderColor = "var(--coral)";
-  setTimeout(() => {
-    el.style.borderColor = "transparent";
-  }, 700);
 }
 
 function confirmDelete(tx) {
