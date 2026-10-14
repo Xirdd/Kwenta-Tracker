@@ -106,7 +106,7 @@ function renderRecoveryStep(factorId, onPassed, error) {
     <p class="auth-message">Enter one of the one-time codes you saved when you set up 2FA. Using one turns 2FA off — you'll want to set it up again once you have a working authenticator.</p>
     <div class="field">
       <label>Recovery code</label>
-      <input id="mfaRecoveryCode" type="text" placeholder="XXXX-XXXX" autocomplete="off" style="text-transform:uppercase;font-family:'IBM Plex Mono',monospace;letter-spacing:0.1em;text-align:center;font-size:16px;"/>
+      <input id="mfaRecoveryCode" type="text" placeholder="XXXXX-XXXXX" autocomplete="off" style="text-transform:uppercase;font-family:'IBM Plex Mono',monospace;letter-spacing:0.1em;text-align:center;font-size:16px;"/>
     </div>
     ${error ? `<p class="auth-message" style="color:var(--coral);">${error}</p>` : ""}
     <div class="sheet-actions">

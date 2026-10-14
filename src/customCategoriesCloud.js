@@ -30,6 +30,7 @@ export async function cloudLoadCustomCategories() {
     id: r.id,
     label: r.label,
     color: r.color,
+    userId: r.user_id,
     icon: r.icon || undefined, // missing -> categoryIcons.js falls back to the tag icon
     active: r.active,
   }));
@@ -38,9 +39,12 @@ export async function cloudLoadCustomCategories() {
 async function upsert(cat) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
+  // The row belongs to whoever created it, even in a shared household —
+  // same rule as sync.js. Writing the CURRENT user's id instead let
+  // editing a housemate's category insert a second copy under your id.
   const row = {
     id: cat.id,
-    user_id: user.id,
+    user_id: cat.userId || user.id,
     household_id: getActiveHouseholdId(),
     label: cat.label,
     color: cat.color,
@@ -66,11 +70,15 @@ async function upsert(cat) {
 async function remove(id) {
   const user = getCurrentUser();
   if (!supabase || !user) return;
-  const { error } = await supabase
-    .from("kwenta_custom_categories")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("id", id);
+  // Scoped like loads are (household rows, or my own personal rows). The
+  // old `user_id = me` filter matched nothing for a category another
+  // household member created, so it silently came back on reload.
+  const householdId = getActiveHouseholdId();
+  let q = supabase.from("kwenta_custom_categories").delete().eq("id", id);
+  q = householdId
+    ? q.eq("household_id", householdId)
+    : q.eq("user_id", user.id).is("household_id", null);
+  const { error } = await q;
   if (error) throw error;
 }
 

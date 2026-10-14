@@ -1,6 +1,7 @@
 import { DATA, monthTx } from "../state.js";
 import { CATEGORIES, catInfo, categoryIconBadge } from "../categories.js";
 import { openForm } from "./sheet.js";
+import { escapeHtml } from "../format.js";
 
 // A curated fallback so a brand-new account still gets useful chips before
 // any spending history exists. "food" was split into "dining" + "groceries".
@@ -39,7 +40,7 @@ export function renderQuickAddBar() {
         (c) => `
       <div class="quick-add-chip" data-quick-cat="${c.id}">
         ${categoryIconBadge(c, 26)}
-        <span class="label">${c.label}</span>
+        <span class="label">${escapeHtml(c.label)}</span>
       </div>`,
       )
       .join("")}

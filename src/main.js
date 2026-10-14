@@ -34,6 +34,7 @@ import {
   initBudgetsSheet,
 } from "./components/budgets.js";
 import { renderBills } from "./components/billsTab.js";
+import { renderWalletsTab } from "./components/walletsTab.js";
 import { renderGoalsTab } from "./components/goalsTab.js";
 import {
   renderLoansTab,
@@ -68,6 +69,12 @@ import {
   openLoanForm,
   openLoanDetail,
 } from "./components/loanSheet.js";
+import {
+  initWalletSheets,
+  openWalletForm,
+  openWalletDetail,
+} from "./components/walletSheet.js";
+import { getWallet } from "./wallets.js";
 import { closeModal } from "./components/modal.js";
 import { initTheme } from "./theme.js";
 import { initAppLock, resetAppLock } from "./appLock.js";
@@ -169,6 +176,7 @@ function renderSectionContent(t) {
     ${state.tab === "expenses" ? renderExpenses(t) : ""}
     ${state.tab === "budgets" ? renderBudgets(t) : ""}
     ${state.tab === "bills" ? renderBills() : ""}
+    ${state.tab === "wallets" ? renderWalletsTab() : ""}
   `;
 }
 
@@ -193,8 +201,22 @@ function refreshRealtimeSubscription() {
 // changed, so this re-loads from the cloud (not just a re-render). Also used
 // as the realtime callback: another household member's change fires this
 // same reload, debounced, from src/realtime.js.
+let householdReloadTimer = null;
 async function onHouseholdChanged() {
   if (!isAuthorized()) return;
+  // Your own edits echo back through realtime. Re-rendering while a field
+  // is focused dropped the cursor mid-typing (e.g. a budget limit), so wait
+  // until the person has stopped.
+  const active = document.activeElement;
+  if (
+    active &&
+    /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName) &&
+    document.getElementById("app")?.contains(active)
+  ) {
+    clearTimeout(householdReloadTimer);
+    householdReloadTimer = setTimeout(onHouseholdChanged, 1500);
+    return;
+  }
   await switchToCloudData();
   goToMonth();
   refreshRealtimeSubscription();
@@ -237,6 +259,7 @@ function attachEvents() {
     onBill: () => openBillForm(null),
     onGoal: () => openGoalForm(null),
     onLoan: () => openLoanForm(null),
+    onWallet: () => openWalletForm(null),
   });
 
   // The person icon in the header (next to Search) opens the Profile page.
@@ -292,6 +315,13 @@ function attachEvents() {
     row.onclick = () => {
       const loan = getLoan(row.dataset.loan);
       if (loan) openLoanDetail(loan);
+    };
+  });
+
+  document.querySelectorAll("[data-wallet]").forEach((row) => {
+    row.onclick = () => {
+      const wallet = getWallet(row.dataset.wallet);
+      if (wallet) openWalletDetail(wallet);
     };
   });
 }
@@ -390,6 +420,7 @@ async function unlockApp({ boot = false } = {}) {
   initBillSheets(render);
   initGoalSheets(render);
   initLoanSheets(render);
+  initWalletSheets(render);
   initBudgetsSheet(render); // custom budget category sheets need a re-render too
   initAppLockSheet(render);
   initSearchSheet(render);

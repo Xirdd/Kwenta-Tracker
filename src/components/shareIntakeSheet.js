@@ -1,7 +1,7 @@
 import "./shareIntakeSheet.css";
 import { DATA, saveData } from "../state.js";
 import { allExpenseCategories, categoryIconBadge } from "../categories.js";
-import { uid, escapeHtml } from "../format.js";
+import { uid, escapeHtml, todayISO } from "../format.js";
 import { openModal, closeModal } from "./modal.js";
 import { isCloudMode, cloudUpsertTransaction } from "../sync.js";
 import { notifySyncError } from "../toast.js";
@@ -22,7 +22,7 @@ export function openShareIntakeSheet(share) {
   const cats = allExpenseCategories();
   const guessedAmount = extractAmount(share.text) || extractAmount(share.title);
   const photoUrl = share.file ? URL.createObjectURL(share.file) : null;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
 
   openModal(
     `
@@ -46,7 +46,7 @@ export function openShareIntakeSheet(share) {
     <div class="field">
       <label>Category</label>
       <div class="cat-grid" id="siCatGrid">
-        ${cats.map((c, i) => `<div class="cat-opt ${i === 0 ? "selected" : ""}" data-cat="${c.id}">${categoryIconBadge(c, 32)}${c.label}</div>`).join("")}
+        ${cats.map((c, i) => `<div class="cat-opt ${i === 0 ? "selected" : ""}" data-cat="${c.id}">${categoryIconBadge(c, 32)}${escapeHtml(c.label)}</div>`).join("")}
       </div>
     </div>
     <div class="field">

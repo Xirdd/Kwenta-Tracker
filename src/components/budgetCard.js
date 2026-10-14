@@ -1,7 +1,7 @@
 import "../customCategories.css";
 import { DATA, monthTx, budgetFor, hasOwnSecondBudget } from "../state.js";
 import { catInfo, categoryIconBadge } from "../categories.js";
-import { fmt, escapeHtml } from "../format.js";
+import { fmt, escapeHtml, currencySymbol } from "../format.js";
 
 const CHEVRON_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
 const EDIT_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
@@ -15,7 +15,7 @@ function limitPill(catId, half, value, placeholder, active) {
   return `
   <div class="budget-input-wrap" style="flex:1;min-width:0;width:auto;margin-bottom:0;border:1.5px solid ${active ? "var(--gold)" : "transparent"};">
     <span style="font-size:10.5px;font-weight:700;color:var(--ink-soft);margin-right:4px;white-space:nowrap;">${label}</span>
-    <span>₱</span>
+    <span>${currencySymbol()}</span>
     <input type="number" inputmode="decimal" class="budgetInput" data-cat="${catId}" data-half="${half}" placeholder="${placeholder || 0}" value="${value}" style="flex:1;min-width:0;width:100%;"/>
   </div>`;
 }
@@ -24,7 +24,7 @@ function limitPill(catId, half, value, placeholder, active) {
 function singleLimitInput(catId, value) {
   return `
   <div class="budget-input-wrap" style="flex:1;min-width:0;width:auto;margin-bottom:0;">
-    <span>₱</span>
+    <span>${currencySymbol()}</span>
     <input type="number" inputmode="decimal" class="budgetInput" data-cat="${catId}" data-half="1" placeholder="0" value="${value}" style="flex:1;min-width:0;width:100%;"/>
   </div>`;
 }

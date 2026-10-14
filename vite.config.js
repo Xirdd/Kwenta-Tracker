@@ -8,9 +8,9 @@ export default defineConfig({
   },
   plugins: [
     VitePWA({
-      // The new service worker installs in the background, takes over on the
-      // next load, and old precaches get cleaned up — no update prompt needed.
-      registerType: "autoUpdate",
+      // A new service worker downloads in the background and waits; notices.js
+      // shows an "Update" banner, and sw.js activates it on SKIP_WAITING.
+      registerType: "prompt",
 
       // injectManifest (not generateSW) so src/sw.js is used as-is. Push
       // notifications need a custom `push` listener, and all runtime caching
@@ -46,8 +46,8 @@ export default defineConfig({
         scope: "/",
         display: "standalone",
         orientation: "portrait",
-        background_color: "#0e211b",
-        theme_color: "#0e211b",
+        background_color: "#0a1611",
+        theme_color: "#0a1611",
         // Lets Kwenta appear in the phone's own share sheet ("Share to...")
         // once installed, so a receipt photo or a copied GCash/bank message
         // can be sent straight in. Android/Chrome only — iOS Safari has no

@@ -7,6 +7,7 @@ import {
   isSeparatelyTracked,
   periodRange,
   budgetFor,
+  salaryFor,
 } from "./state.js";
 import { catInfo } from "./categories.js";
 import { fmt, escapeHtml } from "./format.js";
@@ -78,7 +79,7 @@ export function computeInsights() {
   }
 
   // Savings rate for the period being viewed
-  const salary = Number(DATA.salary[currentPeriod]) || 0;
+  const salary = salaryFor(currentPeriod);
   const extraIncome = monthTx("income").reduce(
     (s, t) => s + Number(t.amount || 0),
     0,

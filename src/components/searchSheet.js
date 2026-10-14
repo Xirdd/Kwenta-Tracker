@@ -1,13 +1,13 @@
 import "./searchSheet.css";
-import { DATA, state, periodKeyOf } from "../state.js";
+import { DATA, state, periodKeyOf, isSeparatelyTracked } from "../state.js";
 import { catInfo, incCatInfo } from "../categories.js";
-import { fmt, formatDate, escapeHtml } from "../format.js";
+import { fmt, formatDate, escapeHtml, parseISODate } from "../format.js";
 import { openModal, closeModal } from "./modal.js";
 import { openForm } from "./sheet.js";
 import { openBillPaymentSheet } from "./billSheet.js";
 import { openGoalDetail } from "./goalSheet.js";
 import { openLoanDetail } from "./loanSheet.js";
-import { getBill } from "../bills.js";
+import { getBill, currentRealMonthKey } from "../bills.js";
 import { getGoal } from "../goals.js";
 import { getLoan } from "../loans.js";
 
@@ -25,7 +25,7 @@ const MAX_PER_GROUP = 6;
 
 function searchTransactions(q, type) {
   return DATA.transactions
-    .filter((t) => t.type === type)
+    .filter((t) => t.type === type && !isSeparatelyTracked(t))
     .filter((t) => {
       const cat =
         type === "expense" ? catInfo(t.category) : incCatInfo(t.category);
@@ -74,7 +74,7 @@ function txRow(tx, type) {
   <div class="search-result-row" data-tx="${tx.id}" data-tx-type="${type}">
     <div class="info">
       <div class="desc">${escapeHtml(tx.desc || cat.label)}</div>
-      <div class="meta">${cat.label} · ${formatDate(tx.date)}</div>
+      <div class="meta">${escapeHtml(cat.label)} · ${formatDate(tx.date)}</div>
     </div>
     <div class="amt" style="color:${type === "expense" ? "var(--coral)" : "var(--green)"}">${type === "expense" ? "-" : "+"}${fmt(tx.amount)}</div>
   </div>`;
@@ -173,7 +173,7 @@ function wireResultRows() {
       closeModal();
       state.section = "overview";
       state.tab = row.dataset.txType === "expense" ? "expenses" : "income";
-      state.monthKey = periodKeyOf(new Date(tx.date));
+      state.monthKey = periodKeyOf(parseISODate(tx.date));
       onNavigate();
       openForm(row.dataset.txType, tx);
     };

@@ -15,6 +15,7 @@ import { openDevicesSheet } from "./devicesSheet.js";
 import { openMfaSetupSheet } from "./mfaSetupSheet.js";
 import { openNotificationsSheet } from "./notificationsSheet.js";
 import { openBackupSheet } from "./backupSheet.js";
+import { disablePush } from "../push.js";
 import { openAppLockSheet } from "./appLockSheet.js";
 import {
   openThemePicker,
@@ -244,6 +245,14 @@ export function attachSettingsEvents() {
   const signOutBtn = document.getElementById("settingSignOutBtn");
   if (signOutBtn) {
     signOutBtn.onclick = async () => {
+      // Remove this device's push subscription while still signed in (the
+      // row can't be deleted afterwards). Otherwise the device keeps getting
+      // this account's bill/budget notifications after sign-out. Time-boxed
+      // so a slow or missing service worker can never block signing out.
+      await Promise.race([
+        disablePush().catch(() => {}),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ]);
       await signOut(); // onAuthChange (main.js) handles the re-render + wipe
     };
   }

@@ -8,10 +8,12 @@ import { CacheFirst, StaleWhileRevalidate } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
 import { handleShareRequest } from "./shareStore.js";
 
-// ── Lifecycle: registerType "autoUpdate" ────────────────────────────────
-// A new worker activates immediately and takes control of open tabs, so a
-// deploy is picked up without a "refresh to update" prompt.
-self.skipWaiting();
+// ── Lifecycle: registerType "prompt" ────────────────────────────────
+// A new worker downloads in the background and WAITS. notices.js shows an
+// "Update" banner; tapping it posts SKIP_WAITING (below) and reloads.
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
+});
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
