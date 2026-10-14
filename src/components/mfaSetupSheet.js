@@ -7,6 +7,7 @@ import {
   challengeAndVerifyTotp,
   generateRecoveryCodes,
   countRemainingRecoveryCodes,
+  cancelEnrollment,
 } from "../mfa.js";
 import { requirePasswordConfirmation } from "./reauthSheet.js";
 
@@ -242,7 +243,10 @@ function renderScanStep(enrollment, error) {
   // parses the string as markup at all, so this can't happen.
   document.getElementById("mfaQrImg").src = enrollment.qrCodeSvg;
 
-  document.getElementById("mfaCancelBtn").onclick = closeModal;
+  document.getElementById("mfaCancelBtn").onclick = () => {
+    cancelEnrollment(enrollment.factorId); // don't leave an unverified factor behind
+    closeModal();
+  };
 
   document.getElementById("mfaVerifyEnrollBtn").onclick = async () => {
     const code = document.getElementById("mfaEnrollCode").value.trim();

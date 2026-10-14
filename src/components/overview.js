@@ -57,7 +57,7 @@ export function renderOverview() {
         <div class="ov-cat-row">
           ${categoryIconBadge(c, 34)}
           <div class="ov-cat-main">
-            <div class="top"><span>${c.label}${over ? ' <span class="over-flag">over budget</span>' : ""}</span><span class="amt">${fmt(amt)}</span></div>
+            <div class="top"><span>${escapeHtml(c.label)}${over ? ' <span class="over-flag">over budget</span>' : ""}</span><span class="amt">${fmt(amt)}</span></div>
             <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${over ? "var(--coral)" : c.color}"></div></div>
           </div>
         </div>`;

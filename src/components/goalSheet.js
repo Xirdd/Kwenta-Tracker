@@ -1,5 +1,6 @@
-import { escapeHtml, fmt, formatDate } from "../format.js";
+import { escapeHtml, fmt, formatDate, todayISO } from "../format.js";
 import { openModal, closeModal } from "./modal.js";
+import { flashField as flash } from "../dom.js";
 import { renderGoalRing } from "./goalsTab.js";
 import {
   createGoal,
@@ -74,21 +75,13 @@ export function openGoalForm(goal) {
   }
 }
 
-function flash(id) {
-  const el = document.getElementById(id);
-  el.style.borderColor = "var(--coral)";
-  setTimeout(() => {
-    el.style.borderColor = "transparent";
-  }, 700);
-}
-
 export function openGoalDetail(goal) {
   const saved = savedAmount(goal.id);
   const pct = Math.min(100, (saved / goal.targetAmount) * 100);
   const complete = saved >= goal.targetAmount;
   const hint = paceHint(goal);
   const recent = contributionsFor(goal.id).slice(0, 5);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
 
   openModal(`
     <div class="grabber"></div>

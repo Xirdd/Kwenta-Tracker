@@ -1,4 +1,5 @@
 import { openModal, closeModal } from "./modal.js";
+import { flashField as flash } from "../dom.js";
 import { escapeHtml } from "../format.js";
 import {
   getActiveHousehold,
@@ -248,12 +249,4 @@ function renderJoinOrCreate(message) {
       renderJoinOrCreate(e.message || "Couldn't join that household.");
     }
   };
-}
-
-function flash(id) {
-  const el = document.getElementById(id);
-  el.style.borderColor = "var(--coral)";
-  setTimeout(() => {
-    el.style.borderColor = "transparent";
-  }, 700);
 }

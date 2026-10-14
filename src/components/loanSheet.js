@@ -1,5 +1,6 @@
-import { escapeHtml, fmt, formatDate } from "../format.js";
+import { escapeHtml, fmt, formatDate, todayISO } from "../format.js";
 import { openModal, closeModal } from "./modal.js";
+import { flashField as flash } from "../dom.js";
 import {
   createLoan,
   updateLoan,
@@ -17,7 +18,7 @@ export function initLoanSheets(rerenderCallback) {
 }
 
 export function openLoanForm(loan) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   const heading = loan ? "Edit utang" : "Log money lent or borrowed";
   let direction = loan ? loan.direction : "lent";
 
@@ -103,14 +104,6 @@ export function openLoanForm(loan) {
   }
 }
 
-function flash(id) {
-  const el = document.getElementById(id);
-  el.style.borderColor = "var(--coral)";
-  setTimeout(() => {
-    el.style.borderColor = "transparent";
-  }, 700);
-}
-
 export function openLoanDetail(loan) {
   const remaining = remainingAmount(loan);
   const settled = remaining <= 0;
@@ -118,7 +111,7 @@ export function openLoanDetail(loan) {
   const paidPct =
     loan.amount > 0 ? ((loan.amount - remaining) / loan.amount) * 100 : 0;
   const recent = repaymentsFor(loan.id).slice(0, 5);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
 
   openModal(`
     <div class="grabber"></div>

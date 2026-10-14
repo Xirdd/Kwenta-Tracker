@@ -13,6 +13,7 @@ const SHARED_TABLES = [
   "kwenta_bills",
   "kwenta_goals",
   "kwenta_loans",
+  "kwenta_wallets",
   "kwenta_custom_categories",
 ];
 

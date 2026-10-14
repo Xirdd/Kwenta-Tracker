@@ -179,6 +179,7 @@ async function migratePersonalDataToHousehold(householdId) {
     "kwenta_bills",
     "kwenta_goals",
     "kwenta_loans",
+    "kwenta_wallets",
   ];
   const results = await Promise.all(
     simpleTables.map((table) =>

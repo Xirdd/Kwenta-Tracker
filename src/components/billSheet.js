@@ -1,6 +1,7 @@
 import { BILL_CATEGORIES, catInfo } from "../categories.js";
 import { escapeHtml, fmt, formatDate } from "../format.js";
 import { openModal, closeModal } from "./modal.js";
+import { flashField as flash } from "../dom.js";
 import {
   createBill,
   updateBill,
@@ -107,16 +108,8 @@ export function openBillForm(bill) {
   }
 }
 
-function flash(id) {
-  const el = document.getElementById(id);
-  el.style.borderColor = "var(--coral)";
-  setTimeout(() => {
-    el.style.borderColor = "transparent";
-  }, 700);
-}
-
 function displayCategoryLabel(bill) {
-  return bill.customCategory || catInfo(bill.category).label;
+  return escapeHtml(bill.customCategory || catInfo(bill.category).label);
 }
 
 export function openBillPaymentSheet(bill, monthKey) {
