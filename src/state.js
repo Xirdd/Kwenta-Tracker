@@ -334,7 +334,7 @@ export function saveData() {
 // and mixing them into "Net Balance" makes that number mean something
 // different depending on whether you happened to add to a goal that period.
 export function isSeparatelyTracked(tx) {
-  return !!(tx.goalId || tx.loanId);
+  return !!(tx.goalId || tx.loanId || tx.transferId);
 }
 
 // Kept name: monthTx. Now filters by the CURRENT PERIOD's date range

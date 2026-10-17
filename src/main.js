@@ -34,7 +34,12 @@ import {
   initBudgetsSheet,
 } from "./components/budgets.js";
 import { renderBills } from "./components/billsTab.js";
-import { renderWalletsTab } from "./components/walletsTab.js";
+import {
+  renderWalletsTab,
+  initWalletsTab,
+  attachWalletsEvents,
+} from "./components/walletsTab.js";
+import { initTransferSheet } from "./components/transferSheet.js";
 import { renderGoalsTab } from "./components/goalsTab.js";
 import {
   renderLoansTab,
@@ -280,6 +285,7 @@ function attachEvents() {
   attachSettingsEvents();
   attachProfilePageEvents();
   attachQuickAddEvents();
+  attachWalletsEvents();
   wireAvatarFallbacks(); // drop a photo that fails to load, showing the initial instead
 
   document.querySelectorAll("[data-edit]").forEach((row) => {
@@ -421,6 +427,8 @@ async function unlockApp({ boot = false } = {}) {
   initGoalSheets(render);
   initLoanSheets(render);
   initWalletSheets(render);
+  initWalletsTab(render);
+  initTransferSheet(render);
   initBudgetsSheet(render); // custom budget category sheets need a re-render too
   initAppLockSheet(render);
   initSearchSheet(render);

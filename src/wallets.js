@@ -6,6 +6,7 @@ import {
   cloudUpsertWallet,
   cloudDeleteWallet,
   cloudUpsertTransaction,
+  cloudDeleteTransaction,
 } from "./sync.js";
 import { notifySyncError } from "./toast.js";
 
@@ -108,4 +109,93 @@ export function walletBalance(wallet) {
 
 export function totalWalletBalance() {
   return sumPesos(DATA.wallets, (w) => walletBalance(w));
+}
+
+// ── Transfers between wallets ──────────────────────────────────────────
+// A transfer is two ordinary, linked transactions sharing a `transferId` —
+// an expense leaving the source wallet and an income arriving in the
+// destination wallet — rather than a new kind of record. That's what lets
+// each wallet's own balance() math (above) stay simple: it just sums
+// income/expense per wallet, same as any other transaction.
+//
+// Both legs are marked "separately tracked" (see isSeparatelyTracked in
+// state.js), the same mechanism goal contributions and utang payments
+// already use — so a transfer moves money between YOUR OWN wallets without
+// ever inflating your real income/expense totals, category breakdowns, or
+// Insights. It's not new money and not real spending.
+export function createTransfer({
+  fromWalletId,
+  toWalletId,
+  amount,
+  date,
+  note,
+}) {
+  const from = getWallet(fromWalletId);
+  const to = getWallet(toWalletId);
+  if (!from || !to || from.id === to.id || !(Number(amount) > 0)) return null;
+
+  const transferId = uid("xfer");
+  const outTx = {
+    id: uid(),
+    type: "expense",
+    desc: note || `Transfer to ${to.name}`,
+    amount: Number(amount),
+    category: "other",
+    date,
+    walletId: from.id,
+    transferId,
+  };
+  const inTx = {
+    id: uid(),
+    type: "income",
+    desc: note || `Transfer from ${from.name}`,
+    amount: Number(amount),
+    category: "other",
+    date,
+    walletId: to.id,
+    transferId,
+  };
+  DATA.transactions.push(outTx, inTx);
+  saveData();
+  if (isCloudMode()) {
+    cloudUpsertTransaction(outTx).catch((e) => notifySyncError(e));
+    cloudUpsertTransaction(inTx).catch((e) => notifySyncError(e));
+  }
+  return { outTx, inTx };
+}
+
+// Removes both legs of a transfer together — there's no reason to ever have
+// only one half of a transfer on its own.
+export function removeTransfer(transferId) {
+  const linked = DATA.transactions.filter((t) => t.transferId === transferId);
+  DATA.transactions = DATA.transactions.filter(
+    (t) => t.transferId !== transferId,
+  );
+  saveData();
+  if (isCloudMode()) {
+    linked.forEach((t) =>
+      cloudDeleteTransaction(t.id).catch((e) => notifySyncError(e)),
+    );
+  }
+}
+
+// One row per transfer (its two linked transactions collapsed into one),
+// newest first — for the "Recent transfers" list on the Wallets tab.
+export function recentTransfers(limit = 10) {
+  const byId = new Map();
+  DATA.transactions
+    .filter((t) => t.transferId)
+    .forEach((t) => {
+      const entry = byId.get(t.transferId) || {
+        transferId: t.transferId,
+        date: t.date,
+        amount: t.amount,
+      };
+      if (t.type === "expense") entry.fromWalletId = t.walletId;
+      else entry.toWalletId = t.walletId;
+      byId.set(t.transferId, entry);
+    });
+  return [...byId.values()]
+    .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+    .slice(0, limit);
 }

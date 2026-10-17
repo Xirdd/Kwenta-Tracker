@@ -683,6 +683,7 @@ header {
 /* ---------- Tabs ---------- */
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin: 24px 2px 18px 2px;
   background: color-mix(in srgb, var(--bg-2) 55%, transparent);
@@ -691,9 +692,10 @@ header {
   border-radius: var(--radius-sm);
   padding: 4px;
   border: 1px solid var(--line-dark);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  /* Was a single-row, scroll-to-see-more strip with its scrollbar hidden —
+     once a 6th tab (Wallets) didn't fit, it was invisible with no visual
+     hint that there was more to scroll to. Wrapping is more honest: every
+     tab is always on screen, it just takes a second row when needed. */
 }
 .tabs::-webkit-scrollbar {
   display: none;
