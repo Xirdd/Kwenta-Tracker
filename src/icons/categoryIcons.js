@@ -9,10 +9,68 @@
 // "dumbbell"), never the SVG itself — so the library can be reworked later
 // without touching saved data, and an unknown/removed id falls back safely
 // to DEFAULT_ICON_ID.
+//
+// The "E-wallets & banks" group (first in the picker) holds monogram marks for
+// the apps most people in the Philippines pay with — GCash, Maya, GoTyme and
+// MariBank. These are deliberately NOT the companies' official logos (those are
+// trademarked artwork, and a one-color line icon can't reproduce them anyway):
+// each is a simple original monogram in the same stroke style as every other
+// icon, tinted by the category's own color. The matching quick-start presets in
+// components/categoryFormSheet.js pair them with a close palette color.
 
 export const DEFAULT_ICON_ID = "tag";
 
 export const ICON_GROUPS = [
+  {
+    id: "wallets",
+    label: "E-wallets & banks",
+    icons: [
+      {
+        id: "gcash",
+        label: "GCash",
+        // a "G" inside a ring
+        paths: `<circle cx="12" cy="12" r="10"/><path d="M15 9.4A4 4 0 1 0 16 12h-4"/>`,
+      },
+      {
+        id: "maya",
+        label: "Maya",
+        // an "M" inside a ring
+        paths: `<circle cx="12" cy="12" r="10"/><path d="M7.5 16.5v-9l4.5 5 4.5-5v9"/>`,
+      },
+      {
+        id: "gotyme",
+        label: "GoTyme",
+        // a "T" inside a rounded square
+        paths: `<rect x="2.5" y="2.5" width="19" height="19" rx="6"/><path d="M8 9h8"/><path d="M12 9v7.5"/>`,
+      },
+      {
+        id: "maribank",
+        label: "MariBank",
+        // an "M" inside a rounded square
+        paths: `<rect x="2.5" y="2.5" width="19" height="19" rx="6"/><path d="M7.5 16.5v-9l4.5 5 4.5-5v9"/>`,
+      },
+      {
+        id: "wallet",
+        label: "E-wallet",
+        paths: `<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>`,
+      },
+      {
+        id: "bank",
+        label: "Bank",
+        paths: `<path d="M3 21h18"/><path d="M5 21V10"/><path d="M9.5 21V10"/><path d="M14.5 21V10"/><path d="M19 21V10"/><path d="M12 3 3 8.5h18z"/>`,
+      },
+      {
+        id: "qr",
+        label: "QR Ph",
+        paths: `<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M21 14v.01"/><path d="M17.5 20.5H21"/><path d="M14 21v.01"/>`,
+      },
+      {
+        id: "banknote",
+        label: "Cash",
+        paths: `<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01"/><path d="M18 12h.01"/>`,
+      },
+    ],
+  },
   {
     id: "fitness",
     label: "Fitness",

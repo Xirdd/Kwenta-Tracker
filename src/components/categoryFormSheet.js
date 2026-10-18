@@ -25,6 +25,33 @@ export function initCategoryFormSheet(rerenderCallback) {
   onChange = rerenderCallback;
 }
 
+// Quick-start chips shown when creating a NEW category: one tap fills in the
+// name, icon and color. Colors are all taken from CUSTOM_CATEGORY_COLORS (so
+// the matching swatch lights up) and are only *near* each app's brand color —
+// the icons are original monograms, not the companies' official logos (see
+// icons/categoryIcons.js). Everything stays editable after tapping a chip.
+const PRESETS = [
+  { label: "GCash", icon: "gcash", color: "#5b7fde" },
+  { label: "Maya", icon: "maya", color: "#3fa377" },
+  { label: "GoTyme", icon: "gotyme", color: "#4fb8c9" },
+  { label: "MariBank", icon: "maribank", color: "#8e5fd6" },
+  { label: "Cash", icon: "banknote", color: "#7fae3f" },
+];
+
+function presetRow() {
+  return `
+  <p class="cc-presets-label">Quick start</p>
+  <div class="cc-presets" id="ccPresets">
+    ${PRESETS.map(
+      (p) => `
+      <button type="button" class="cc-preset" data-preset="${escapeHtml(p.label)}">
+        ${categoryIconBadge({ color: p.color, icon: iconPaths(p.icon) }, 28)}
+        <span>${escapeHtml(p.label)}</span>
+      </button>`,
+    ).join("")}
+  </div>`;
+}
+
 function colorSwatchRow(selected) {
   return `
   <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;">
@@ -51,6 +78,8 @@ export function openCategoryForm(cat, draft = {}, returnTo = null) {
   let chosenColor = draft.color ?? cat?.color ?? CUSTOM_CATEGORY_COLORS[0];
   let chosenIcon = draft.icon ?? cat?.icon ?? DEFAULT_ICON_ID;
   const perHalf = periodKeyHasHalf(state.monthKey);
+  // Presets only make sense for a brand-new, still-untouched form.
+  const showPresets = !isEdit && !labelVal;
 
   const finish = () => {
     closeModal();
@@ -69,6 +98,7 @@ export function openCategoryForm(cat, draft = {}, returnTo = null) {
     `
     <div class="grabber"></div>
     <h3>${isEdit ? "Edit category" : "New category"}</h3>
+    ${showPresets ? presetRow() : ""}
     <div class="cc-name-row">
       <span class="cc-preview" id="ccPreview">${previewHtml()}</span>
       <div class="field">
@@ -113,6 +143,26 @@ export function openCategoryForm(cat, draft = {}, returnTo = null) {
   attachIconPicker((iconId) => {
     chosenIcon = iconId;
     document.getElementById("ccPreview").innerHTML = previewHtml();
+  });
+
+  // A quick-start chip just drives the same controls a person would tap by
+  // hand (name box, color swatch, icon button), so there's one code path for
+  // "choose a color/icon" and the preview + highlights always stay in step.
+  document.querySelectorAll("#ccPresets [data-preset]").forEach((chip) => {
+    chip.onclick = () => {
+      const preset = PRESETS.find((p) => p.label === chip.dataset.preset);
+      if (!preset) return;
+      document.getElementById("ccLabel").value = preset.label;
+      const swatch = document.querySelector(
+        `#ccColorRow .color-swatch-btn[data-color="${preset.color}"]`,
+      );
+      if (swatch) swatch.click();
+      const iconBtn = document.querySelector(
+        `#iconPicker .icon-opt[data-icon="${preset.icon}"]`,
+      );
+      if (iconBtn) iconBtn.click();
+      document.getElementById("ccLimit").focus();
+    };
   });
 
   document.getElementById("ccCancelBtn").onclick = cancel;

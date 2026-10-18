@@ -1,0 +1,471 @@
+/* ---------- Glass v2: "lit glass" ---------- */
+/* Loaded once from theme.js (right after themes.css), so it lands AFTER every
+   other stylesheet in the bundle and wins at equal specificity. Nothing in
+   here changes layout — it only restyles surfaces — so removing the import
+   from theme.js restores the previous look exactly.
+
+   The idea: the old cards were flat, evenly frosted rectangles. These are lit
+   from the top-left like real glass:
+     1. a soft aurora behind the page (tinted per theme, see --aurora-1..3), so
+        there's something for the glass to actually refract
+     2. every surface gets a bright specular edge on top, a faint one on the
+        left, and a dark lower edge — the three cues that read as thickness
+     3. a diagonal sheen across the face of each card
+     4. stronger blur + saturation, so the aurora bleeds through softly
+   Accent / income / expense colors are untouched; all five dark themes keep
+   working because every tint is derived from --gold, --paper and --ink. */
+
+:root {
+  --glass-fill-top: rgba(255, 255, 255, 0.11);
+  --glass-fill-mid: rgba(255, 255, 255, 0.025);
+
+  /* The card face: a diagonal sheen over a translucent tint of the theme's
+     own surface color (the tint keeps text readable over the aurora). */
+  --gradient-card:
+    linear-gradient(
+      118deg,
+      var(--glass-fill-top) 0%,
+      var(--glass-fill-mid) 36%,
+      transparent 62%
+    ),
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--paper) 62%, transparent) 0%,
+      color-mix(in srgb, var(--paper) 36%, transparent) 100%
+    );
+
+  --glass-blur: blur(26px) saturate(185%) brightness(1.06);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.14);
+  --line: rgba(255, 255, 255, 0.09);
+  --line-dark: rgba(255, 255, 255, 0.07);
+
+  /* Thickness cues: bright top edge, faint left edge, dark bottom edge. */
+  --glass-edge:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 1px 0 0 rgba(255, 255, 255, 0.07), inset 0 -1px 0 rgba(0, 0, 0, 0.28);
+  --shadow-card:
+    var(--glass-edge), 0 22px 44px -26px rgba(0, 0, 0, 0.7),
+    0 2px 6px -2px rgba(0, 0, 0, 0.35);
+  --shadow-pop:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 18px 40px -14px color-mix(in srgb, var(--gold) 60%, transparent);
+}
+
+/* ── Per-theme aurora colors ──
+   The accent (--gold) is the same green in every theme on purpose, so the
+   aurora can NOT be derived from it — that is what made every theme glow green.
+   Each theme gets its own three glow colors instead. --aurora-1 is the main
+   one (top-left + bottom-left + hero glow), -2 and -3 are the supporting
+   hues on the right. Values are plain colors; alpha is applied where used. */
+:root,
+[data-theme="forest"] {
+  --aurora-1: #00d68f;
+  --aurora-2: #2fb8a6;
+  --aurora-3: #5b9fde;
+}
+[data-theme="deepsea"] {
+  --aurora-1: #2b8fd6;
+  --aurora-2: #4fb8c9;
+  --aurora-3: #5b7fde;
+}
+[data-theme="plum"] {
+  --aurora-1: #8e5fd6;
+  --aurora-2: #d65a8e;
+  --aurora-3: #5b7fde;
+}
+[data-theme="wine"] {
+  --aurora-1: #d6485f;
+  --aurora-2: #e2864a;
+  --aurora-3: #b04a9e;
+}
+/* Amoled stays almost colorless — a faint cool-grey sheen so the black reads
+   as black, with just enough light for the glass edges to catch. */
+[data-theme="amoled"] {
+  --aurora-1: #8d93a8;
+  --aurora-2: #6c7288;
+  --aurora-3: #7a7fa0;
+}
+
+/* ── Aurora behind everything ──
+   Fixed and static (no animation): backdrop-filter over a moving layer is
+   expensive on iPhones, and a still aurora is what makes the glass read. */
+body {
+  background: var(--bg);
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      560px 440px at 6% 2%,
+      color-mix(in srgb, var(--aurora-1) 28%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      500px 480px at 104% 28%,
+      color-mix(in srgb, var(--aurora-3) 20%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      600px 540px at 18% 106%,
+      color-mix(in srgb, var(--aurora-2) 20%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      400px 400px at 88% 98%,
+      color-mix(in srgb, var(--aurora-1) 16%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(900px 500px at 50% -12%, var(--bg-glow), transparent 70%);
+}
+/* Lifts the app above the aurora layer. */
+.app {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Glass surfaces ── */
+.list,
+.salary-card,
+.goal-card,
+.loan-card,
+.budget-summary,
+.goals-summary-banner,
+.ov-card,
+.bars,
+.ins-tile,
+.insights-card,
+.profile-card,
+.profile-header-card,
+.settings-card,
+.empty-state,
+.stat-chip,
+.pp-hero,
+.pp-stat,
+.auth-card,
+.quick-add-chip {
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow-card);
+}
+
+/* The Net Balance / Utang hero is the one memorable surface: a brighter rim
+   in the accent, a colored glow underneath, and a gradient on the figure. */
+.balance-hero {
+  border-color: color-mix(
+    in srgb,
+    var(--aurora-1) 32%,
+    rgba(255, 255, 255, 0.16)
+  );
+  background:
+    linear-gradient(
+      125deg,
+      rgba(255, 255, 255, 0.16) 0%,
+      rgba(255, 255, 255, 0.03) 34%,
+      transparent 60%
+    ),
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--paper) 58%, transparent) 0%,
+      color-mix(in srgb, var(--paper) 30%, transparent) 100%
+    );
+  box-shadow:
+    var(--glass-edge),
+    0 34px 60px -30px color-mix(in srgb, var(--aurora-1) 55%, transparent),
+    0 18px 36px -24px rgba(0, 0, 0, 0.7);
+}
+.balance-hero .balance-amount:not(.negative) {
+  background: linear-gradient(
+    180deg,
+    var(--cream) 30%,
+    color-mix(in srgb, var(--cream) 60%, var(--aurora-1)) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+/* The corner glows on the hero cards used the accent (green in every theme). */
+.balance-hero::before,
+.pp-hero::before {
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--aurora-1) 45%, transparent) 0%,
+    color-mix(in srgb, var(--aurora-1) 20%, transparent) 35%,
+    color-mix(in srgb, var(--aurora-1) 6%, transparent) 55%,
+    transparent 72%
+  );
+}
+.hero-stat-inline {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* ── Tabs, nav, buttons: inset highlights ── */
+.tabs {
+  background: color-mix(in srgb, var(--paper) 40%, transparent);
+  border-color: rgba(255, 255, 255, 0.11);
+  box-shadow: var(--glass-edge);
+}
+.tab-btn.active {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 8px 18px -10px color-mix(in srgb, var(--gold) 70%, transparent);
+}
+
+.bottom-nav {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.1),
+      rgba(255, 255, 255, 0.02) 60%
+    ),
+    color-mix(in srgb, var(--paper) 58%, transparent);
+  border-color: rgba(255, 255, 255, 0.14);
+  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  backdrop-filter: blur(30px) saturate(190%);
+  box-shadow:
+    var(--glass-edge),
+    0 22px 40px -18px rgba(0, 0, 0, 0.75);
+}
+.bottom-nav-btn.active {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.16),
+      rgba(255, 255, 255, 0.03)
+    ),
+    color-mix(in srgb, var(--gold) 14%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 6px 16px -8px color-mix(in srgb, var(--gold) 65%, transparent);
+}
+
+.icon-btn,
+.month-nav button {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.12),
+      rgba(255, 255, 255, 0.02)
+    ),
+    color-mix(in srgb, var(--paper) 50%, transparent);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: var(--glass-edge);
+}
+.icon-btn-account {
+  background: var(--gradient-accent);
+  box-shadow: var(--shadow-pop);
+}
+
+.fab {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 0 0 6px color-mix(in srgb, var(--gold) 14%, transparent),
+    0 20px 40px -12px color-mix(in srgb, var(--gold) 65%, transparent);
+}
+
+.btn-primary {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 55%),
+    var(--gradient-accent);
+}
+.btn-ghost {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.1),
+      rgba(255, 255, 255, 0.02)
+    ),
+    var(--paper-2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* ── Inputs: recessed into the glass ── */
+.field input,
+.field select,
+.expense-search input,
+.salary-input-wrap,
+.tag-input-wrap,
+.budget-input-wrap {
+  background: rgba(0, 0, 0, 0.24);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.35),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.07);
+}
+.field input:focus,
+.field select:focus,
+.expense-search input:focus,
+.salary-input-wrap:focus-within,
+.tag-input-wrap:focus-within {
+  border-color: var(--gold);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.35),
+    0 0 0 4px color-mix(in srgb, var(--gold) 22%, transparent);
+}
+.cat-opt {
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.cat-opt.selected {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent),
+    color-mix(in srgb, var(--gold) 20%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 8px 18px -12px color-mix(in srgb, var(--gold) 70%, transparent);
+}
+
+/* ── Bottom sheets: the thickest, most opaque glass (text lives here) ── */
+.scrim {
+  background:
+    radial-gradient(
+      700px 500px at 50% 100%,
+      color-mix(in srgb, var(--aurora-1) 16%, transparent),
+      transparent 70%
+    ),
+    rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  backdrop-filter: blur(8px) saturate(120%);
+}
+.sheet {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.13) 0%,
+      rgba(255, 255, 255, 0.02) 30%,
+      transparent 60%
+    ),
+    color-mix(in srgb, var(--paper) 78%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom: none;
+  -webkit-backdrop-filter: blur(38px) saturate(190%);
+  backdrop-filter: blur(38px) saturate(190%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 -24px 60px -24px rgba(0, 0, 0, 0.7);
+}
+.sheet .grabber {
+  background: rgba(255, 255, 255, 0.28);
+}
+@media (min-width: 640px) {
+  .sheet {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      0 40px 90px -30px rgba(0, 0, 0, 0.8);
+  }
+}
+
+/* ── Rows inside glass lists ── */
+.row:active,
+.bill-row:active,
+.settings-row:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.toast-banner {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent),
+    color-mix(in srgb, var(--paper) 80%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 16px 34px -14px rgba(0, 0, 0, 0.7);
+}
+
+/* ── Category quick-start chips (new-category form) ── */
+.cc-presets-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin: 0 0 8px 0;
+}
+.cc-presets {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin: 0 0 18px 0;
+  padding-bottom: 2px;
+}
+.cc-presets::-webkit-scrollbar {
+  display: none;
+}
+.cc-preset {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px 0 8px;
+  border-radius: 22px;
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.1),
+      rgba(255, 255, 255, 0.02)
+    ),
+    var(--paper-2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: var(--ink);
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cc-preset:active {
+  transform: scale(0.96);
+}
+.cc-preset:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ── Fallbacks ── */
+/* No backdrop-filter (older browsers): fall back to solid, readable surfaces
+   instead of see-through ones with nothing blurred behind them. */
+@supports not (
+  (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
+) {
+  :root {
+    --gradient-card: linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--paper) 96%, transparent),
+      color-mix(in srgb, var(--paper) 90%, transparent)
+    );
+  }
+  .sheet,
+  .bottom-nav,
+  .toast-banner {
+    background: var(--paper);
+  }
+}
+/* People who turn on "Reduce transparency" get opaque surfaces. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --gradient-card: linear-gradient(165deg, var(--paper), var(--paper));
+    --glass-blur: none;
+  }
+  .sheet,
+  .bottom-nav,
+  .toast-banner,
+  .balance-hero {
+    background: var(--paper);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  body::before {
+    display: none;
+  }
+}

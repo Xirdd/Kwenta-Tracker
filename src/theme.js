@@ -1,10 +1,12 @@
-// Also loads the mobile shell (hidden scrollbars + double-tap-zoom guard) and
-// the dark theme palettes. They live here only so main.js doesn't need
-// touching — theme.js is already imported once at startup, and importing
-// themes.css from here puts it AFTER style.css in the bundle, which is what
-// lets its [data-theme] rules override :root.
+// Also loads the mobile shell (hidden scrollbars + double-tap-zoom guard), the
+// dark theme palettes, and the glass surface styling. They live here only so
+// main.js doesn't need touching — theme.js is already imported once at startup,
+// and importing the CSS from here puts it AFTER style.css (and every component
+// stylesheet) in the bundle, which is what lets themes.css override :root and
+// glass.css override the card/sheet/nav surfaces. Keep glass.css LAST.
 import "./mobileShell.js";
 import "./themes.css";
+import "./glass.css";
 const THEME_KEY = "kwenta_theme";
 
 // id must match the [data-theme="..."] selector in themes.css.
