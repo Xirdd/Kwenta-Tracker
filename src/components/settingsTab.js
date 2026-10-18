@@ -204,7 +204,7 @@ export function renderSettingsTab() {
     </div>
   </div>
 
-  <div class="made-by-credit">Made by <span>Chadrix</span></div>
+  <div class="made-by-credit">Made by <span>Xird</span></div>
   `;
 }
 
