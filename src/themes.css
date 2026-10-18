@@ -1,14 +1,28 @@
-/* ---------- Dark themes (background tint only) ---------- */
-/* Every theme below is dark and changes ONLY the background family:
-   --bg (page), --bg-2 (raised strip), --paper (cards), --paper-2 (inputs and
-   inner chips) and --bg-glow (the soft glow behind the page). The accent
-   (--gold / --green / --coral), text colors, lines and shadows all come from
-   :root in style.css and stay identical in every theme, so income is always
-   green, expenses always coral, and the brand accent never moves.
+/* ---------- Dark themes ---------- */
+/* Every theme below is dark. Each one changes TWO things:
+
+   1. The background family: --bg (page), --bg-2 (raised strip), --paper
+      (cards), --paper-2 (inputs and inner chips) and --bg-glow (the soft glow
+      behind the page).
+   2. The brand accent: --gold and --gold-soft. These drive buttons, the active
+      tab, the + button, focus rings and highlights. (The variable is named
+      "gold" for historical reasons — it is just "the accent".)
+
+   What never changes, in any theme, on purpose:
+   - --green  = money in / paid / saved
+   - --coral  = money out / over budget / danger
+   - text colors, lines and shadows
+   Keeping the two meaning-colors fixed is why an accent must never be close to
+   coral. (Wine is amber, not rose, for exactly that reason.)
+
+   Each accent has to keep dark text readable on top of it: --on-accent is the
+   page background, which is near-black in every theme, so keep accents bright
+   (roughly 7:1 or better against --bg).
 
    Loaded from theme.js, after style.css, so these win over :root. Keep
    --paper-2 dark (relative luminance under ~0.02) — the muted text color
-   (--ink-soft) sits on it and needs to stay readable. */
+   (--ink-soft) sits on it and needs to stay readable. glass.css holds the
+   matching per-theme aurora colors. */
 
 /* Forest — deep green, the closest to Kwenta's original brand color */
 [data-theme="forest"] {
@@ -17,40 +31,51 @@
   --paper: #112119;
   --paper-2: #182b20;
   --bg-glow: #0f2a1e;
+  --gold: #00d68f;
+  --gold-soft: #00b87a;
 }
 
-/* Deep Sea — dark teal-navy */
+/* Deep Sea — dark teal-navy, sky-blue accent */
 [data-theme="deepsea"] {
   --bg: #06121a;
   --bg-2: #0c1c27;
   --paper: #0d1e29;
   --paper-2: #142b39;
   --bg-glow: #0a2431;
+  --gold: #38b6ff;
+  --gold-soft: #1f9be6;
 }
 
-/* Plum — dark violet-purple */
+/* Plum — dark violet-purple, lavender accent */
 [data-theme="plum"] {
   --bg: #110815;
   --bg-2: #190e1e;
   --paper: #1b0f21;
   --paper-2: #271730;
   --bg-glow: #200d28;
+  --gold: #b98cff;
+  --gold-soft: #9b6ef0;
 }
 
-/* Wine — dark burgundy */
+/* Wine — dark burgundy, amber accent (rose would read as "expense") */
 [data-theme="wine"] {
   --bg: #14070a;
   --bg-2: #1d0d11;
   --paper: #200e13;
   --paper-2: #2e1720;
   --bg-glow: #260b12;
+  --gold: #ffb347;
+  --gold-soft: #f0962a;
 }
 
-/* Amoled — true black; pixels switch fully off on OLED iPhones */
+/* Amoled — true black; pixels switch fully off on OLED iPhones. Keeps the
+   original green accent, since a neutral one would leave nothing to look at. */
 [data-theme="amoled"] {
   --bg: #000000;
   --bg-2: #0a0a0a;
   --paper: #0e0e0e;
   --paper-2: #181818;
   --bg-glow: #050505;
+  --gold: #00d68f;
+  --gold-soft: #00b87a;
 }

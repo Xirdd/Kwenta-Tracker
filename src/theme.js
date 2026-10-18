@@ -8,6 +8,7 @@ import "./mobileShell.js";
 import "./themes.css";
 import "./glass.css";
 const THEME_KEY = "kwenta_theme";
+const GLASS_KEY = "kwenta_glass";
 
 // id must match the [data-theme="..."] selector in themes.css.
 // bg / paper are only the two colors used to draw this theme's swatch in
@@ -144,6 +145,34 @@ export function currentTheme() {
 export function initTheme() {
   const stored = getStoredTheme();
   applyTheme(stored && THEME_IDS.includes(stored) ? stored : DEFAULT_THEME_ID);
+  applyGlassMode(getGlassMode());
+}
+
+// "full" (default) or "lite" — Settings → Appearance → Reduce glass effects.
+// "lite" turns off backdrop-filter on cards (see the [data-glass="lite"] block
+// in glass.css) for older phones. Per device, like the theme itself.
+export function getGlassMode() {
+  try {
+    return localStorage.getItem(GLASS_KEY) === "lite" ? "lite" : "full";
+  } catch (e) {
+    return "full";
+  }
+}
+
+export function applyGlassMode(mode) {
+  if (mode === "lite")
+    document.documentElement.setAttribute("data-glass", "lite");
+  else document.documentElement.removeAttribute("data-glass");
+}
+
+export function setGlassMode(mode) {
+  const next = mode === "lite" ? "lite" : "full";
+  try {
+    localStorage.setItem(GLASS_KEY, next);
+  } catch (e) {
+    /* ignore */
+  }
+  applyGlassMode(next);
 }
 
 export function setTheme(themeId) {

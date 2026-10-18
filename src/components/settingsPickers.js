@@ -1,7 +1,13 @@
 import "./optionList.css";
 import { openModal, closeModal } from "./modal.js";
 import { escapeHtml } from "../format.js";
-import { currentTheme, setTheme, THEMES } from "../theme.js";
+import {
+  currentTheme,
+  setTheme,
+  THEMES,
+  getGlassMode,
+  setGlassMode,
+} from "../theme.js";
 import { PERIOD_MODES, getPeriodMode, setPeriodMode } from "../periodMode.js";
 import { currentCurrencyId, setCurrency, CURRENCIES } from "../currency.js";
 import { state, periodKeyOf } from "../state.js";
@@ -15,7 +21,17 @@ import { materializeMonth } from "../recurring.js";
 const CHECK = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
 
 // options: [{ id, label, sub?, leading? (trusted HTML) }]
-function openOptionSheet({ title, hint, options, selectedId, onPick }) {
+// extra (optional): trusted HTML shown between the list and the buttons;
+// onRender (optional): called once the sheet is in the DOM, to wire `extra`.
+function openOptionSheet({
+  title,
+  hint,
+  options,
+  selectedId,
+  onPick,
+  extra,
+  onRender,
+}) {
   openModal(`
     <div class="grabber"></div>
     <h3>${escapeHtml(title)}</h3>
@@ -35,6 +51,7 @@ function openOptionSheet({ title, hint, options, selectedId, onPick }) {
         )
         .join("")}
     </div>
+    ${extra || ""}
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="optCancelBtn">Cancel</button>
     </div>
@@ -44,12 +61,28 @@ function openOptionSheet({ title, hint, options, selectedId, onPick }) {
   document.querySelectorAll("[data-opt]").forEach((btn) => {
     btn.onclick = () => onPick(btn.dataset.opt);
   });
+  if (onRender) onRender();
+}
+
+// A switch row styled like the Budgets category picker's (.pick-row/.pick-switch,
+// from budgetCategoryPicker.css, which is bundled globally).
+function glassSwitchRow() {
+  const lite = getGlassMode() === "lite";
+  return `
+    <label class="pick-row" style="margin-bottom:10px;">
+      <span class="pick-text">
+        <span class="pick-label">Reduce glass effects</span>
+        <span class="pick-note">Makes cards solid instead of see-through. Turn this on if scrolling feels choppy on an older phone.</span>
+      </span>
+      <input type="checkbox" class="pick-check" id="glassLiteToggle" ${lite ? "checked" : ""}/>
+      <span class="pick-switch" aria-hidden="true"></span>
+    </label>`;
 }
 
 export function openThemePicker(onChange) {
   openOptionSheet({
     title: "Appearance",
-    hint: "Changes the background tone only — income stays green and expenses stay coral in every theme.",
+    hint: "Changes the background tone and accent color. Income stays green and expenses stay coral in every theme.",
     selectedId: currentTheme(),
     options: THEMES.map((t) => ({
       id: t.id,
@@ -61,6 +94,14 @@ export function openThemePicker(onChange) {
       setTheme(id);
       closeModal();
       onChange();
+    },
+    extra: glassSwitchRow(),
+    onRender: () => {
+      // Applies instantly (it only flips an attribute on <html>), so no
+      // re-render or closing is needed.
+      document.getElementById("glassLiteToggle").onchange = (e) => {
+        setGlassMode(e.target.checked ? "lite" : "full");
+      };
     },
   });
 }

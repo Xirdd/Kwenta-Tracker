@@ -100,8 +100,17 @@ surfaces without touching layout:
 - **Hierarchy** — cards are lightly frosted, sheets/nav/toasts are the thickest
   (they carry text), and the Net Balance hero gets an accent rim, a colored glow
   and a gradient figure.
-- **Themes** — all tints derive from `--gold`, `--paper`, `--ink`, so the five
-  dark themes work unchanged. Income stays green, expenses coral.
+- **Themes** — surfaces derive from `--paper` and `--ink`; the glow comes from
+  per-theme `--aurora-1..3` tokens at the top of `glass.css`. (It can't come from
+  the accent alone — that made every theme glow the same color.)
+- **Accent per theme** — `themes.css` sets `--gold` / `--gold-soft` for each
+  theme (Forest green, Deep Sea sky blue, Plum lavender, Wine amber, Amoled
+  green). `--green` (money in) and `--coral` (money out) never change, so never
+  pick an accent close to coral. Keep accents bright: dark text sits on them.
+- **Reduce glass effects** — Settings → Appearance. Sets `data-glass="lite"` on
+  `<html>` (`theme.js`, per device, key `kwenta_glass`), which removes
+  `backdrop-filter` from cards and lightens it on the nav and sheets. Use it for
+  older iPhones.
 - **Fallbacks** — solid surfaces when `backdrop-filter` is missing, and when the
   OS "Reduce transparency" setting is on.
 
@@ -248,7 +257,8 @@ protected by a shared secret — see the header of its `index.ts`).
 **Statement**, so it's a separate chunk instead of part of every page load.
 (The service worker still precaches it after install so the statement works
 offline.) The glass look uses `backdrop-filter`, which is the costly part on
-older iPhones — that's why the aurora is static and blur radii are capped.
+older iPhones — that's why the aurora is static and blur radii are capped, and
+why Settings → Appearance has a Reduce glass effects switch.
 
 ## Accessibility
 
@@ -325,8 +335,9 @@ add an in-app text-size setting instead of re-enabling zoom.
 - **Tags** on expenses/income; search matches description, category and tags.
   A global search sheet covers everything.
 - **Insights** tiles on Overview (biggest swing, savings rate, over-budget…).
-- **Themes**: five dark themes (Forest, Deep Sea, Plum, Wine, Amoled) — they
-  change background tones only; accent/semantic colors never change.
+- **Themes**: five dark themes (Forest, Deep Sea, Plum, Wine, Amoled) — each
+  sets its own background tones and accent; the income-green and expense-coral
+  meaning colors never change.
 - **Exports**: CSV, a designed PDF statement, and full JSON backup.
 - **Push notifications** (bill due, budget exceeded) via `pg_cron` → `pg_net` →
   `send-push`. On iPhone, install to the Home Screen first (iOS 16.4+).
@@ -344,7 +355,9 @@ add an in-app text-size setting instead of re-enabling zoom.
   `src/components/categoryFormSheet.js`; use a color from
   `CUSTOM_CATEGORY_COLORS` so its swatch highlights.
 - **Colors/fonts:** `:root` tokens at the top of `src/style.css`; theme
-  backgrounds in `src/themes.css`; glass look in `src/glass.css`.
+  backgrounds and accents in `src/themes.css`; glass look and per-theme aurora
+  in `src/glass.css`. A new theme needs entries in `themes.css`, `glass.css`
+  (`--aurora-*`), `THEMES` in `theme.js` and the id list in `index.html`.
 - **Add a database column/table:** `npm run db:new`, never the dashboard.
 - **Add a table that household members share:** add it to `SHARED_TABLES` in
   `realtime.js`, to the realtime publication, set `replica identity full`, add

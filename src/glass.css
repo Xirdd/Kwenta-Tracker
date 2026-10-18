@@ -432,6 +432,86 @@ body::before {
   outline-offset: 2px;
 }
 
+/* ── Reduce glass effects (Settings → Appearance) ──
+   For older iPhones where blur over scrolling content stutters. Cards become
+   solid and lose backdrop-filter entirely (the expensive part); the bottom nav
+   and sheets keep a much lighter blur so they still read as layered. The
+   aurora, edge lighting and colors are untouched, so it looks like the same
+   design, just not see-through. Set on <html> by theme.js (per device). */
+[data-glass="lite"] .list,
+[data-glass="lite"] .salary-card,
+[data-glass="lite"] .goal-card,
+[data-glass="lite"] .loan-card,
+[data-glass="lite"] .budget-summary,
+[data-glass="lite"] .goals-summary-banner,
+[data-glass="lite"] .ov-card,
+[data-glass="lite"] .bars,
+[data-glass="lite"] .ins-tile,
+[data-glass="lite"] .insights-card,
+[data-glass="lite"] .profile-card,
+[data-glass="lite"] .profile-header-card,
+[data-glass="lite"] .settings-card,
+[data-glass="lite"] .empty-state,
+[data-glass="lite"] .stat-chip,
+[data-glass="lite"] .pp-hero,
+[data-glass="lite"] .pp-stat,
+[data-glass="lite"] .auth-card,
+[data-glass="lite"] .quick-add-chip,
+[data-glass="lite"] .balance-hero,
+[data-glass="lite"] .tabs,
+[data-glass="lite"] .icon-btn,
+[data-glass="lite"] .month-nav button,
+[data-glass="lite"] .expense-search input,
+[data-glass="lite"] .field input,
+[data-glass="lite"] .field select {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-glass="lite"] .list,
+[data-glass="lite"] .salary-card,
+[data-glass="lite"] .goal-card,
+[data-glass="lite"] .loan-card,
+[data-glass="lite"] .budget-summary,
+[data-glass="lite"] .goals-summary-banner,
+[data-glass="lite"] .ov-card,
+[data-glass="lite"] .bars,
+[data-glass="lite"] .ins-tile,
+[data-glass="lite"] .insights-card,
+[data-glass="lite"] .profile-card,
+[data-glass="lite"] .profile-header-card,
+[data-glass="lite"] .settings-card,
+[data-glass="lite"] .empty-state,
+[data-glass="lite"] .stat-chip,
+[data-glass="lite"] .pp-hero,
+[data-glass="lite"] .pp-stat,
+[data-glass="lite"] .auth-card,
+[data-glass="lite"] .quick-add-chip {
+  background:
+    linear-gradient(118deg, rgba(255, 255, 255, 0.07), transparent 55%),
+    color-mix(in srgb, var(--paper) 92%, var(--bg));
+}
+[data-glass="lite"] .balance-hero {
+  background:
+    linear-gradient(125deg, rgba(255, 255, 255, 0.1), transparent 55%),
+    color-mix(in srgb, var(--paper) 90%, var(--bg));
+}
+[data-glass="lite"] .bottom-nav {
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 60%),
+    color-mix(in srgb, var(--paper) 86%, transparent);
+}
+[data-glass="lite"] .sheet,
+[data-glass="lite"] .toast-banner {
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+[data-glass="lite"] .scrim {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 /* ── Fallbacks ── */
 /* No backdrop-filter (older browsers): fall back to solid, readable surfaces
    instead of see-through ones with nothing blurred behind them. */
