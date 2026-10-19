@@ -2,29 +2,17 @@ import { DATA } from "../state.js";
 import { fmt, escapeHtml } from "../format.js";
 import { savedAmount, paceHint, monthLabel } from "../goals.js";
 
-// A vibrant, varied palette distinct from the fixed expense-category colors
-// — goals are personal and aspirational, so each one gets its own accent
-// rather than everything sharing the same gold ring.
-const PALETTE = [
-  "#ff5470",
-  "#4f8cff",
-  "#ffb020",
-  "#8e5fd6",
-  "#2fb8a6",
-  "#e2568f",
-  "#7fae3f",
-  "#29c5d6",
-];
-
-// Deterministic (hashed from the goal's id) so the same goal always gets the
-// same color everywhere it appears — the list and the detail sheet — without
-// needing to store a color choice anywhere.
-export function goalAccentColor(goalId) {
-  let hash = 0;
-  for (let i = 0; i < goalId.length; i++) {
-    hash = (hash * 31 + goalId.charCodeAt(i)) >>> 0;
-  }
-  return PALETTE[hash % PALETTE.length];
+// Every goal now uses the active theme's accent (--gold) instead of its own
+// color from a fixed palette. The old palette (pink, blue, amber, purple, teal…)
+// ignored the theme, so a goal could be teal on the Wine theme. Using the accent
+// keeps the tab uniform with the rest of the app, and it follows the theme
+// automatically. Finished goals stay green (--green = "done / money saved").
+//
+// The function and its signature are kept so existing callers keep working.
+// It returns a CSS value, not a hex: it is used inside style="" attributes,
+// where var() works.
+export function goalAccentColor() {
+  return "var(--gold)";
 }
 
 export function renderGoalsTab() {
@@ -115,15 +103,19 @@ function renderGoalsSummary(goals) {
 
 // A small circular progress chart — radius/circumference math shared with
 // the detail sheet's ring via this same exported function. `color` is the
-// goal's own accent (see goalAccentColor); completed goals always render in
-// green regardless of accent, so "done" reads unambiguously at a glance.
-// `goalId` only needs to be unique enough to avoid duplicate SVG gradient
-// ids when the list and the detail sheet are both in the DOM at once.
+// ring color as a CSS value (the theme accent by default); completed goals
+// always render in green regardless, so "done" reads unambiguously at a
+// glance. `goalId` only needs to be unique enough to avoid duplicate SVG
+// gradient ids when the list and the detail sheet are both in the DOM at once.
+//
+// The gradient stops use style="stop-color:…" rather than the stop-color
+// attribute, because only the style form understands var(--gold). (A plain hex
+// attribute is what pinned the old ring to one color in every theme.)
 let ringInstanceCounter = 0;
 export function renderGoalRing(
   pct,
   complete,
-  color = "#00d68f",
+  color = "var(--gold)",
   goalId = "shared",
 ) {
   const size = 68,
@@ -132,14 +124,14 @@ export function renderGoalRing(
     cy = 34,
     circ = 2 * Math.PI * r;
   const dash = (Math.max(pct, 1) / 100) * circ;
-  const ringColor = complete ? "#00d68f" : color;
+  const ringColor = complete ? "var(--green)" : color;
   const gradId = `goalRingGrad-${goalId}-${ringInstanceCounter++}`;
   return `
   <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="goal-ring">
     <defs>
       <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="${ringColor}"/>
-        <stop offset="100%" stop-color="${ringColor}" stop-opacity="0.6"/>
+        <stop offset="0%" style="stop-color:${ringColor}"/>
+        <stop offset="100%" style="stop-color:${ringColor};stop-opacity:0.6"/>
       </linearGradient>
     </defs>
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--paper-2)" stroke-width="7"/>
