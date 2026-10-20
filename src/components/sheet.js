@@ -7,7 +7,7 @@ import {
 import { uid, escapeHtml, todayISO } from "../format.js";
 import { openModal, closeModal } from "./modal.js";
 import { flashField } from "../dom.js";
-import { activeWallets } from "../wallets.js";
+import { walletField } from "./walletField.js";
 import {
   isCloudMode,
   cloudUpsertTransaction,
@@ -29,23 +29,7 @@ export function initSheet(rerenderCallback) {
 
 export const closeSheet = closeModal;
 
-function walletOptions(selectedId) {
-  const wallets = activeWallets();
-  if (wallets.length === 0) return "";
-  return `
-    <div class="field">
-      <label>Wallet <span class="opt">(optional — GCash, GoTyme, Maribank, etc.)</span></label>
-      <select id="fWallet">
-        <option value="">Not tracked</option>
-        ${wallets
-          .map(
-            (w) =>
-              `<option value="${w.id}" ${w.id === selectedId ? "selected" : ""}>${escapeHtml(w.name)}</option>`,
-          )
-          .join("")}
-      </select>
-    </div>`;
-}
+const walletOptions = (selectedId) => walletField(selectedId);
 
 export function openForm(type, tx, presetCategory) {
   // Custom categories (see categories.js/customCategories.js) only apply to
@@ -228,6 +212,7 @@ export function openForm(type, tx, presetCategory) {
           amount,
           category: chosenCat,
           date,
+          walletId,
         });
         saved.recurringId = rule.id;
       } else if (!repeatsChecked && wasRecurring) {
@@ -236,7 +221,12 @@ export function openForm(type, tx, presetCategory) {
       } else if (repeatsChecked && wasRecurring) {
         const rule = DATA.recurring.find((r) => r.id === tx.recurringId);
         if (rule)
-          updateRecurringTemplate(rule, { desc, amount, category: chosenCat });
+          updateRecurringTemplate(rule, {
+            desc,
+            amount,
+            category: chosenCat,
+            walletId,
+          });
       }
     } else {
       saved = {
@@ -256,6 +246,7 @@ export function openForm(type, tx, presetCategory) {
           amount,
           category: chosenCat,
           date,
+          walletId,
         });
         saved.recurringId = rule.id;
       }

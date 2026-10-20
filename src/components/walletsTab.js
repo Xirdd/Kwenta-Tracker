@@ -1,4 +1,5 @@
 import { DATA } from "../state.js";
+import { getActiveHousehold } from "../household.js";
 import { fmt, escapeHtml, formatDate } from "../format.js";
 import { categoryIconBadge } from "../categories.js";
 import { iconPaths } from "../icons/categoryIcons.js";
@@ -31,11 +32,12 @@ export function renderWalletsTab() {
     <div class="section-title">Wallets <span class="sub">GCash, banks, cash on hand</span></div>
     <div class="empty-state">
       <div class="glyph">₱</div>
-      <p>No wallets yet.<br/>Tap + to add GCash, GoTyme, Maribank, or any other wallet you use.</p>
+      <p>No wallets yet.<br/>Tap + to add GCash, Maya, GoTyme, Maribank, or any other wallet you use.</p>
     </div>`;
   }
 
   const total = totalWalletBalance();
+  const inHousehold = !!getActiveHousehold();
 
   const cards = wallets
     .map((w) => {
@@ -47,10 +49,10 @@ export function renderWalletsTab() {
       <div class="loan-glow"></div>
       <div class="loan-top">
         <div class="loan-person-row">
-          ${categoryIconBadge({ color: info.color, icon: iconPaths("card") }, 32)}
+          ${categoryIconBadge({ color: info.color, icon: iconPaths(info.icon) }, 32)}
           <div class="loan-person">${escapeHtml(w.name)}</div>
         </div>
-        <span class="loan-badge" style="background:${info.color}26;color:${info.color};">${escapeHtml(info.label)}</span>
+        <span class="loan-badge" style="background:${info.color}26;color:${info.color};">${escapeHtml(info.label)}${inHousehold && w.shared === false ? " · Private" : ""}</span>
       </div>
       <div class="goal-amounts">
         <span class="goal-saved" style="${negative ? "color:var(--coral);" : ""}">${negative ? "-" : ""}${fmt(Math.abs(balance))}</span>

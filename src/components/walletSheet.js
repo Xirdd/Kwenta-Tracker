@@ -1,6 +1,8 @@
 import { escapeHtml, fmt, formatDate } from "../format.js";
 import { openModal, closeModal } from "./modal.js";
 import { flashField } from "../dom.js";
+import { getActiveHousehold } from "../household.js";
+import { getCurrentUser } from "../auth.js";
 import { categoryIconBadge } from "../categories.js";
 import { iconPaths } from "../icons/categoryIcons.js";
 import {
@@ -23,11 +25,20 @@ export function openWalletForm(wallet) {
   const heading = wallet ? "Edit wallet" : "Add a wallet";
   let chosenProvider = wallet ? wallet.provider : "gcash";
 
+  // The share switch only appears inside a household, and only for the wallet's
+  // owner: someone else's shared wallet can't be turned private by a member
+  // (the database wouldn't allow it either).
+  const household = getActiveHousehold();
+  const me = getCurrentUser();
+  const isOwner = !wallet || !wallet.userId || (me && wallet.userId === me.id);
+  const canChooseSharing = !!household && isOwner;
+  const sharedNow = wallet ? wallet.shared !== false : true;
+
   const providerGrid = () =>
     WALLET_PROVIDERS.map(
       (p) => `
     <div class="cat-opt ${p.id === chosenProvider ? "selected" : ""}" data-provider="${p.id}">
-      ${categoryIconBadge({ color: p.color, icon: iconPaths("card") }, 28)}${escapeHtml(p.label)}
+      ${categoryIconBadge({ color: p.color, icon: iconPaths(p.icon) }, 28)}${escapeHtml(p.label)}
     </div>`,
     ).join("");
 
@@ -51,6 +62,22 @@ export function openWalletForm(wallet) {
           : "Kwenta tracks the balance from here using whatever income or expenses you assign to this wallet afterward."
       }</p>
     </div>
+    ${
+      canChooseSharing
+        ? `
+    <div class="field">
+      <label class="checkbox-row">
+        <input type="checkbox" id="wShared" ${sharedNow ? "checked" : ""}/>
+        <span>Share with ${escapeHtml(household.name)}</span>
+      </label>
+      <p class="field-hint">${
+        sharedNow
+          ? "Everyone in the household can see this wallet and assign expenses to it. Turn off to keep it private to you."
+          : "Only you can see this wallet. Your own entries tagged to it still show up for the household, just without the wallet name."
+      }</p>
+    </div>`
+        : ""
+    }
     <div class="sheet-actions">
       ${wallet ? `<button class="btn btn-danger" id="wDeleteBtn">Delete</button>` : ""}
       <button class="btn btn-ghost" id="wCancelBtn">Cancel</button>
@@ -77,7 +104,13 @@ export function openWalletForm(wallet) {
       flashField("wName");
       return;
     }
-    const payload = { name, provider: chosenProvider, startingBalance };
+    const sharedBox = document.getElementById("wShared");
+    const payload = {
+      name,
+      provider: chosenProvider,
+      startingBalance,
+      shared: sharedBox ? sharedBox.checked : undefined,
+    };
     if (wallet) updateWallet(wallet, payload);
     else createWallet(payload);
     closeModal();
@@ -116,7 +149,7 @@ export function openWalletDetail(wallet) {
   openModal(`
     <div class="grabber"></div>
     <h3>${escapeHtml(wallet.name)}</h3>
-    <p class="auth-message">${escapeHtml(info.label)}</p>
+    <p class="auth-message">${escapeHtml(info.label)}${getActiveHousehold() && wallet.shared === false ? " · Private (only you can see this)" : ""}</p>
     <div class="goal-amounts" style="margin-bottom:14px;">
       <span class="goal-saved" style="${balance < 0 ? "color:var(--coral);" : ""}">${balance < 0 ? "-" : ""}${fmt(Math.abs(balance))}</span>
       <span class="goal-of">current balance</span>

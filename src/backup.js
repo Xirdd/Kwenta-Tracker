@@ -264,6 +264,7 @@ function buildRestorePayload(d) {
     category: r.category,
     day_of_month: r.day,
     start_month: r.startMonth,
+    wallet_id: r.walletId || null,
     active: r.active !== false,
   }));
 
@@ -301,6 +302,7 @@ function buildRestorePayload(d) {
     name: w.name,
     provider: w.provider || "other",
     starting_balance: w.startingBalance || 0,
+    shared: w.shared !== false, // old backups have no flag: treated as shared
     active: w.active !== false,
   }));
 

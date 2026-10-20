@@ -14,13 +14,17 @@ import { notifySyncError } from "./toast.js";
 // reads as "that blue one" at a glance, the way categories.js's palette
 // works. "Bank account" and "Cash" cover anything that isn't one of the
 // three named e-wallets; "Other" is the catch-all.
+//
+// `icon` is an id from icons/categoryIcons.js (the "E-wallets & banks" group):
+// original monogram marks, not the companies' official logos.
 export const WALLET_PROVIDERS = [
-  { id: "gcash", label: "GCash", color: "#0072CE" },
-  { id: "gotyme", label: "GoTyme", color: "#6C2EB5" },
-  { id: "maribank", label: "Maribank", color: "#00A79D" },
-  { id: "bank", label: "Bank account", color: "#5b7fde" },
-  { id: "cash", label: "Cash", color: "#3fa377" },
-  { id: "other", label: "Other wallet", color: "#8c8c7a" },
+  { id: "gcash", label: "GCash", color: "#0072CE", icon: "gcash" },
+  { id: "maya", label: "Maya", color: "#1FBF75", icon: "maya" },
+  { id: "gotyme", label: "GoTyme", color: "#6C2EB5", icon: "gotyme" },
+  { id: "maribank", label: "Maribank", color: "#00A79D", icon: "maribank" },
+  { id: "bank", label: "Bank account", color: "#5b7fde", icon: "bank" },
+  { id: "cash", label: "Cash", color: "#3fa377", icon: "banknote" },
+  { id: "other", label: "Other wallet", color: "#8c8c7a", icon: "wallet" },
 ];
 const PROVIDER_IDS = WALLET_PROVIDERS.map((p) => p.id);
 
@@ -42,9 +46,14 @@ export function activeWallets() {
   return DATA.wallets.filter((w) => w.active !== false);
 }
 
-export function createWallet({ name, provider, startingBalance }) {
+// `shared` (default true) only matters while you're in a household: a shared
+// wallet is visible to, and usable by, everyone in it; a private one (shared:
+// false) is saved with no household, so only you can see or pick it. Outside a
+// household the flag has no effect.
+export function createWallet({ name, provider, startingBalance, shared }) {
   const wallet = {
     id: uid("w"),
+    shared: shared !== false,
     name,
     provider: PROVIDER_IDS.includes(provider) ? provider : "other",
     startingBalance: Number(startingBalance) || 0,
@@ -56,8 +65,12 @@ export function createWallet({ name, provider, startingBalance }) {
   return wallet;
 }
 
-export function updateWallet(wallet, { name, provider, startingBalance }) {
+export function updateWallet(
+  wallet,
+  { name, provider, startingBalance, shared },
+) {
   wallet.name = name;
+  if (shared !== undefined) wallet.shared = !!shared;
   wallet.provider = PROVIDER_IDS.includes(provider) ? provider : "other";
   wallet.startingBalance = Number(startingBalance) || 0;
   saveData();

@@ -41,13 +41,21 @@ export function getRule(id) {
   return DATA.recurring.find((r) => r.id === id);
 }
 
-export function createRecurringRule({ type, desc, amount, category, date }) {
+export function createRecurringRule({
+  type,
+  desc,
+  amount,
+  category,
+  date,
+  walletId,
+}) {
   const rule = {
     id: uid(),
     type,
     desc,
     amount,
     category,
+    walletId: walletId || undefined,
     day: dayFromDate(date),
     // Kept name: startMonth. Holds a period key in whichever mode was active
     // when the rule was created — gating "don't create transactions for
@@ -68,7 +76,11 @@ export function createRecurringRule({ type, desc, amount, category, date }) {
   return rule;
 }
 
-export function updateRecurringTemplate(rule, { desc, amount, category }) {
+export function updateRecurringTemplate(
+  rule,
+  { desc, amount, category, walletId },
+) {
+  rule.walletId = walletId || undefined;
   rule.desc = desc;
   rule.amount = amount;
   rule.category = category;
@@ -123,6 +135,7 @@ export function materializeMonth(periodKey) {
       amount: rule.amount,
       category: rule.category,
       date: dateStr,
+      walletId: rule.walletId,
       recurringId: rule.id,
     };
     DATA.transactions.push(tx);

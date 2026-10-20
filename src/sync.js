@@ -18,6 +18,19 @@ function scoped(table, user, householdId) {
     : q.eq("user_id", user.id).is("household_id", null);
 }
 
+// Wallets are the one table where a household member can ALSO keep rows
+// private: a private wallet is saved with household_id = null even while the
+// owner is in a household. So inside a household the load is "the household's
+// wallets, plus my own private ones".
+function scopedWallets(user, householdId) {
+  const q = supabase.from("kwenta_wallets").select("*");
+  return householdId
+    ? q.or(
+        `household_id.eq.${householdId},and(user_id.eq.${user.id},household_id.is.null)`,
+      )
+    : q.eq("user_id", user.id).is("household_id", null);
+}
+
 // supabase-js does NOT throw on a failed request — it resolves with
 // { data, error }. Every write below runs its result through this, so a
 // failure becomes a real rejected promise and the callers' existing
@@ -184,7 +197,7 @@ export async function cloudLoadAll() {
     scoped("kwenta_bills", user, householdId),
     scoped("kwenta_goals", user, householdId),
     scoped("kwenta_loans", user, householdId),
-    scoped("kwenta_wallets", user, householdId),
+    scopedWallets(user, householdId),
   ]);
 
   [
@@ -234,6 +247,7 @@ export async function cloudLoadAll() {
     category: r.category,
     day: r.day_of_month,
     startMonth: r.start_month,
+    walletId: r.wallet_id || undefined,
     active: r.active,
   }));
 
@@ -276,6 +290,9 @@ export async function cloudLoadAll() {
     provider: r.provider || "other",
     startingBalance: Number(r.starting_balance) || 0,
     active: r.active,
+    // Shared = saved against a household. (Outside a household everything is
+    // personal, so this reads false until a household exists.)
+    shared: !!r.household_id,
   }));
 
   return {
@@ -358,6 +375,7 @@ export async function cloudUpsertRecurring(rule) {
     category: rule.category,
     day_of_month: rule.day,
     start_month: rule.startMonth,
+    wallet_id: rule.walletId || null,
     active: rule.active,
   });
 }
@@ -435,7 +453,7 @@ export async function cloudUpsertWallet(wallet) {
   await upsertRow("kwenta_wallets", {
     id: wallet.id,
     user_id: ownerOf(wallet, user),
-    household_id: getActiveHouseholdId(),
+    household_id: wallet.shared === false ? null : getActiveHouseholdId(),
     name: wallet.name,
     provider: wallet.provider || "other",
     starting_balance: wallet.startingBalance || 0,
@@ -443,8 +461,11 @@ export async function cloudUpsertWallet(wallet) {
   });
 }
 
+// By id only (row-level security still limits it to my own rows and my
+// household's): a private wallet has no household_id, so the household-scoped
+// delete used for the other tables would miss it.
 export async function cloudDeleteWallet(id) {
-  await removeById("kwenta_wallets", id);
+  await deleteRow("kwenta_wallets", { id });
 }
 
 // ── First sign-in: push local data up if the account is empty ──────────

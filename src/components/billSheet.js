@@ -11,7 +11,10 @@ import {
   undoBillPayment,
   dueDateStr,
   ordinalSuffix,
+  lastWalletFor,
 } from "../bills.js";
+import { getWallet } from "../wallets.js";
+import { walletField } from "./walletField.js";
 
 let onChange = () => {};
 
@@ -114,12 +117,14 @@ function displayCategoryLabel(bill) {
 
 export function openBillPaymentSheet(bill, monthKey) {
   const paidTx = findPaymentTx(bill.id, monthKey);
+  const paidWallet =
+    paidTx && paidTx.walletId ? getWallet(paidTx.walletId) : null;
 
   if (paidTx) {
     openModal(`
       <div class="grabber"></div>
       <h3>${escapeHtml(bill.name)}</h3>
-      <p class="auth-message">Paid ${fmt(paidTx.amount)} on ${formatDate(paidTx.date)}.</p>
+      <p class="auth-message">Paid ${fmt(paidTx.amount)} on ${formatDate(paidTx.date)}${paidWallet ? ` from ${escapeHtml(paidWallet.name)}` : ""}.</p>
       <div class="sheet-actions" style="flex-direction:column;">
         <button class="btn btn-danger" id="undoPaidBtn">Undo payment</button>
         <button class="btn btn-ghost" id="editBillBtn">Edit bill details</button>
@@ -147,6 +152,7 @@ export function openBillPaymentSheet(bill, monthKey) {
       <label>Date paid</label>
       <input id="payDate" type="date" value="${suggestedDate}"/>
     </div>
+    ${walletField(lastWalletFor(bill.id), { id: "payWallet", label: "Paid from" })}
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="payCancelBtn">Cancel</button>
       <button class="btn btn-primary" id="payConfirmBtn">Mark as paid</button>
@@ -164,7 +170,9 @@ export function openBillPaymentSheet(bill, monthKey) {
       flash("payAmount");
       return;
     }
-    markBillPaid(bill, monthKey, { amount, date });
+    const walletEl = document.getElementById("payWallet");
+    const walletId = walletEl ? walletEl.value || undefined : undefined;
+    markBillPaid(bill, monthKey, { amount, date, walletId });
     closeModal();
     onChange();
   };

@@ -78,7 +78,16 @@ export function findPaymentTx(billId, monthKey) {
 }
 
 // Records a payment for the given month as a real expense transaction, linked back to the bill.
-export function markBillPaid(bill, monthKey, { amount, date }) {
+// The wallet this bill was paid from last time — pre-selected next month, so
+// paying Meralco from GCash every month is one tap.
+export function lastWalletFor(billId) {
+  const paid = DATA.transactions
+    .filter((t) => t.billId === billId && t.walletId)
+    .sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
+  return paid ? paid.walletId : undefined;
+}
+
+export function markBillPaid(bill, monthKey, { amount, date, walletId }) {
   const tx = {
     id: uid(),
     type: "expense",
@@ -87,6 +96,7 @@ export function markBillPaid(bill, monthKey, { amount, date }) {
     category: bill.category,
     date,
     billId: bill.id,
+    walletId: walletId || undefined,
   };
   DATA.transactions.push(tx);
   saveData();

@@ -1,9 +1,12 @@
 import { DATA, periodRange, periodKeyHasHalf, monthLabel } from "./state.js";
 import { catInfo, incCatInfo } from "./categories.js";
+import { getWallet } from "./wallets.js";
 import { csvEscape, todayISO } from "./format.js";
 
 export function exportCSV() {
-  const rows = [["Date", "Type", "Category", "Description", "Amount"]];
+  const rows = [
+    ["Date", "Type", "Category", "Description", "Amount", "Wallet"],
+  ];
 
   // Salary is keyed by PERIOD ("2026-09" or "2026-09-1"), not by a date. The
   // old code wrote `key + "-01"`, which produced "2026-09-1-01" for
@@ -17,6 +20,7 @@ export function exportCSV() {
       "Salary",
       periodKeyHasHalf(key) ? `Salary, ${monthLabel(key)}` : "Monthly salary",
       amt,
+      "",
     ]);
   });
 
@@ -34,6 +38,7 @@ export function exportCSV() {
         label,
         tx.desc || "",
         tx.amount,
+        (tx.walletId && getWallet(tx.walletId)?.name) || "",
       ]);
     });
 
