@@ -1,8 +1,7 @@
 import { DATA } from "../state.js";
 import { getActiveHousehold } from "../household.js";
 import { fmt, escapeHtml, formatDate } from "../format.js";
-import { categoryIconBadge } from "../categories.js";
-import { iconPaths } from "../icons/categoryIcons.js";
+import { walletBadge } from "../walletLogos.js";
 import {
   walletBalance,
   totalWalletBalance,
@@ -49,7 +48,7 @@ export function renderWalletsTab() {
       <div class="loan-glow"></div>
       <div class="loan-top">
         <div class="loan-person-row">
-          ${categoryIconBadge({ color: info.color, icon: iconPaths(info.icon) }, 32)}
+          ${walletBadge(info, 32)}
           <div class="loan-person">${escapeHtml(w.name)}</div>
         </div>
         <span class="loan-badge" style="background:${info.color}26;color:${info.color};">${escapeHtml(info.label)}${inHousehold && w.shared === false ? " · Private" : ""}</span>

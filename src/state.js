@@ -52,7 +52,7 @@ export const state = {
   section: "overview", // bottom nav: 'overview' | 'goals' | 'loans'
   tab: "overview", // sub-tab used only when section === 'overview'
   editingId: null,
-  expenseFilters: { query: "", category: null },
+  expenseFilters: { query: "", category: null, wallet: null },
 };
 
 function daysInMonth(year, month /* 1-indexed */) {
@@ -187,7 +187,7 @@ export function shiftMonth(delta) {
     let [y, m] = state.monthKey.split("-").map(Number);
     [y, m] = shiftWholeMonth(y, m, delta);
     state.monthKey = `${y}-${String(m).padStart(2, "0")}`;
-    state.expenseFilters = { query: "", category: null };
+    state.expenseFilters = { query: "", category: null, wallet: null };
     return;
   }
 
@@ -220,7 +220,7 @@ export function shiftMonth(delta) {
     }
   }
   state.monthKey = `${y}-${String(m).padStart(2, "0")}-${half}`;
-  state.expenseFilters = { query: "", category: null };
+  state.expenseFilters = { query: "", category: null, wallet: null };
 }
 
 // The optional 2nd-half limits and custom categories each live in their own

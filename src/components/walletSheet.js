@@ -3,8 +3,9 @@ import { openModal, closeModal } from "./modal.js";
 import { flashField } from "../dom.js";
 import { getActiveHousehold } from "../household.js";
 import { getCurrentUser } from "../auth.js";
-import { categoryIconBadge } from "../categories.js";
-import { iconPaths } from "../icons/categoryIcons.js";
+import { state, periodRange, monthLabel } from "../state.js";
+import { addPesos } from "../money.js";
+import { walletBadge } from "../walletLogos.js";
 import {
   WALLET_PROVIDERS,
   providerInfo,
@@ -38,7 +39,7 @@ export function openWalletForm(wallet) {
     WALLET_PROVIDERS.map(
       (p) => `
     <div class="cat-opt ${p.id === chosenProvider ? "selected" : ""}" data-provider="${p.id}">
-      ${categoryIconBadge({ color: p.color, icon: iconPaths(p.icon) }, 28)}${escapeHtml(p.label)}
+      ${walletBadge(p, 28)}${escapeHtml(p.label)}
     </div>`,
     ).join("");
 
@@ -141,10 +142,27 @@ function confirmDeleteWallet(wallet) {
   };
 }
 
-export function openWalletDetail(wallet) {
+const PAGE = 8;
+
+// `all` shows the whole history instead of the latest few.
+export function openWalletDetail(wallet, { all = false } = {}) {
   const info = providerInfo(wallet.provider);
   const balance = walletBalance(wallet);
-  const recent = transactionsForWallet(wallet.id).slice(0, 8);
+  const history = transactionsForWallet(wallet.id);
+  const recent = all ? history : history.slice(0, PAGE);
+
+  // Money in / out of THIS wallet during the period on screen. Unlike the
+  // Overview totals this counts everything that moved through the wallet —
+  // transfers, goal contributions and utang included — because it's the
+  // wallet's own movement, the same rule its balance follows.
+  const { start, end } = periodRange(state.monthKey);
+  let moneyIn = 0;
+  let moneyOut = 0;
+  history.forEach((t) => {
+    if (!t.date || t.date < start || t.date > end) return;
+    if (t.type === "income") moneyIn = addPesos(moneyIn, t.amount);
+    else moneyOut = addPesos(moneyOut, t.amount);
+  });
 
   openModal(`
     <div class="grabber"></div>
@@ -154,31 +172,59 @@ export function openWalletDetail(wallet) {
       <span class="goal-saved" style="${balance < 0 ? "color:var(--coral);" : ""}">${balance < 0 ? "-" : ""}${fmt(Math.abs(balance))}</span>
       <span class="goal-of">current balance</span>
     </div>
+    <div class="stat-strip">
+      <div class="stat-chip">
+        <div class="label">In · ${escapeHtml(monthLabel(state.monthKey))}</div>
+        <div class="value" style="color:var(--green);">${fmt(moneyIn)}</div>
+      </div>
+      <div class="stat-chip">
+        <div class="label">Out · ${escapeHtml(monthLabel(state.monthKey))}</div>
+        <div class="value" style="color:var(--coral);">${fmt(moneyOut)}</div>
+      </div>
+    </div>
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="wEditBtn">Edit wallet</button>
+      <button class="btn btn-ghost" id="wExpensesBtn">See expenses</button>
     </div>
     ${
       recent.length > 0
         ? `
-    <div class="section-title" style="margin:20px 2px 8px 2px;font-size:14px;">Recent activity</div>
+    <div class="section-title" style="margin:20px 2px 8px 2px;font-size:14px;">${all ? "All activity" : "Recent activity"} <span class="sub">${history.length} ${history.length === 1 ? "entry" : "entries"}</span></div>
     <div class="list">
       ${recent
         .map(
           (tx) => `
         <div class="row">
           <div class="info">
-            <div class="desc">${escapeHtml(tx.desc || "")}</div>
+            <div class="desc">${tx.transferId ? "⇄ " : ""}${escapeHtml(tx.desc || "")}</div>
             <div class="meta">${formatDate(tx.date)}</div>
           </div>
-          <div class="amt ${tx.type === "expense" ? "expense" : "income"}">${tx.type === "expense" ? "-" : "+"}${fmt(tx.amount)}</div>
+          <div class="amt ${tx.transferId ? "" : tx.type === "expense" ? "expense" : "income"}">${tx.type === "expense" ? "-" : "+"}${fmt(tx.amount)}</div>
         </div>
       `,
         )
         .join("")}
-    </div>`
+    </div>
+    ${
+      !all && history.length > PAGE
+        ? `<button class="btn btn-ghost" id="wMoreBtn" style="width:100%;margin-top:10px;">Show all ${history.length}</button>`
+        : ""
+    }`
         : `<p class="field-hint" style="margin-top:14px;">No transactions assigned to this wallet yet — pick it from the Wallet field when logging an expense or income.</p>`
     }
   `);
 
   document.getElementById("wEditBtn").onclick = () => openWalletForm(wallet);
+
+  // Jump to the Expenses tab, filtered to this wallet (for the period on screen).
+  document.getElementById("wExpensesBtn").onclick = () => {
+    state.expenseFilters = { query: "", category: null, wallet: wallet.id };
+    state.section = "overview";
+    state.tab = "expenses";
+    closeModal();
+    onChange();
+  };
+
+  const moreBtn = document.getElementById("wMoreBtn");
+  if (moreBtn) moreBtn.onclick = () => openWalletDetail(wallet, { all: true });
 }

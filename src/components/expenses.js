@@ -3,6 +3,7 @@ import { state, DATA, monthTx, monthLabel } from "../state.js";
 import { catInfo, categoryIconBadge } from "../categories.js";
 import { fmt, formatDate, escapeHtml } from "../format.js";
 import { addPesos } from "../money.js";
+import { activeWallets, getWallet } from "../wallets.js";
 import { openForm } from "./sheet.js";
 import { openExpenseCategoriesSheet } from "./expenseCategoriesSheet.js";
 
@@ -10,14 +11,21 @@ const FILTER_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
 
 function isFiltering() {
   return (
-    state.expenseFilters.query.trim() !== "" || !!state.expenseFilters.category
+    state.expenseFilters.query.trim() !== "" ||
+    !!state.expenseFilters.category ||
+    !!state.expenseFilters.wallet
   );
 }
 
 function filteredExpenses() {
-  const { query, category } = state.expenseFilters;
+  const { query, category, wallet } = state.expenseFilters;
   let items = monthTx("expense");
   if (category) items = items.filter((tx) => tx.category === category);
+  // "none" = entries with no wallet. A filter pointing at a wallet that has
+  // since been deleted is ignored rather than hiding everything.
+  if (wallet === "none") items = items.filter((tx) => !tx.walletId);
+  else if (wallet && getWallet(wallet))
+    items = items.filter((tx) => tx.walletId === wallet);
   if (query.trim()) {
     const q = query.trim().toLowerCase();
     items = items.filter((tx) => {
@@ -64,8 +72,20 @@ export function renderExpenses() {
 // the old chip row overlapped on narrow phones. A small pill under the toolbar
 // shows (and clears) the active category filter.
 function renderToolbar() {
-  const { query, category } = state.expenseFilters;
+  const { query, category, wallet } = state.expenseFilters;
   const active = category ? catInfo(category) : null;
+  const wallets = activeWallets();
+  const walletRow = wallets.length
+    ? `
+  <div class="expense-wallet-row">
+    <label for="expenseWalletSelect">Wallet</label>
+    <select id="expenseWalletSelect" aria-label="Filter by wallet">
+      <option value="">All wallets</option>
+      ${wallets.map((w) => `<option value="${escapeHtml(w.id)}" ${wallet === w.id ? "selected" : ""}>${escapeHtml(w.name)}</option>`).join("")}
+      <option value="none" ${wallet === "none" ? "selected" : ""}>No wallet</option>
+    </select>
+  </div>`
+    : "";
   return `
   <div class="expense-toolbar">
     <div class="expense-search">
@@ -75,6 +95,7 @@ function renderToolbar() {
       ${FILTER_ICON}<span>Categories</span>
     </button>
   </div>
+  ${walletRow}
   ${
     active
       ? `
@@ -157,6 +178,14 @@ export function attachExpenseEvents() {
   if (catBtn) {
     catBtn.onclick = () =>
       openExpenseCategoriesSheet({ onFilterChange: setCategoryFilter });
+  }
+
+  const walletSelect = document.getElementById("expenseWalletSelect");
+  if (walletSelect) {
+    walletSelect.onchange = () => {
+      state.expenseFilters.wallet = walletSelect.value || null;
+      rerenderPanel();
+    };
   }
 
   const clearBtn = document.getElementById("clearCategoryFilter");

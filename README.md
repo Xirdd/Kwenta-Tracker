@@ -50,6 +50,7 @@ kwenta/
     ├── format.js / currency.js  display formatting, currency choice
     ├── categories.js, customCategories*.js, budgetView.js, budgetLimitsCloud.js
     ├── icons/categoryIcons.js  icon library (incl. e-wallet & bank monograms)
+    ├── wallets.js, walletLogos.js  wallet balances/transfers; optional official logos
     ├── recurring.js, bills.js, goals.js, loans.js
     ├── backup.js, backupCrypto.js   full backup/restore (optionally encrypted)
     ├── export.js (CSV), pdfExport.js (statement; jsPDF is lazy-loaded)
@@ -127,6 +128,36 @@ official logos (trademarked artwork that a one-color icon couldn't reproduce).
 When creating a new custom category, **Quick start** chips fill in the name,
 icon and a nearby palette color in one tap; everything stays editable. To use an
 official logo, you'd need the brand's own asset and permission to use it.
+
+## Wallets (GCash, Maya, GoTyme, Maribank, bank, cash)
+
+The **Wallets** tab tracks "what's actually in it" per wallet: starting balance
+plus every transaction tagged to it (goal and utang payments included, because
+that money really moved), with transfers between wallets. Icons are the
+original monograms from `icons/categoryIcons.js`, not official logos.
+
+- **Tagging:** the Wallet dropdown (`components/walletField.js`) appears on the
+  expense/income form and on bill payments (which pre-selects the wallet you
+  paid that bill from last time). Recurring entries carry their wallet too
+  (`kwenta_recurring.wallet_id`).
+- **Private or shared:** inside a household a wallet is shared by default; the
+  owner can switch it to private. A private wallet is saved with
+  `household_id = null`, so only its owner can see it (row-level security
+  already allows that). Entries you tag to it still show for the household,
+  just without the wallet name. Joining a household shares your existing wallets
+  (as with everything else you own).
+- **Filtering:** Expenses has a Wallet dropdown (All / a wallet / No wallet).
+  A wallet's detail sheet shows money in/out for the period on screen, its full
+  history ("Show all"), transfers marked with ⇄, and **See expenses**, which
+  opens Expenses filtered to that wallet. Transfers are separately tracked, so
+  they never appear in Expenses or Net Balance.
+- **Official logos (optional):** none ship with the app. Add `gcash.svg`,
+  `maya.svg`, `gotyme.svg`, `maribank.svg` (or `.png`) to
+  `src/assets/wallet-logos/` and they replace the monograms (`walletLogos.js`,
+  bundled at build time; a missing file keeps the monogram). Use each company's
+  official brand assets and follow their terms — see that folder's README.
+- **Adding a provider** touches: `WALLET_PROVIDERS` in `wallets.js`, its icon in
+  `categoryIcons.js`, and the `provider` CHECK constraint (a new migration).
 
 ## Cloud sync and the offline retry queue
 
@@ -370,4 +401,4 @@ add an in-app text-size setting instead of re-enabling zoom.
 - Amounts are stored as peso numbers; only arithmetic is centavo-exact.
 - The sync queue stores plain JSON in `localStorage`; it's cleared on logout.
 - Currency and period mode are per-device settings.
-- The e-wallet icons are monograms, not official brand logos.
+- The e-wallet icons are monograms unless you add official logo files (see Wallets).
