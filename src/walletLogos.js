@@ -36,9 +36,20 @@ export function walletLogoUrl(providerId) {
   return LOGO_BY_PROVIDER[providerId] || null;
 }
 
+// Logos that are one dark color (GoTyme's wordmark, and the generic black
+// bank / cash / other icons) would vanish on a dark tile, so these are shown as
+// a light single-color version. Full-color brand logos (GCash, Maya, Maribank)
+// are left exactly as supplied.
+const LIGHTEN = new Set(["gotyme", "bank", "cash", "other"]);
+
+// Wordmarks are much wider than they are tall (Maribank is ~4.7:1). The tile
+// grows with the logo's own proportions up to this multiple of its height, so
+// a wordmark is readable instead of a few pixels tall inside a square.
+const MAX_WIDTH_RATIO = 2.3;
+
 // The icon for a wallet provider (an entry of WALLET_PROVIDERS): the official
-// logo on a white tile if one was added, otherwise the colored monogram badge.
-// The url comes from the build (hashed asset path), never from user input.
+// logo on a dark glass tile if one was added, otherwise the colored monogram
+// badge. The url comes from the build (hashed asset path), never user input.
 export function walletBadge(provider, size = 32) {
   const url = walletLogoUrl(provider.id);
   if (!url) {
@@ -47,5 +58,6 @@ export function walletBadge(provider, size = 32) {
       size,
     );
   }
-  return `<span class="cat-icon-badge wallet-logo-badge" style="width:${size}px;height:${size}px;"><img src="${escapeHtml(url)}" alt="" decoding="async"/></span>`;
+  const cls = `wallet-logo-badge${LIGHTEN.has(provider.id) ? " wallet-logo-light" : ""}`;
+  return `<span class="${cls}" style="--wl-size:${size}px;--wl-max:${MAX_WIDTH_RATIO};"><img src="${escapeHtml(url)}" alt="" decoding="async"/></span>`;
 }

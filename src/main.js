@@ -227,6 +227,28 @@ async function onHouseholdChanged() {
   refreshRealtimeSubscription();
 }
 
+// The Overview sub-tabs (Overview/Income/Expenses/Budgets/Bills/Wallets) are a
+// single row that slides sideways. After every render this brings the active
+// tab into view (scrolling only the strip, never the page) and marks which edge
+// still has tabs beyond it, so the CSS can fade that edge as a "more" cue.
+function syncTabsScroll() {
+  const tabs = document.querySelector(".tabs");
+  if (!tabs) return;
+  const update = () => {
+    const max = tabs.scrollWidth - tabs.clientWidth;
+    tabs.classList.toggle("has-more", max - tabs.scrollLeft > 4);
+    tabs.classList.toggle("has-less", tabs.scrollLeft > 4);
+  };
+  const active = tabs.querySelector(".tab-btn.active");
+  if (active) {
+    const target =
+      active.offsetLeft - (tabs.clientWidth - active.offsetWidth) / 2;
+    tabs.scrollLeft = Math.max(0, target);
+  }
+  tabs.onscroll = update;
+  update();
+}
+
 function attachEvents() {
   const prevMonthBtn = document.getElementById("prevMonth");
   const nextMonthBtn = document.getElementById("nextMonth");
@@ -247,6 +269,7 @@ function attachEvents() {
       render();
     };
   });
+  syncTabsScroll();
 
   document.querySelectorAll(".bottom-nav-btn").forEach((btn) => {
     btn.onclick = () => {
