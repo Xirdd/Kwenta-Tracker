@@ -502,6 +502,15 @@ async function unlockApp({ boot = false } = {}) {
     // can never be replayed into someone else's account.
     if (!user || lastUserId) clearSyncQueue();
 
+    // A different account signing in with no sign-out in between (it shouldn't
+    // happen, but a swapped session would): the previous person's data is still
+    // in memory and in the cache, and the first-sign-in migration would copy it
+    // into this account. Empty both before anything loads.
+    if (user && lastUserId && user.id !== lastUserId) {
+      clearLocalData();
+      switchToLocalData();
+    }
+
     lastUserId = userId;
 
     if (!user) {

@@ -1,4 +1,4 @@
-import { loadData, persist } from "./storage.js";
+import { loadData, loadSignedOutData, persist } from "./storage.js";
 import {
   isCloudMode,
   cloudLoadAll,
@@ -275,7 +275,8 @@ export async function initData() {
     if (cloud) await attachSideTables(cloud, local);
     replaceData(cloud || local);
   } else {
-    replaceData(loadData());
+    // Signed out: never read back a cache that belonged to an account.
+    replaceData(loadSignedOutData());
   }
 }
 

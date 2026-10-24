@@ -61,6 +61,38 @@ export function loadData(ownerId) {
   return blank();
 }
 
+// The cache as seen by someone who is NOT signed in (the login screen is up).
+//
+// loadData(ownerId) above protects a signed-in boot, but the signed-out boot
+// had no owner to compare against, so it loaded whatever was on the device into
+// memory. If that was left behind by an account whose session ended while the
+// app was closed, the next person to sign up on this phone had it (still in
+// memory) uploaded into their brand-new empty account by the first-sign-in
+// migration — the leak REVIEW.md item 1 describes.
+//
+// Rule: a cache tagged with an account id is only ever read back by that same
+// account (via loadData). Signed out, it is a leftover, so it is wiped and
+// ignored — the real copy is in the cloud, and unsynced edits live in the
+// separate retry queue, which RLS keeps from writing into anyone else's rows.
+// A cache with NO tag predates accounts (the original local-only app) and
+// still loads, so it can be moved into the first account created, exactly as
+// before.
+export function loadSignedOutData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.ownerId) {
+        clearLocalData();
+        return blank();
+      }
+    }
+  } catch (e) {
+    console.error("Failed to inspect Kwenta cache", e);
+  }
+  return loadData();
+}
+
 // Saves are debounced (250 ms) so typing doesn't hammer localStorage. A
 // phone can suspend or kill a PWA the moment you switch away, though, which
 // used to drop a save that was still waiting on that timer. `pending` holds
