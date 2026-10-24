@@ -230,6 +230,12 @@ categories. **Salary is never shared** (no `household_id` column).
 
 - Invite codes are 10 characters and **expire after 7 days**. Wrong and expired
   codes look identical. Joining is rate-limited (5 attempts / 15 min).
+- **Creating or joining asks first** (`householdSheet.js`): it lists what's
+  about to be shared (transactions, recurring entries, bills, goals, utang,
+  wallets, budget limits) and offers "without sharing". Not sharing leaves your
+  existing entries personal — hidden while you're in the household, back if you
+  leave — but personal wallets stay visible, so their balances won't include
+  those hidden entries until you leave. Nothing to share = no question asked.
 - The **owner** (creator) can regenerate the code and remove members; everyone
   can see the member list. Removed members lose access; entries they added stay.
 - Leaving only deletes your membership.

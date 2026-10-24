@@ -12,6 +12,7 @@ import {
   removeHouseholdMember,
 } from "../household.js";
 import { getCurrentUser } from "../auth.js";
+import { DATA } from "../state.js";
 import { openHouseholdActivitySheet } from "./householdActivitySheet.js";
 
 let onChange = () => {};
@@ -218,18 +219,7 @@ function renderJoinOrCreate(message) {
       flash("hNewName");
       return;
     }
-    const btn = document.getElementById("hCreateBtn");
-    btn.disabled = true;
-    btn.textContent = "Creating…";
-    try {
-      await createHousehold(name);
-      closeModal();
-      onChange();
-    } catch (e) {
-      renderJoinOrCreate(
-        e.message || "Could not create the household. Please try again.",
-      );
-    }
+    startWithConfirm("create", name);
   };
 
   document.getElementById("hJoinBtn").onclick = async () => {
@@ -238,15 +228,87 @@ function renderJoinOrCreate(message) {
       flash("hJoinCode");
       return;
     }
-    const btn = document.getElementById("hJoinBtn");
-    btn.disabled = true;
-    btn.textContent = "Joining…";
-    try {
-      await joinHousehold(code);
-      closeModal();
-      onChange();
-    } catch (e) {
-      renderJoinOrCreate(e.message || "Couldn't join that household.");
-    }
+    startWithConfirm("join", code);
   };
+}
+
+// ── Joining / creating shares what you already have ─────────────────────
+// Both creating and joining a household move everything you've already
+// logged — transactions, recurring entries, bills, goals, utang, wallets and
+// budget limits — into it, where every member can see it. That used to happen
+// the instant you tapped the button. Now there's a confirmation that says what
+// is about to be shared, and a way to go in without sharing any of it
+// (your existing entries then stay personal, and come back if you leave).
+// Salary is never shared either way.
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + "s"}`;
+
+function shareSummary() {
+  const budgetLimits = Object.values(DATA.budgets || {}).filter(
+    (v) => v !== undefined && v !== null && v !== "",
+  ).length;
+  return [
+    [DATA.transactions.length, "transaction"],
+    [DATA.recurring.length, "recurring entry", "recurring entries"],
+    [DATA.bills.length, "bill"],
+    [DATA.goals.length, "savings goal"],
+    [DATA.loans.length, "utang entry", "utang entries"],
+    [(DATA.wallets || []).length, "wallet"],
+    [budgetLimits, "budget limit"],
+  ]
+    .filter(([n]) => n > 0)
+    .map(([n, one, many]) => plural(n, one, many));
+}
+
+function startWithConfirm(kind, value) {
+  // Nothing to share yet (a brand-new account): no point asking.
+  if (shareSummary().length === 0) {
+    runHouseholdAction(kind, value, true);
+    return;
+  }
+  renderConfirmShare(kind, value);
+}
+
+function renderConfirmShare(kind, value) {
+  const items = shareSummary();
+  const joining = kind === "join";
+  openModal(`
+    <div class="grabber"></div>
+    <h3>${joining ? "Join" : "Create"} and share what you have?</h3>
+    <p class="auth-message">Everyone in the household will be able to see and edit what you've already logged:</p>
+    <div class="profile-card" style="margin:0 0 12px 0;padding:6px 16px;">
+      ${items.map((t) => `<div class="profile-row" style="padding:9px 0;border-bottom:1px solid var(--line-dark);"><div class="profile-value">${escapeHtml(t)}</div></div>`).join("")}
+    </div>
+    <p class="auth-message">Your salary always stays private. Wallets can be switched to private afterwards. If you leave later, what you shared stays with the household.</p>
+    <div class="sheet-actions" style="flex-direction:column;">
+      <button class="btn btn-primary" id="hShareYesBtn">Share it and ${joining ? "join" : "create"}</button>
+      <button class="btn btn-ghost" id="hShareNoBtn">${joining ? "Join" : "Create"} without sharing it</button>
+      <button class="btn btn-ghost" id="hShareBackBtn">Back</button>
+    </div>
+    <p class="field-hint" style="margin-top:10px;">Without sharing, your existing entries stay personal and are hidden while you're in the household. They come back if you leave.</p>
+  `);
+
+  document.getElementById("hShareBackBtn").onclick = () => renderJoinOrCreate();
+  document.getElementById("hShareYesBtn").onclick = () =>
+    runHouseholdAction(kind, value, true);
+  document.getElementById("hShareNoBtn").onclick = () =>
+    runHouseholdAction(kind, value, false);
+}
+
+async function runHouseholdAction(kind, value, migrate) {
+  document
+    .querySelectorAll("#sheet button")
+    .forEach((b) => (b.disabled = true));
+  try {
+    if (kind === "join") await joinHousehold(value, { migrate });
+    else await createHousehold(value, { migrate });
+    closeModal();
+    onChange();
+  } catch (e) {
+    renderJoinOrCreate(
+      e.message ||
+        (kind === "join"
+          ? "Couldn't join that household."
+          : "Could not create the household. Please try again."),
+    );
+  }
 }
