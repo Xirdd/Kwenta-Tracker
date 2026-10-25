@@ -171,6 +171,33 @@ export function scopedRestoreData(backup) {
   });
 }
 
+// What this account owns right now — the "before" side of a household restore
+// preview. (In a household DATA holds every member's entries; only these are
+// replaced by a restore.)
+export function ownedCurrentData() {
+  const user = getCurrentUser();
+  return scopeForRestore(normalize(DATA), {
+    householdId: getActiveHouseholdId(),
+    userId: user?.id,
+  });
+}
+
+// True if the backup contains entries with no recorded owner. Files made before
+// entries carried a `userId` look like that. Inside a household they are all
+// restored as the restorer's own, so if such a file was exported while in a
+// household, other members' entries come back as extra copies — worth a warning.
+export function backupHasUnownedItems(backup) {
+  const d = normalize(backup.data);
+  return [
+    d.transactions,
+    d.recurring,
+    d.bills,
+    d.goals,
+    d.loans,
+    d.wallets,
+  ].some((list) => list.some((item) => !item.userId));
+}
+
 // ORDER MATTERS. In cloud mode the server restore runs FIRST, as one atomic
 // database transaction (restore_my_data in supabase/phase1_restore_and_delete.sql):
 // either everything in the (scoped) payload replaces this account's rows, or

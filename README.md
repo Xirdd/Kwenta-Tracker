@@ -178,7 +178,11 @@ change** so one person's unsynced edits can never replay into another account.
 Restoring a backup calls the `restore_my_data` SQL function, which deletes and
 re-inserts everything in **one transaction** — it fully applies or changes
 nothing. The app only replaces its in-memory/local copy after the server
-succeeds. Backups can be password-encrypted (AES-GCM, PBKDF2); there is no
+succeeds. **Inside a household a restore only replaces entries you added**
+(the file records each entry's owner), other members' rows are never touched,
+and the preview compares your own entries before/after. A backup from an older
+version has no owner info; restoring one in a household warns that entries may
+be duplicated. Backups can be password-encrypted (AES-GCM, PBKDF2); there is no
 recovery for a forgotten backup password.
 
 ## Recurring entries

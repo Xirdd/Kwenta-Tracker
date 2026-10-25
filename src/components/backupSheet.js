@@ -5,8 +5,13 @@ import {
   isEncryptedBackup,
   unlockBackup,
   restoreBackup,
+  scopedRestoreData,
+  ownedCurrentData,
+  backupHasUnownedItems,
 } from "../backup.js";
 import { DATA } from "../state.js";
+import { getActiveHousehold } from "../household.js";
+import { escapeHtml } from "../format.js";
 
 let onChange = () => {};
 
@@ -189,8 +194,15 @@ function diffRow(label, before, after) {
 }
 
 function renderConfirm(backup, error) {
-  const before = summarize(DATA);
-  const after = summarize(backup.data || {});
+  // In a household, DATA holds everyone's entries but a restore only replaces
+  // YOUR OWN (other members' rows are never touched), so the preview compares
+  // like with like instead of showing the whole household against the file.
+  const household = getActiveHousehold();
+  const before = summarize(household ? ownedCurrentData() : DATA);
+  const after = summarize(
+    household ? scopedRestoreData(backup) : backup.data || {},
+  );
+  const unowned = !!household && backupHasUnownedItems(backup);
   const date = backup.exportedAt
     ? new Date(backup.exportedAt).toLocaleDateString("en-US", {
         month: "long",
@@ -213,7 +225,21 @@ function renderConfirm(backup, error) {
       ${diffRow("Utang entries", before.loans, after.loans)}
     </div>
 
-    <p class="auth-message" style="color:var(--coral);font-weight:700;margin-top:14px;">Everything currently in Kwenta — all transactions, budgets, bills, goals, and utang — will be replaced with what's in this file. This can't be undone.</p>
+    ${
+      household
+        ? `<p class="auth-message" style="margin-top:14px;">You're in <strong>${escapeHtml(household.name)}</strong>. Only the entries <strong>you</strong> added are replaced; other members' entries aren't touched. The numbers above are yours alone.</p>`
+        : ""
+    }
+    ${
+      unowned
+        ? `<p class="auth-message" style="color:var(--coral);font-weight:700;">This backup doesn't record who added each entry (it was made by an older version). Restoring it here treats every entry as yours, so entries other members added may appear twice. If it was exported while you were in a household, don't restore it here.</p>`
+        : ""
+    }
+    <p class="auth-message" style="color:var(--coral);font-weight:700;margin-top:14px;">${
+      household
+        ? "Everything you've added — transactions, bills, goals, utang, wallets — will be replaced with what's in this file. This can't be undone."
+        : "Everything currently in Kwenta — all transactions, budgets, bills, goals, and utang — will be replaced with what's in this file. This can't be undone."
+    }</p>
     <div class="field">
       <label>Type RESTORE to confirm</label>
       <input id="restoreConfirmInput" type="text" placeholder="RESTORE" autocomplete="off"/>
