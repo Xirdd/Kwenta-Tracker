@@ -1,0 +1,45 @@
+name: CI
+
+# Runs on every push and pull request. A change that breaks the tests or the
+# production build is caught here, before Vercel deploys it.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # Vite 8 and supabase-js need Node 22+
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+  # Reported separately and allowed to fail: a brand-new advisory against a
+  # dependency shouldn't block an unrelated change, but it should be visible.
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
