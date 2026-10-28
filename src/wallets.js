@@ -1,6 +1,6 @@
 import { DATA, saveData } from "./state.js";
 import { uid } from "./format.js";
-import { sumPesos } from "./money.js";
+import { sumPesos, addPesos, subPesos } from "./money.js";
 import {
   isCloudMode,
   cloudUpsertWallet,
@@ -117,7 +117,8 @@ export function walletBalance(wallet) {
     assigned.filter((t) => t.type === "expense"),
     (t) => t.amount,
   );
-  return wallet.startingBalance + income - expense;
+  // Whole-centavo arithmetic: 0.1 + 0.2 must be exactly 0.3.
+  return subPesos(addPesos(wallet.startingBalance, income), expense);
 }
 
 export function totalWalletBalance() {

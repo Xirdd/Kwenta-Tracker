@@ -1,0 +1,30 @@
+import { describe, it, expect } from "vitest";
+import { extractAmount } from "../src/shareParse.js";
+
+describe("extractAmount (amounts from shared GCash / bank messages)", () => {
+  it("reads explicitly marked peso amounts", () => {
+    expect(extractAmount("You paid PHP 350.00 to Jollibee")).toBe(350);
+    expect(extractAmount("Sent ₱1,234.50 to Ana")).toBe(1234.5);
+    expect(extractAmount("php 99")).toBe(99);
+  });
+
+  it("reads a bare P only when it clearly is money", () => {
+    expect(extractAmount("Total P 99")).toBe(99); // space before the digits
+    expect(extractAmount("Total P1,234.56")).toBe(1234.56); // money formatting
+  });
+
+  it("does NOT mistake reference codes for amounts", () => {
+    expect(extractAmount("Order #P2093 confirmed")).toBeNull();
+    expect(extractAmount("Ref P2093")).toBeNull();
+  });
+
+  it("ignores bare numbers and empty input", () => {
+    expect(extractAmount("Ref no. 123456789")).toBeNull();
+    expect(extractAmount("")).toBeNull();
+    expect(extractAmount(null)).toBeNull();
+  });
+
+  it("rejects absurd values", () => {
+    expect(extractAmount("PHP 99999999999")).toBeNull();
+  });
+});

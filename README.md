@@ -292,6 +292,28 @@ Edge Functions deploy separately:
 `npx supabase functions deploy send-push --no-verify-jwt` (called by Postgres,
 protected by a shared secret — see the header of its `index.ts`).
 
+## Tests & CI
+
+```bash
+npm test            # run every test once (what CI runs)
+npm run test:watch  # re-run on save while you work
+```
+
+Vitest, no browser: `tests/setup.js` gives each test a fresh in-memory
+`localStorage`. The tests cover the logic that is easy to break quietly and
+costly to get wrong: centavo arithmetic (`money.js`), period keys and
+month/half rollovers, totals and the "separately tracked" rule (`state.js`),
+wallet balances and transfers, recurring entries (including "never for a period
+that hasn't started" and short months), the cache-ownership rule
+(`storage.js`), backup encryption, CSV/HTML escaping, share-sheet amount
+parsing and the retry-queue error classifier. UI and Supabase calls are not
+tested here.
+
+`.github/workflows/ci.yml` runs the tests and the production build on every push
+and pull request, plus an `npm audit` job that reports (but doesn't block).
+`.github/dependabot.yml` opens weekly grouped dependency PRs; CI runs on them
+before you merge. When you fix a bug, add a test that fails without the fix.
+
 ## Performance
 
 `jsPDF` is loaded with a dynamic `import()` the first time someone taps

@@ -1,0 +1,90 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { DATA } from "../src/state.js";
+import { materializeMonth } from "../src/recurring.js";
+
+// "Today" is pinned so the "never create entries for a period that hasn't
+// started" rule is testable.
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 8, 20, 12, 0, 0)); // 20 Sep 2026, local time
+  DATA.transactions = [];
+  DATA.recurring = [];
+});
+afterEach(() => vi.useRealTimers());
+
+const rule = (o) => ({
+  id: "r1",
+  type: "expense",
+  desc: "Rent",
+  amount: 5000,
+  category: "rent",
+  day: 5,
+  startMonth: "2026-01-1",
+  active: true,
+  ...o,
+});
+
+describe("recurring entries (semi-monthly periods)", () => {
+  it("creates the entry for a period that has started", () => {
+    DATA.recurring = [rule({ day: 5 })];
+    expect(materializeMonth("2026-09-1")).toBe(true);
+    expect(DATA.transactions).toHaveLength(1);
+    expect(DATA.transactions[0]).toMatchObject({ date: "2026-09-05", amount: 5000, recurringId: "r1" });
+  });
+
+  it("is idempotent", () => {
+    DATA.recurring = [rule()];
+    materializeMonth("2026-09-1");
+    expect(materializeMonth("2026-09-1")).toBe(false);
+    expect(DATA.transactions).toHaveLength(1);
+  });
+
+  it("only fires in the half its day belongs to", () => {
+    DATA.recurring = [rule({ day: 20 })];
+    materializeMonth("2026-09-1");
+    expect(DATA.transactions).toHaveLength(0);
+    materializeMonth("2026-09-2");
+    expect(DATA.transactions.map((t) => t.date)).toEqual(["2026-09-20"]);
+  });
+
+  it("never writes entries for a period that hasn't started yet", () => {
+    DATA.recurring = [rule({ day: 5 })];
+    expect(materializeMonth("2026-10-1")).toBe(false);
+    expect(DATA.transactions).toHaveLength(0);
+  });
+
+  it("skips inactive rules and periods before the rule existed", () => {
+    DATA.recurring = [rule({ active: false })];
+    materializeMonth("2026-09-1");
+    expect(DATA.transactions).toHaveLength(0);
+
+    DATA.recurring = [rule({ startMonth: "2026-09-2" })];
+    materializeMonth("2026-09-1");
+    expect(DATA.transactions).toHaveLength(0);
+  });
+
+  it("carries the wallet onto the created entry", () => {
+    DATA.recurring = [rule({ walletId: "w1" })];
+    materializeMonth("2026-09-1");
+    expect(DATA.transactions[0].walletId).toBe("w1");
+  });
+});
+
+describe("recurring entries (monthly mode)", () => {
+  beforeEach(() => {
+    localStorage.setItem("kwenta_period_mode", "monthly");
+    vi.setSystemTime(new Date(2026, 2, 10, 12, 0, 0)); // 10 Mar 2026
+  });
+
+  it("fires once per month regardless of which half the day is in", () => {
+    DATA.recurring = [rule({ day: 20, startMonth: "2026-01" })];
+    materializeMonth("2026-02");
+    expect(DATA.transactions.map((t) => t.date)).toEqual(["2026-02-20"]);
+  });
+
+  it("clamps day 31 to the last day of a short month", () => {
+    DATA.recurring = [rule({ day: 31, startMonth: "2026-01" })];
+    materializeMonth("2026-02");
+    expect(DATA.transactions.map((t) => t.date)).toEqual(["2026-02-28"]);
+  });
+});

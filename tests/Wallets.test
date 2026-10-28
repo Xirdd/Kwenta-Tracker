@@ -1,0 +1,105 @@
+import { describe, it, expect, beforeEach } from "vitest";
+import { DATA, state, monthTx } from "../src/state.js";
+import {
+  createWallet,
+  deleteWallet,
+  walletBalance,
+  totalWalletBalance,
+  createTransfer,
+  removeTransfer,
+  transactionsForWallet,
+} from "../src/wallets.js";
+
+beforeEach(() => {
+  DATA.wallets = [];
+  DATA.transactions = [];
+  state.monthKey = "2026-09-1";
+});
+
+const tx = (o) => ({ id: Math.random().toString(16).slice(2), date: "2026-09-02", category: "other", ...o });
+
+describe("wallet balance", () => {
+  it("is starting balance + income − expenses assigned to it", () => {
+    const w = createWallet({ name: "GCash", provider: "gcash", startingBalance: 1000 });
+    DATA.transactions = [
+      tx({ type: "income", amount: 500, walletId: w.id }),
+      tx({ type: "expense", amount: 200, walletId: w.id }),
+      tx({ type: "expense", amount: 999 }), // not in this wallet
+    ];
+    expect(walletBalance(w)).toBe(1300);
+  });
+
+  it("is exact to the centavo (no 0.1 + 0.2 drift)", () => {
+    const w = createWallet({ name: "Maya", provider: "maya", startingBalance: 0.1 });
+    DATA.transactions = [tx({ type: "income", amount: 0.2, walletId: w.id })];
+    expect(walletBalance(w)).toBe(0.3);
+  });
+
+  it("counts goal and utang payments — the money really left the wallet", () => {
+    const w = createWallet({ name: "GCash", provider: "gcash", startingBalance: 1000 });
+    DATA.transactions = [
+      tx({ type: "expense", amount: 300, walletId: w.id, goalId: "g1" }),
+      tx({ type: "expense", amount: 100, walletId: w.id, loanId: "l1" }),
+    ];
+    expect(walletBalance(w)).toBe(600);
+  });
+
+  it("totals across wallets", () => {
+    createWallet({ name: "A", provider: "gcash", startingBalance: 100 });
+    createWallet({ name: "B", provider: "cash", startingBalance: 50.25 });
+    expect(totalWalletBalance()).toBe(150.25);
+  });
+});
+
+describe("transfers between wallets", () => {
+  it("moves money without changing the total", () => {
+    const a = createWallet({ name: "GCash", provider: "gcash", startingBalance: 1000 });
+    const b = createWallet({ name: "GoTyme", provider: "gotyme", startingBalance: 0 });
+    const before = totalWalletBalance();
+    const result = createTransfer({ fromWalletId: a.id, toWalletId: b.id, amount: 250, date: "2026-09-02" });
+    expect(result).not.toBeNull();
+    expect(walletBalance(a)).toBe(750);
+    expect(walletBalance(b)).toBe(250);
+    expect(totalWalletBalance()).toBe(before);
+  });
+
+  it("never shows up as income or spending in Net Balance / Expenses", () => {
+    const a = createWallet({ name: "A", provider: "gcash", startingBalance: 1000 });
+    const b = createWallet({ name: "B", provider: "maya", startingBalance: 0 });
+    createTransfer({ fromWalletId: a.id, toWalletId: b.id, amount: 250, date: "2026-09-02" });
+    expect(monthTx("expense")).toEqual([]);
+    expect(monthTx("income")).toEqual([]);
+  });
+
+  it("refuses bad transfers", () => {
+    const a = createWallet({ name: "A", provider: "gcash", startingBalance: 100 });
+    const b = createWallet({ name: "B", provider: "maya", startingBalance: 0 });
+    expect(createTransfer({ fromWalletId: a.id, toWalletId: a.id, amount: 10, date: "2026-09-02" })).toBeNull();
+    expect(createTransfer({ fromWalletId: a.id, toWalletId: b.id, amount: 0, date: "2026-09-02" })).toBeNull();
+    expect(createTransfer({ fromWalletId: a.id, toWalletId: b.id, amount: -5, date: "2026-09-02" })).toBeNull();
+    expect(createTransfer({ fromWalletId: a.id, toWalletId: "nope", amount: 10, date: "2026-09-02" })).toBeNull();
+    expect(DATA.transactions).toHaveLength(0);
+  });
+
+  it("removes both legs together", () => {
+    const a = createWallet({ name: "A", provider: "gcash", startingBalance: 100 });
+    const b = createWallet({ name: "B", provider: "maya", startingBalance: 0 });
+    const { outTx } = createTransfer({ fromWalletId: a.id, toWalletId: b.id, amount: 40, date: "2026-09-02" });
+    expect(DATA.transactions).toHaveLength(2);
+    removeTransfer(outTx.transferId);
+    expect(DATA.transactions).toHaveLength(0);
+    expect(walletBalance(a)).toBe(100);
+  });
+});
+
+describe("deleting a wallet", () => {
+  it("keeps its transactions but detaches them", () => {
+    const w = createWallet({ name: "GCash", provider: "gcash", startingBalance: 0 });
+    DATA.transactions = [tx({ type: "expense", amount: 10, walletId: w.id })];
+    deleteWallet(w.id);
+    expect(DATA.wallets).toHaveLength(0);
+    expect(DATA.transactions).toHaveLength(1);
+    expect(DATA.transactions[0].walletId).toBeUndefined();
+    expect(transactionsForWallet(w.id)).toHaveLength(0);
+  });
+});

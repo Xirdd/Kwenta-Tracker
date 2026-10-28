@@ -1,0 +1,48 @@
+import { describe, it, expect, vi } from "vitest";
+import { loadData, loadSignedOutData, persist } from "../src/storage.js";
+
+const KEY = "kwenta_data_v1";
+
+// These guard the cross-account leak described in REVIEW.md item 1: data left
+// behind by one account must never be read back by (or uploaded into) another.
+describe("cache ownership", () => {
+  it("a signed-out start ignores and wipes a cache that belonged to an account", () => {
+    localStorage.setItem(KEY, JSON.stringify({ ownerId: "A", transactions: [{ id: 1 }] }));
+    const d = loadSignedOutData();
+    expect(d.transactions).toEqual([]);
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("a cache from before accounts existed (no owner tag) still loads for migration", () => {
+    localStorage.setItem(KEY, JSON.stringify({ transactions: [{ id: 1 }] }));
+    expect(loadSignedOutData().transactions).toHaveLength(1);
+    expect(localStorage.getItem(KEY)).not.toBeNull();
+  });
+
+  it("the same account reads its own cache back", () => {
+    localStorage.setItem(KEY, JSON.stringify({ ownerId: "A", transactions: [{ id: 1 }] }));
+    expect(loadData("A").transactions).toHaveLength(1);
+  });
+
+  it("a different account gets nothing, and the other account's cache is wiped", () => {
+    localStorage.setItem(KEY, JSON.stringify({ ownerId: "A", transactions: [{ id: 1 }] }));
+    expect(loadData("B").transactions).toEqual([]);
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("a corrupted cache does not throw", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {}); // the app logs it on purpose
+    localStorage.setItem(KEY, "{not json");
+    expect(() => loadSignedOutData()).not.toThrow();
+    expect(loadSignedOutData().transactions).toEqual([]);
+  });
+});
+
+describe("blank data shape", () => {
+  it("always has every collection the app expects (incl. wallets)", () => {
+    const d = loadData();
+    for (const k of ["salary", "transactions", "budgets", "budgetsSecond", "customCategories", "recurring", "bills", "goals", "loans", "wallets"]) {
+      expect(d).toHaveProperty(k);
+    }
+  });
+});

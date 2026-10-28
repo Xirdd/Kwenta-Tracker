@@ -14,6 +14,7 @@ import {
   cloudUpsertCustomCategory,
 } from "./customCategoriesCloud.js";
 import { getPeriodMode } from "./periodMode.js";
+import { sumPesos, addPesos, subPesos } from "./money.js";
 
 export let DATA = {
   salary: {},
@@ -373,21 +374,17 @@ export function salaryFor(key) {
 
 export function totals() {
   const salary = salaryFor(state.monthKey);
-  const extraIncome = monthTx("income").reduce(
-    (s, t) => s + Number(t.amount || 0),
-    0,
-  );
-  const totalIncome = salary + extraIncome;
-  const totalExpense = monthTx("expense").reduce(
-    (s, t) => s + Number(t.amount || 0),
-    0,
-  );
+  // Whole-centavo arithmetic (money.js), as the README promises for every
+  // total: plain float addition gave 10000.1 + 0.2 = 10000.300000000001.
+  const extraIncome = sumPesos(monthTx("income"), (t) => t.amount);
+  const totalIncome = addPesos(salary, extraIncome);
+  const totalExpense = sumPesos(monthTx("expense"), (t) => t.amount);
   return {
     salary,
     extraIncome,
     totalIncome,
     totalExpense,
-    balance: totalIncome - totalExpense,
+    balance: subPesos(totalIncome, totalExpense),
   };
 }
 
@@ -428,25 +425,16 @@ export function monthsBack(n) {
 export function trendTotals(periodKey) {
   const { start, end } = periodRange(periodKey);
   const salary = salaryFor(periodKey);
-  const extra = DATA.transactions
-    .filter(
+  const inPeriod = (type) =>
+    DATA.transactions.filter(
       (x) =>
-        x.type === "income" &&
+        x.type === type &&
         x.date &&
         x.date >= start &&
         x.date <= end &&
         !isSeparatelyTracked(x),
-    )
-    .reduce((s, x) => s + Number(x.amount || 0), 0);
-  const exp = DATA.transactions
-    .filter(
-      (x) =>
-        x.type === "expense" &&
-        x.date &&
-        x.date >= start &&
-        x.date <= end &&
-        !isSeparatelyTracked(x),
-    )
-    .reduce((s, x) => s + Number(x.amount || 0), 0);
-  return { inc: salary + extra, exp };
+    );
+  const extra = sumPesos(inPeriod("income"), (x) => x.amount);
+  const exp = sumPesos(inPeriod("expense"), (x) => x.amount);
+  return { inc: addPesos(salary, extra), exp };
 }

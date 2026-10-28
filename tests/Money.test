@@ -1,0 +1,56 @@
+import { describe, it, expect } from "vitest";
+import {
+  pesosToCentavos,
+  centavosToPesos,
+  centavosToDecimalString,
+  sumPesos,
+  addPesos,
+  subPesos,
+} from "../src/money.js";
+
+describe("money: pesos <-> centavos", () => {
+  it("rounds the classic float traps correctly", () => {
+    // A bare Math.round(n * 100) gets both of these wrong.
+    expect(pesosToCentavos(1.005)).toBe(101);
+    expect(pesosToCentavos(4.35)).toBe(435);
+  });
+
+  it("handles empty, bad and negative input", () => {
+    expect(pesosToCentavos("")).toBe(0);
+    expect(pesosToCentavos(null)).toBe(0);
+    expect(pesosToCentavos(undefined)).toBe(0);
+    expect(pesosToCentavos("abc")).toBe(0);
+    expect(pesosToCentavos(-12.5)).toBe(-1250);
+    expect(Object.is(pesosToCentavos(-0), 0)).toBe(true); // never -0
+  });
+
+  it("accepts the numeric strings an <input> produces", () => {
+    expect(pesosToCentavos("100.50")).toBe(10050);
+  });
+
+  it("converts back to pesos", () => {
+    expect(centavosToPesos(10050)).toBe(100.5);
+  });
+
+  it("builds plain decimal strings with integer math (for CSV)", () => {
+    expect(centavosToDecimalString(123456)).toBe("1234.56");
+    expect(centavosToDecimalString(5)).toBe("0.05");
+    expect(centavosToDecimalString(-250)).toBe("-2.50");
+  });
+});
+
+describe("money: sums don't drift", () => {
+  it("0.1 + 0.2 is exactly 0.3", () => {
+    expect(addPesos(0.1, 0.2)).toBe(0.3);
+    expect(0.1 + 0.2).not.toBe(0.3); // the problem this exists to avoid
+  });
+
+  it("sums a long list without accumulating error", () => {
+    const items = Array.from({ length: 1000 }, () => ({ amount: 0.1 }));
+    expect(sumPesos(items, (x) => x.amount)).toBe(100);
+  });
+
+  it("subtracts exactly", () => {
+    expect(subPesos(10.3, 10.1)).toBe(0.2);
+  });
+});

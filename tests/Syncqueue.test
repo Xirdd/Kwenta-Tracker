@@ -1,0 +1,21 @@
+import { describe, it, expect } from "vitest";
+import { isTransientError } from "../src/syncQueue.js";
+
+describe("isTransientError (retry vs give up)", () => {
+  it("retries network and server problems", () => {
+    expect(isTransientError({ message: "Failed to fetch" })).toBe(true);
+    expect(isTransientError({ message: "Load failed" })).toBe(true);
+    expect(isTransientError({ status: 503 })).toBe(true);
+    expect(isTransientError({ status: 429 })).toBe(true);
+    expect(isTransientError({ status: 408 })).toBe(true);
+  });
+
+  it("does not retry database rejections (they can never succeed)", () => {
+    expect(isTransientError({ code: "42501", message: "permission denied" })).toBe(false);
+    expect(isTransientError({ code: "23505", message: "duplicate key" })).toBe(false);
+  });
+
+  it("treats a missing error as not worth retrying", () => {
+    expect(isTransientError(null)).toBe(false);
+  });
+});
