@@ -1,0 +1,450 @@
+/* ---------- iOS look (V6) ---------- */
+/* Imported from theme.js AFTER glass.css, so it lands last in the bundle and
+   wins at equal specificity. This file is the whole iOS layer: remove its
+   import (and iosNav.js) from theme.js to get the old glass look back.
+
+   What it does:
+     1. System font (SF Pro on iPhone) everywhere.
+     2. Flat "inset grouped" surfaces: solid cards, hairline separators,
+        iOS corner radii. Blur ("material") is kept ONLY on the tab bar, the
+        collapsed title bar, sheets and toasts, which is where iOS uses it.
+     3. Full-width tab bar docked to the bottom.
+     4. Large titles that collapse into a small centered title on scroll.
+     5. Back header on the Profile page.
+   Theme colors, accents and the green/coral meaning colors are untouched. */
+
+:root {
+  color-scheme: dark;
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-lg: 16px;
+
+  --line: rgba(255, 255, 255, 0.12);
+  --line-dark: rgba(255, 255, 255, 0.1);
+  --hairline: 0.5px solid rgba(255, 255, 255, 0.14);
+
+  --shadow-card: none;
+  --shadow-pop: none;
+  --glass-blur: none;
+  --glass-border: 0.5px solid var(--line);
+  --gradient-card: var(--paper);
+  --gradient-accent: var(--gold);
+
+  --material: color-mix(in srgb, var(--bg-2) 80%, transparent);
+  --tabbar-h: 56px;
+}
+
+/* ── 1. System font ──
+   Class rules all name "Inter" / "IBM Plex Mono", so a single !important
+   rule is the only way to switch without editing every stylesheet. Amounts
+   already use tabular-nums, so SF Pro keeps their columns aligned. */
+*,
+*::before,
+*::after {
+  font-family: var(--font-ui) !important;
+}
+code,
+.recovery-code,
+.mfa-code-input,
+.invite-code-box span,
+.mfa-secret-fallback code {
+  font-family: var(--font-mono) !important;
+}
+
+/* ── 2. Flat page + grouped surfaces ── */
+body {
+  background: var(--bg);
+  padding-bottom: calc(var(--tabbar-h) + 64px);
+}
+body::before {
+  display: none; /* the aurora */
+}
+.app {
+  z-index: auto; /* no stacking context, so the fixed title bar can sit above the status-bar fill */
+}
+
+.list,
+.salary-card,
+.goal-card,
+.loan-card,
+.budget-summary,
+.goals-summary-banner,
+.ov-card,
+.bars,
+.ins-tile,
+.insights-card,
+.profile-card,
+.profile-header-card,
+.settings-card,
+.empty-state,
+.stat-chip,
+.pp-hero,
+.pp-stat,
+.auth-card,
+.quick-add-chip,
+.balance-hero,
+.hero-stat-inline,
+.backup-diff-card {
+  background: var(--paper);
+  border: var(--hairline);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.balance-hero {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.balance-hero::before,
+.balance-hero::after,
+.pp-hero::before,
+.goal-glow,
+.loan-glow,
+.ins-tile::before {
+  display: none;
+}
+.hero-stat-inline {
+  background: var(--paper-2);
+  border: 0;
+}
+.balance-hero .balance-amount:not(.negative),
+.balance-hero .balance-amount {
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+.balance-hero .balance-amount:not(.negative) {
+  color: var(--cream);
+}
+.danger-card {
+  background: color-mix(in srgb, var(--coral) 12%, var(--paper));
+}
+
+/* Hairline separators between rows, like a grouped table. */
+.row,
+.bill-row,
+.ov-bill-row,
+.settings-row,
+.budget-row,
+.opt-row {
+  border-bottom-width: 0.5px;
+}
+
+/* Section headings inside a screen: iOS-style 20pt semibold. */
+.section-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.35px;
+  margin: 26px 4px 10px 4px;
+}
+.section-title .sub {
+  font-size: 13px;
+  font-weight: 400;
+}
+.settings-section-label,
+.pick-group-label,
+.search-group-label {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ── Controls ── */
+.btn {
+  min-height: 50px;
+  padding: 0;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.btn-primary {
+  background: var(--gold);
+  color: var(--on-accent);
+  box-shadow: none;
+}
+.btn-danger {
+  background: var(--coral);
+  color: #fff;
+}
+.btn-ghost {
+  background: var(--paper-2);
+  box-shadow: none;
+}
+.field input,
+.field select,
+.expense-search input,
+.search-sheet-input-wrap input,
+.salary-input-wrap,
+.tag-input-wrap,
+.budget-input-wrap {
+  background: var(--paper-2);
+  border-radius: 10px;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  font-size: 17px; /* 16px+ also stops iOS zooming on focus */
+}
+.field input:focus,
+.field select:focus {
+  box-shadow: none;
+}
+.cat-opt,
+.cat-opt.selected {
+  box-shadow: none;
+  background-image: none;
+}
+.cat-opt {
+  background: var(--paper-2);
+}
+.cat-opt.selected {
+  background: color-mix(in srgb, var(--gold) 16%, var(--paper-2));
+}
+
+.icon-btn,
+.month-nav button {
+  background: var(--paper);
+  border: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.icon-btn-account {
+  background: var(--gold);
+  color: var(--on-accent);
+  box-shadow: none;
+}
+.icon-btn-account.has-avatar {
+  background: var(--paper-2);
+}
+
+/* The Overview sub-tabs become plain pill chips (a 6-way segmented control
+   doesn't fit a phone). */
+.tabs {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  padding: 0;
+  margin: 6px 0 16px 0;
+  gap: 8px;
+}
+.tab-btn {
+  background: var(--paper);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 8px 15px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.tab-btn.active {
+  background: var(--gold);
+  color: var(--on-accent);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+/* ── 3. Tab bar ── */
+.bottom-nav {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: none;
+  margin: 0;
+  border: 0;
+  border-top: var(--hairline);
+  border-radius: 0;
+  padding: 6px 8px calc(2px + env(safe-area-inset-bottom, 0px)) 8px;
+  background: var(--material);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: none;
+}
+.bottom-nav-btn {
+  gap: 2px;
+  padding: 4px 4px;
+  min-height: 44px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  color: var(--muted);
+  background: none;
+  border-radius: 0;
+}
+.bottom-nav-btn.active {
+  color: var(--gold);
+  background: none;
+  box-shadow: none;
+}
+
+/* ── + button: bottom-right, above the tab bar ── */
+@media (max-width: 859px) {
+  .fab {
+    left: auto;
+    right: 18px;
+    transform: none;
+    bottom: calc(var(--tabbar-h) + 18px + env(safe-area-inset-bottom, 0px));
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  }
+  .fab:active {
+    transform: scale(0.94);
+  }
+}
+.toast-banner {
+  bottom: calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom, 0px));
+  background: var(--material);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: none;
+  border: var(--hairline);
+}
+
+/* ── 4. Large titles ── */
+header.nav-bar {
+  display: block;
+  padding: 0;
+  margin: 0;
+}
+header.nav-bar.nav-hidden {
+  display: none; /* Profile has its own back header (below) */
+}
+.nav-large {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 4px 12px 4px;
+}
+.nav-large-text {
+  min-width: 0;
+}
+.nav-title {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: 0.37px;
+  color: var(--cream);
+}
+.nav-large .household-badge {
+  margin-top: 6px;
+}
+.nav-large .header-actions {
+  gap: 10px;
+  padding-bottom: 2px;
+}
+
+/* The page's own first heading repeats the large title on most screens. */
+.app:has(> header[data-dup="1"]) .content-panel > .section-title:first-child {
+  display: none;
+}
+
+/* Small centered title that fades in once the large one has scrolled away. */
+.nav-compact {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 46;
+  height: calc(env(safe-area-inset-top, 0px) + 44px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 12px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--cream);
+  background: var(--material);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: var(--hairline);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+html.nav-collapsed .nav-compact {
+  opacity: 1;
+}
+
+/* ── 5. Back header (Profile) ── */
+.pp-top {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  margin: 0 0 8px -8px;
+  padding-top: 4px;
+}
+.pp-back {
+  min-height: 44px;
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--gold);
+}
+.pp-top .section-title {
+  display: block;
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: 0.37px;
+  margin: 0 0 6px 8px;
+}
+
+/* ── Sheets: iOS modal sheets ── */
+.sheet {
+  background: color-mix(in srgb, var(--paper) 94%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  border: 0;
+  border-top: var(--hairline);
+  border-radius: 20px 20px 0 0;
+  box-shadow: none;
+}
+.sheet .grabber {
+  background: rgba(255, 255, 255, 0.3);
+}
+.sheet h3 {
+  text-align: center;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.sheet .sheet-head h3 {
+  text-align: left;
+}
+@media (min-width: 640px) {
+  .sheet {
+    border: var(--hairline);
+    border-radius: 14px;
+  }
+}
+.scrim {
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* ── Desktop: the tab bar stays full width, content stays centered ── */
+@media (min-width: 860px) {
+  body {
+    padding-bottom: calc(var(--tabbar-h) + 40px);
+  }
+  header.nav-bar {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-compact {
+    transition: none;
+  }
+}

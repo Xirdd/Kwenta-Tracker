@@ -7,6 +7,11 @@
 import "./mobileShell.js";
 import "./themes.css";
 import "./glass.css";
+// iOS layer (V6): system font, flat grouped surfaces, tab bar, large titles.
+// Must stay LAST so it wins over glass.css. Remove these two lines to go
+// back to the glass look.
+import "./ios.css";
+import "./iosNav.js";
 const THEME_KEY = "kwenta_theme";
 const GLASS_KEY = "kwenta_glass";
 

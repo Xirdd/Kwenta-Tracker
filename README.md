@@ -119,6 +119,30 @@ surfaces without touching layout:
 **last** in the bundle so it wins at equal specificity. Keep it last. To go back
 to the old look, remove that one import.
 
+## iOS look & navigation (V6): `src/ios.css`, `src/iosNav.js`
+
+The glass styling is now layered under an iOS one. `ios.css` is imported
+from `theme.js` **after** `glass.css` and must stay last; delete its import
+(and `iosNav.js`) to restore the old look.
+
+- **Font:** system font everywhere (`-apple-system`, SF Pro on iPhone). No web
+  fonts are loaded. The class rules still say "Inter", so `ios.css` overrides
+  `font-family` with one `!important` rule; code-like text (recovery codes,
+  invite code) uses `ui-monospace`.
+- **Surfaces:** flat grouped cards (solid `--paper`, 0.5px hairline, 14–16px
+  radii). Blur is kept only where iOS uses it: tab bar, collapsed title bar,
+  sheets, toasts. The aurora is off.
+- **Tab bar:** the bottom nav is full width and docked, icon over label; the
+  + button sits bottom-right above it.
+- **Large titles:** `components/header.js` renders the screen name (on Overview
+  it follows the sub-tab). `iosNav.js` toggles `html.nav-collapsed` after 36px
+  of scroll, which fades in the small centered title bar. The first heading of
+  most screens would repeat the large title, so `ios.css` hides it
+  (`header[data-dup]`, needs `:has()`, Safari 15.4+).
+- **Back header:** Profile hides the main header and shows `‹ Back` plus its own
+  large title (`.pp-top`). The hidden header stays in the DOM because `main.js`
+  looks up `#searchBtn` and `#accountBtn` on every render.
+
 ## E-wallet & bank icons
 
 The icon picker's first group, **E-wallets & banks**, has monograms for GCash,

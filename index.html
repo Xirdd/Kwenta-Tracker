@@ -26,15 +26,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/png" href="/favicon-32.png" />
 
-    <!-- Fraunces was loaded here but no stylesheet uses it (everything is
-         Inter / IBM Plex Mono), so it was a wasted download on every first
-         visit and an extra entry in the service worker's font cache. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <!-- No web fonts: the app uses the system font (SF Pro on iPhone), see src/ios.css. -->
 
     <!-- Applies the saved theme before first paint. External on purpose: the
          Content-Security-Policy (vercel.json) blocks inline scripts. -->
