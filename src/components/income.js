@@ -12,11 +12,11 @@ import { incCatInfo, categoryIconBadge } from "../categories.js";
 import { fmt, formatDate, escapeHtml, currencySymbol } from "../format.js";
 import { isCloudMode, cloudUpsertSalary } from "../sync.js";
 import { notifySyncError } from "../toast.js";
+import { sortList } from "../sorting.js";
+import { renderSortButton } from "./sortControl.js";
 
 export function renderIncome() {
-  const extras = monthTx("income").sort((a, b) =>
-    (b.date || "").localeCompare(a.date || ""),
-  );
+  const extras = sortList("income", monthTx("income"));
 
   // In Monthly mode, salary entered earlier in half-month periods still
   // counts toward the month (see salaryFor in state.js). Say so, instead of
@@ -43,6 +43,7 @@ export function renderIncome() {
   </div>
 
   <div class="section-title">Other income <span class="sub">${extras.length} ${extras.length === 1 ? "entry" : "entries"}</span></div>
+  ${extras.length > 1 ? renderSortButton("income") : ""}
   ${
     extras.length === 0
       ? `

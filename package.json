@@ -14,7 +14,7 @@
     "test:watch": "vitest",
     "db:new": "npx supabase migration new",
     "db:pull": "npx supabase db pull",
-    "db:push": "npx supabase db push",
+    "db:push": "npx supabase db push --remote",
     "db:list": "npx supabase migration list"
   },
   "dependencies": {

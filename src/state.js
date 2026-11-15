@@ -36,6 +36,7 @@ export let DATA = {
   goals: [],
   loans: [],
   wallets: [],
+  installments: [],
 };
 
 // state.monthKey is now a semi-monthly PERIOD key: "YYYY-MM-1" (1st–15th) or
@@ -294,6 +295,7 @@ export async function switchToCloudData() {
     goals: DATA.goals,
     loans: DATA.loans,
     wallets: DATA.wallets,
+    installments: DATA.installments,
   };
   const migrated = await cloudMigrateLocalDataIfEmpty(local);
   if (migrated) await pushSideTables(local);
@@ -320,6 +322,7 @@ function replaceData(next) {
   DATA.goals = next.goals || [];
   DATA.loans = next.loans || [];
   DATA.wallets = next.wallets || [];
+  DATA.installments = next.installments || [];
 }
 
 // Always mirrors to localStorage as an offline cache; cloud writes happen

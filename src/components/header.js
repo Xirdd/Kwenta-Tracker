@@ -30,6 +30,8 @@ const TAB_TITLES = {
   budgets: "Budgets",
   bills: "Bills",
   wallets: "Wallets",
+  installments: "Installments",
+  installments: "Installments",
 };
 
 // The large title is the current screen's name. On Overview it follows the

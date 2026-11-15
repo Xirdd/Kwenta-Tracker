@@ -12,6 +12,7 @@ function blank() {
     goals: [],
     loans: [],
     wallets: [],
+    installments: [],
   };
 }
 
@@ -53,6 +54,7 @@ export function loadData(ownerId) {
         goals: parsed.goals || [],
         loans: parsed.loans || [],
         wallets: parsed.wallets || [],
+        installments: parsed.installments || [],
       };
     }
   } catch (e) {

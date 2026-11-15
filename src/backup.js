@@ -31,6 +31,7 @@ function buildBackup() {
       goals: DATA.goals,
       loans: DATA.loans,
       wallets: DATA.wallets,
+      installments: DATA.installments,
     },
   };
 }
@@ -127,6 +128,7 @@ function normalize(d = {}) {
     goals: d.goals || [],
     loans: d.loans || [],
     wallets: d.wallets || [],
+    installments: d.installments || [],
   };
 }
 
@@ -156,6 +158,7 @@ function scopeForRestore(data, { householdId, userId }) {
     goals: keepOwnedBy(data.goals, userId),
     loans: keepOwnedBy(data.loans, userId),
     wallets: keepOwnedBy(data.wallets, userId),
+    installments: keepOwnedBy(data.installments, userId),
     customCategories: keepOwnedBy(data.customCategories, userId),
   };
 }
@@ -195,6 +198,7 @@ export function backupHasUnownedItems(backup) {
     d.goals,
     d.loans,
     d.wallets,
+    d.installments,
   ].some((list) => list.some((item) => !item.userId));
 }
 
@@ -242,6 +246,7 @@ function applyToState(next) {
   DATA.goals = next.goals;
   DATA.loans = next.loans;
   DATA.wallets = next.wallets;
+  DATA.installments = next.installments;
   saveData();
 }
 
@@ -264,6 +269,8 @@ function buildRestorePayload(d) {
     goal_id: tx.goalId || null,
     loan_id: tx.loanId || null,
     loan_kind: tx.loanKind || null,
+    wallet_id: tx.walletId || null,
+    installment_id: tx.installmentId || null,
     tags: tx.tags && tx.tags.length ? tx.tags : null,
   }));
 
@@ -333,6 +340,17 @@ function buildRestorePayload(d) {
     active: w.active !== false,
   }));
 
+  const installments = d.installments.map((p) => ({
+    id: p.id,
+    name: p.name,
+    total_amount: p.totalAmount,
+    monthly_amount: p.monthlyAmount,
+    total_months: p.totalMonths,
+    remaining_months: p.remainingMonths,
+    due_rule: p.dueRule || "last",
+    active: p.active !== false,
+  }));
+
   const custom_categories = d.customCategories.map((c) => ({
     id: c.id,
     label: c.label,
@@ -350,6 +368,7 @@ function buildRestorePayload(d) {
     goals,
     loans,
     wallets,
+    installments,
     custom_categories,
   };
 }

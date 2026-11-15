@@ -4,6 +4,8 @@ import { iconPaths } from "./icons/categoryIcons.js";
 // Simple line-icon SVGs (24x24 viewBox, stroke-based) — one per category, used
 // for the icon-badge treatment (colored circle + icon) instead of plain dots.
 const ICONS = {
+  installments: `<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/>`,
+  installments: `<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/>`,
   food: `<path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>`,
   dining: `<path d="M3 2v7c0 1.1.9 2 2 2h2a2 2 0 0 0 2-2V2"/><path d="M6 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6a2 2 0 0 0 2 2h3Zm0 0v7"/>`,
   groceries: `<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>`,
@@ -85,6 +87,8 @@ export const CATEGORIES = [
     label: "Memberships & Subscriptions",
     color: "#7a6fe0",
   },
+  { id: "installments", label: "Installments / SPayLater", color: "#ee4d2d" },
+  { id: "installments", label: "Installments / SPayLater", color: "#ee4d2d" },
   { id: "savings", label: "Savings", color: "#7fae3f" },
   { id: "family", label: "Family Support", color: "#c77b3f" },
   { id: "utang", label: "Utang / Loans", color: "#a4443c" },

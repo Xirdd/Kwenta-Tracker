@@ -107,6 +107,14 @@ function formatActivitySummary(row) {
       return `${verb} an utang entry: ${escapeHtml(d.person || "")}${d.amount ? ` (${fmt(d.amount)})` : ""}`;
     case "kwenta_recurring":
       return `${verb} a recurring ${d.type || "entry"}: ${escapeHtml(d.desc || "")}`;
+    case "kwenta_wallets":
+      return `${verb} a wallet: ${escapeHtml(d.name || "")}`;
+    case "kwenta_installments":
+      return `${verb} an installment: ${escapeHtml(d.name || "")}${d.monthlyAmount ? ` (${fmt(d.monthlyAmount)}/month)` : ""}`;
+    case "kwenta_wallets":
+      return `${verb} a wallet: ${escapeHtml(d.name || "")}`;
+    case "kwenta_installments":
+      return `${verb} an installment: ${escapeHtml(d.name || "")}${d.monthlyAmount ? ` (${fmt(d.monthlyAmount)}/month)` : ""}`;
     default:
       return `${verb} something`;
   }

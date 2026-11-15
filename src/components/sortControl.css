@@ -1,0 +1,46 @@
+/* ---------- Sort button ---------- */
+/* One small pill, right-aligned above a list: "⇅ Sort · Newest first".
+   Tapping it opens the Sort sheet (sortControl.js). 44px tall for easy tapping. */
+.sort-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 12px 0;
+}
+.sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 0 14px;
+  border-radius: 22px;
+  border: 1.5px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.sort-btn:active {
+  transform: scale(0.97);
+}
+.sort-btn svg {
+  flex-shrink: 0;
+  color: var(--ink-soft);
+}
+.sort-btn-label {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.sort-btn-value {
+  color: var(--gold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sort-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}

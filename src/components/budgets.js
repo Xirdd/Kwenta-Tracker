@@ -12,6 +12,8 @@ import { fmt } from "../format.js";
 import { isCloudMode, cloudUpsertBudget } from "../sync.js";
 import { cloudSetBudgetSecond } from "../budgetLimitsCloud.js";
 import { notifySyncError } from "../toast.js";
+import { sortList } from "../sorting.js";
+import { renderSortButton } from "./sortControl.js";
 import { visibleCategories, budgetCategoryPool } from "../budgetView.js";
 import { renderBudgetCard, refreshBudgetCard } from "./budgetCard.js";
 import {
@@ -61,7 +63,9 @@ function renderEmptyState() {
 }
 
 export function renderBudgets() {
-  const cats = visibleCategories();
+  const cats = sortList("budgets", visibleCategories(), {
+    spent: spentByCategory(),
+  });
   const { presets, others } = budgetCategoryPool();
   const poolSize = presets.length + others.length;
   const spentByCat = spentByCategory();
@@ -85,6 +89,7 @@ export function renderBudgets() {
     <span class="budget-toolbar-count">Showing <strong>${cats.length}</strong> of ${poolSize} categories</span>
     <button type="button" class="budget-customize-btn" id="manageCatsBtn">${SLIDERS_ICON}Customize</button>
   </div>
+  ${cats.length > 1 ? renderSortButton("budgets") : ""}
   ${
     cats.length === 0
       ? renderEmptyState()

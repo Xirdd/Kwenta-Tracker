@@ -6,6 +6,8 @@ import { addPesos } from "../money.js";
 import { activeWallets, getWallet } from "../wallets.js";
 import { openForm } from "./sheet.js";
 import { openExpenseCategoriesSheet } from "./expenseCategoriesSheet.js";
+import { sortList } from "../sorting.js";
+import { renderSortButton } from "./sortControl.js";
 
 const FILTER_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>`;
 
@@ -37,7 +39,7 @@ function filteredExpenses() {
       return desc.includes(q) || label.includes(q) || tagsMatch;
     });
   }
-  return items.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  return sortList("expenses", items);
 }
 
 export function renderExpenses() {
@@ -64,6 +66,7 @@ export function renderExpenses() {
       : ""
   }
   ${renderToolbar()}
+  ${renderSortButton("expenses")}
   <div id="expenseListWrap">${renderExpenseList(items, all.length)}</div>
   `;
 }

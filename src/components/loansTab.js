@@ -2,6 +2,8 @@ import { DATA } from "../state.js";
 import { fmt, escapeHtml, formatDate } from "../format.js";
 import { remainingAmount, loanTotals } from "../loans.js";
 import { goalAccentColor } from "./goalsTab.js";
+import { sortList } from "../sorting.js";
+import { renderSortButton } from "./sortControl.js";
 
 // Up to two letters: "Ate Jhen" -> "AJ", "Mark" -> "M".
 function initialsOf(name) {
@@ -31,14 +33,10 @@ export function renderLoansTab() {
 
   // The remaining balance is computed once per loan. The old sort called
   // isSettled() (which re-scanned every transaction) on every comparison.
-  const rows = loans
+  const unsorted = loans
     .map((loan) => ({ loan, remaining: remainingAmount(loan) }))
-    .sort((a, b) => {
-      const aSettled = a.remaining <= 0;
-      const bSettled = b.remaining <= 0;
-      if (aSettled !== bSettled) return aSettled ? 1 : -1;
-      return (b.loan.date || "").localeCompare(a.loan.date || "");
-    });
+    ;
+  const rows = sortList("loans", unsorted);
 
   const cards = rows
     .map(({ loan, remaining }) => {
@@ -76,6 +74,7 @@ export function renderLoansTab() {
 
   return `
   <div class="section-title">Utang <span class="sub">${loans.length} tracked</span></div>
+  ${loans.length > 1 ? renderSortButton("loans") : ""}
   <div class="goal-stack">${cards}</div>
   `;
 }

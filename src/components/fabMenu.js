@@ -35,5 +35,7 @@ export function attachFabEvents(section, tab, handlers) {
     if (tab === "expenses") return handlers.onExpense();
     if (tab === "bills") return handlers.onBill();
     if (tab === "wallets") return handlers.onWallet();
+    if (tab === "installments") return handlers.onInstallment();
+    if (tab === "installments") return handlers.onInstallment();
   };
 }

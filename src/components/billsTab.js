@@ -1,6 +1,8 @@
 import { state, DATA, monthPortionOf } from "../state.js";
 import { catInfo, categoryIconBadge } from "../categories.js";
 import { fmt, escapeHtml } from "../format.js";
+import { sortList } from "../sorting.js";
+import { renderSortButton } from "./sortControl.js";
 import {
   findPaymentTx,
   dueDateStr,
@@ -29,12 +31,7 @@ export function renderBills() {
   const viewedMonthKey = monthPortionOf(state.monthKey);
   const isRealCurrentMonth = viewedMonthKey === currentRealMonthKey();
 
-  const sorted = bills.slice().sort((a, b) => {
-    const aPaid = !!findPaymentTx(a.id, viewedMonthKey);
-    const bPaid = !!findPaymentTx(b.id, viewedMonthKey);
-    if (aPaid !== bPaid) return aPaid ? 1 : -1; // unpaid first
-    return a.dueDay - b.dueDay;
-  });
+  const sorted = sortList("bills", bills, { monthKey: viewedMonthKey });
 
   const rows = sorted
     .map((bill) => {
@@ -89,6 +86,7 @@ export function renderBills() {
 
   return `
   <div class="section-title">Bills <span class="sub">${bills.length} tracked</span></div>
+  ${renderSortButton("bills")}
   <div class="list bill-list">${rows}</div>
   `;
 }

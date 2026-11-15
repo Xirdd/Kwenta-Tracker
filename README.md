@@ -143,6 +143,70 @@ from `theme.js` **after** `glass.css` and must stay last; delete its import
   large title (`.pp-top`). The hidden header stays in the DOM because `main.js`
   looks up `#searchBtn` and `#accountBtn` on every render.
 
+## Installments (SPayLater)
+
+Tab **Overview → Installments**. A plan is a template (item name, total amount,
+monthly payment, total months, remaining months, and a due rule: the **15th** or
+the **last day** of the month, like Shopee SPayLater cycles). Logic is in
+`installments.js`; UI in `components/installmentsTab.js` and `installmentSheet.js`.
+
+- **Paying:** *Mark as paid* creates a real expense in the built-in
+  `installments` category ("Installments / SPayLater"), linked by
+  `installmentId` (column `kwenta_transactions.installment_id`), and lowers
+  `remainingMonths` by 1. Undo reverses both. "Month 2 of 6" is
+  `(totalMonths - remainingMonths) + 1`.
+- **In the budget/overview:** paid payments are ordinary expenses, so they are
+  in Net Balance, Expenses and the Installments budget category (set a limit
+  like any category). Overview has an **Installments** card with this month's
+  unpaid dues, due date and status; the tab shows *To pay this month* and
+  *Total still owed*.
+- **Deleting a plan** keeps the payments already recorded (same as bills).
+- Table `kwenta_installments` is shared in households, in realtime, the activity
+  log, backup/restore and account deletion (migration `20261113000000`).
+
+## Sorting
+
+`sorting.js` defines the options per list (Expenses, Income, Bills, Budgets,
+Utang, Installments). `sortList(viewId, items, ctx)` always returns a **copy**,
+so saved data is never reordered and nothing syncs. The choice is remembered
+per list on the device (`localStorage`, key `kwenta_sort_v1`, like theme and
+currency). The button and sheet are `components/sortControl.js`; call
+`renderSortButton(viewId)` in a tab's markup. To add a list: add a view to
+`SORT_VIEWS`, call `sortList` where it renders, add the button.
+Utang has no due date, so its "due/remaining" sort is by remaining balance.
+
+## Installments (SPayLater)
+
+Tab **Overview → Installments**. A plan is a template (item name, total amount,
+monthly payment, total months, remaining months, and a due rule: the **15th** or
+the **last day** of the month, like Shopee SPayLater cycles). Logic is in
+`installments.js`; UI in `components/installmentsTab.js` and `installmentSheet.js`.
+
+- **Paying:** *Mark as paid* creates a real expense in the built-in
+  `installments` category ("Installments / SPayLater"), linked by
+  `installmentId` (column `kwenta_transactions.installment_id`), and lowers
+  `remainingMonths` by 1. Undo reverses both. "Month 2 of 6" is
+  `(totalMonths - remainingMonths) + 1`.
+- **In the budget/overview:** paid payments are ordinary expenses, so they are
+  in Net Balance, Expenses and the Installments budget category (set a limit
+  like any category). Overview has an **Installments** card with this month's
+  unpaid dues, due date and status; the tab shows *To pay this month* and
+  *Total still owed*.
+- **Deleting a plan** keeps the payments already recorded (same as bills).
+- Table `kwenta_installments` is shared in households, in realtime, the activity
+  log, backup/restore and account deletion (migration `20261113000000`).
+
+## Sorting
+
+`sorting.js` defines the options per list (Expenses, Income, Bills, Budgets,
+Utang, Installments). `sortList(viewId, items, ctx)` always returns a **copy**,
+so saved data is never reordered and nothing syncs. The choice is remembered
+per list on the device (`localStorage`, key `kwenta_sort_v1`, like theme and
+currency). The button and sheet are `components/sortControl.js`; call
+`renderSortButton(viewId)` in a tab's markup. To add a list: add a view to
+`SORT_VIEWS`, call `sortList` where it renders, add the button.
+Utang has no due date, so its "due/remaining" sort is by remaining balance.
+
 ## E-wallet & bank icons
 
 The icon picker's first group, **E-wallets & banks**, has monograms for GCash,

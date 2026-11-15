@@ -16,6 +16,8 @@ import {
   billCategoryLabel,
 } from "../bills.js";
 import { renderInsightsCard } from "../insights.js";
+import { renderInstallmentsDue } from "./installmentsTab.js";
+import { renderInstallmentsDue } from "./installmentsTab.js";
 
 export function renderOverview() {
   const exp = monthTx("expense");
@@ -30,6 +32,8 @@ export function renderOverview() {
 
   return `
   ${renderUpcomingBills()}
+  ${renderInstallmentsDue()}
+  ${renderInstallmentsDue()}
   <div class="section-title">Where it went <span class="sub">expenses by category</span></div>
   ${
     entries.length === 0
