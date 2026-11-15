@@ -17,7 +17,6 @@ import {
 } from "../bills.js";
 import { renderInsightsCard } from "../insights.js";
 import { renderInstallmentsDue } from "./installmentsTab.js";
-import { renderInstallmentsDue } from "./installmentsTab.js";
 
 export function renderOverview() {
   const exp = monthTx("expense");

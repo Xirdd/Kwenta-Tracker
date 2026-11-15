@@ -42,14 +42,6 @@ import {
 } from "./components/installmentSheet.js";
 import { getInstallment } from "./installments.js";
 import { initSortControl } from "./components/sortControl.js";
-import { renderInstallmentsTab } from "./components/installmentsTab.js";
-import {
-  initInstallmentSheets,
-  openInstallmentForm,
-  openInstallmentDetail,
-} from "./components/installmentSheet.js";
-import { getInstallment } from "./installments.js";
-import { initSortControl } from "./components/sortControl.js";
 import {
   renderWalletsTab,
   initWalletsTab,
@@ -199,7 +191,6 @@ function renderSectionContent(t) {
     ${state.tab === "bills" ? renderBills() : ""}
     ${state.tab === "wallets" ? renderWalletsTab() : ""}
     ${state.tab === "installments" ? renderInstallmentsTab() : ""}
-    ${state.tab === "installments" ? renderInstallmentsTab() : ""}
   `;
 }
 
@@ -307,7 +298,6 @@ function attachEvents() {
     onLoan: () => openLoanForm(null),
     onWallet: () => openWalletForm(null),
     onInstallment: () => openInstallmentForm(null),
-    onInstallment: () => openInstallmentForm(null),
   });
 
   // The person icon in the header (next to Search) opens the Profile page.
@@ -364,14 +354,6 @@ function attachEvents() {
     row.onclick = () => {
       const loan = getLoan(row.dataset.loan);
       if (loan) openLoanDetail(loan);
-    };
-  });
-
-  // Installment rows appear in the Installments tab and the Overview card.
-  document.querySelectorAll("[data-installment]").forEach((row) => {
-    row.onclick = () => {
-      const plan = getInstallment(row.dataset.installment);
-      if (plan) openInstallmentDetail(plan);
     };
   });
 
@@ -487,8 +469,6 @@ async function unlockApp({ boot = false } = {}) {
   initLoanSheets(render);
   initWalletSheets(render);
   initWalletsTab(render);
-  initInstallmentSheets(render);
-  initSortControl(render); // one Sort control for every list
   initInstallmentSheets(render);
   initSortControl(render); // one Sort control for every list
   initTransferSheet(render);
