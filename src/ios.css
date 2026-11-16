@@ -1,73 +1,200 @@
-/* ---------- iOS look (V6) ---------- */
-/* Imported from theme.js AFTER glass.css, so it lands last in the bundle and
-   wins at equal specificity. This file is the whole iOS layer: remove its
-   import (and iosNav.js) from theme.js to get the old glass look back.
-
-   What it does:
-     1. System font (SF Pro on iPhone) everywhere.
-     2. Flat "inset grouped" surfaces: solid cards, hairline separators,
-        iOS corner radii. Blur ("material") is kept ONLY on the tab bar, the
-        collapsed title bar, sheets and toasts, which is where iOS uses it.
-     3. Full-width tab bar docked to the bottom.
-     4. Large titles that collapse into a small centered title on scroll.
-     5. Back header on the Profile page.
-   Theme colors, accents and the green/coral meaning colors are untouched. */
+/* ---------- iOS glass layer ---------- */
+/* Import LAST (after glass.css) from theme.js:  import "./ios.css";
+   Pure restyle: no layout structure changes. Delete the import to revert. */
 
 :root {
-  color-scheme: dark;
-  --font-ui:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
-    "Helvetica Neue", system-ui, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-
-  --radius: 14px;
-  --radius-sm: 10px;
-  --radius-lg: 16px;
-
-  --line: rgba(255, 255, 255, 0.12);
-  --line-dark: rgba(255, 255, 255, 0.1);
-  --hairline: 0.5px solid rgba(255, 255, 255, 0.14);
-
-  --shadow-card: none;
-  --shadow-pop: none;
-  --glass-blur: none;
-  --glass-border: 0.5px solid var(--line);
-  --gradient-card: var(--paper);
-  --gradient-accent: var(--gold);
-
-  --material: color-mix(in srgb, var(--bg-2) 80%, transparent);
-  --tabbar-h: 56px;
+  --ios-font:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter",
+    system-ui, sans-serif;
+  --ios-radius-card: 24px;
+  --ios-radius-ctl: 16px;
+  --ios-hair: rgba(255, 255, 255, 0.1);
+  --ios-fill: rgba(255, 255, 255, 0.06);
+  --ios-fill-strong: rgba(255, 255, 255, 0.1);
+  --ios-blur: blur(28px) saturate(180%);
+  --radius: 24px;
+  --radius-lg: 28px;
+  --radius-sm: 14px;
 }
 
-/* ── 1. System font ──
-   Class rules all name "Inter" / "IBM Plex Mono", so a single !important
-   rule is the only way to switch without editing every stylesheet. Amounts
-   already use tabular-nums, so SF Pro keeps their columns aligned. */
-*,
-*::before,
-*::after {
-  font-family: var(--font-ui) !important;
+/* ── Type: SF everywhere, numbers stay tabular ── */
+body,
+button,
+input,
+select,
+textarea,
+.section-title,
+.section-title .sub,
+.tab-btn,
+.btn,
+.field input,
+.field select,
+.bottom-nav-btn,
+.empty-state .glyph,
+.brand h1,
+.brand p {
+  font-family: var(--ios-font);
 }
-code,
-.recovery-code,
-.mfa-code-input,
-.invite-code-box span,
-.mfa-secret-fallback code {
-  font-family: var(--font-mono) !important;
+.balance-amount,
+.balance-hero .balance-amount,
+.hero-stat-inline .amt,
+.row .amt,
+.bill-amount,
+.goal-saved,
+.stat-chip .value,
+.ov-trend-stat .value,
+.month-label,
+.budget-summary > span:last-child,
+.donut-total,
+.pp-stat .value,
+.salary-input-wrap input,
+.salary-input-wrap .sym,
+.budget-input-wrap input {
+  font-family: var(--ios-font);
+  font-variant-numeric: tabular-nums;
 }
 
-/* ── 2. Flat page + grouped surfaces ── */
-body {
-  background: var(--bg);
-  padding-bottom: calc(var(--tabbar-h) + 64px);
+/* ── Large title header (iOS navigation style) ── */
+header {
+  padding: 22px 4px 14px 4px;
+  align-items: center;
 }
-body::before {
-  display: none; /* the aurora */
+.brand h1 {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
 }
-.app {
-  z-index: auto; /* no stacking context, so the fixed title bar can sit above the status-bar fill */
+.brand p {
+  font-size: 13px;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.household-badge {
+  margin-top: 8px;
+  padding: 6px 12px 6px 9px;
+  background: var(--ios-fill);
+  border: 1px solid var(--ios-hair);
+  -webkit-backdrop-filter: var(--ios-blur);
+  backdrop-filter: var(--ios-blur);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.header-actions {
+  gap: 10px;
+}
+.icon-btn {
+  background: var(--ios-fill-strong);
+  border: 1px solid var(--ios-hair);
+  -webkit-backdrop-filter: var(--ios-blur);
+  backdrop-filter: var(--ios-blur);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+/* The corner app icon duplicated the brand; the photo + search are enough. */
+.header-actions .app-icon {
+  display: none;
 }
 
+/* ── Period switcher ── */
+.month-nav {
+  padding: 2px 2px 16px 2px;
+}
+.month-nav button {
+  width: 40px;
+  height: 40px;
+  background: var(--ios-fill-strong);
+  font-size: 18px;
+  font-weight: 600;
+}
+.month-label {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+/* ── Hero card ── */
+.balance-hero {
+  padding: 22px 22px 20px 22px;
+  border-radius: 30px;
+}
+.balance-hero .eyebrow {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-soft);
+}
+.balance-hero .balance-amount {
+  font-size: 46px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  margin: 6px 0 18px 0;
+}
+.hero-stat-inline {
+  border-radius: 18px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.hero-stat-inline .label {
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.hero-stat-inline .amt {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* ── Sub-tabs: one clean, swipeable segmented row ── */
+.tabs {
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin: 18px -18px 16px -18px; /* bleeds to screen edges so it reads as swipeable */
+  padding: 4px 18px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  scroll-padding: 0 18px;
+}
+.tab-btn {
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink-soft);
+  background: var(--ios-fill);
+  border: 1px solid var(--ios-hair);
+  -webkit-backdrop-filter: var(--ios-blur);
+  backdrop-filter: var(--ios-blur);
+}
+.tab-btn.active {
+  color: var(--on-accent);
+  background: var(--gradient-accent);
+  border-color: transparent;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 8px 20px -10px color-mix(in srgb, var(--gold) 80%, transparent);
+}
+
+/* ── Section titles ── */
+.section-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin: 24px 4px 12px 4px;
+}
+.section-title .sub {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ── Cards & lists: frosted, soft edge, no heavy shadows ── */
 .list,
 .salary-card,
 .goal-card,
@@ -77,374 +204,154 @@ body::before {
 .ov-card,
 .bars,
 .ins-tile,
-.insights-card,
 .profile-card,
-.profile-header-card,
 .settings-card,
-.empty-state,
 .stat-chip,
 .pp-hero,
 .pp-stat,
-.auth-card,
-.quick-add-chip,
-.balance-hero,
-.hero-stat-inline,
-.backup-diff-card {
-  background: var(--paper);
-  border: var(--hairline);
-  box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+.empty-state {
+  border-radius: var(--ios-radius-card) !important;
+  border: 1px solid var(--ios-hair);
+  -webkit-backdrop-filter: var(--ios-blur);
+  backdrop-filter: var(--ios-blur);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 14px 34px -22px rgba(0, 0, 0, 0.75);
 }
-.balance-hero {
-  -webkit-mask-image: none;
-  mask-image: none;
-}
-.balance-hero::before,
-.balance-hero::after,
-.pp-hero::before,
-.goal-glow,
-.loan-glow,
-.ins-tile::before {
-  display: none;
-}
-.hero-stat-inline {
-  background: var(--paper-2);
-  border: 0;
-}
-.balance-hero .balance-amount:not(.negative),
-.balance-hero .balance-amount {
-  background: none;
-  -webkit-text-fill-color: currentColor;
-}
-.balance-hero .balance-amount:not(.negative) {
-  color: var(--cream);
-}
-.danger-card {
-  background: color-mix(in srgb, var(--coral) 12%, var(--paper));
-}
-
-/* Hairline separators between rows, like a grouped table. */
 .row,
-.bill-row,
-.ov-bill-row,
-.settings-row,
-.budget-row,
-.opt-row {
-  border-bottom-width: 0.5px;
+.bill-row {
+  padding: 14px 18px;
+  min-height: 64px;
+}
+.row:active,
+.bill-row:active,
+.settings-row:active {
+  background: rgba(255, 255, 255, 0.07);
+}
+.row .desc,
+.bill-row .desc {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.row .meta,
+.bill-row .meta {
+  font-size: 13px;
+}
+.row .amt {
+  font-size: 16px;
 }
 
-/* Section headings inside a screen: iOS-style 20pt semibold. */
-.section-title {
-  font-size: 20px;
+/* Empty state: calmer, centred, with a glass icon tile */
+.empty-state {
+  padding: 40px 28px;
+}
+.empty-state .glyph {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  font-size: 26px;
   font-weight: 700;
-  letter-spacing: 0.35px;
-  margin: 26px 4px 10px 4px;
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent);
 }
-.section-title .sub {
-  font-size: 13px;
-  font-weight: 400;
-}
-.settings-section-label,
-.pick-group-label,
-.search-group-label {
-  font-size: 13px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: uppercase;
-  color: var(--muted);
+.empty-state p {
+  font-size: 15px;
+  line-height: 1.45;
+  max-width: 26ch;
+  margin: 0 auto;
 }
 
 /* ── Controls ── */
+.field input,
+.field select,
+.expense-search input {
+  min-height: 48px;
+  border-radius: var(--ios-radius-ctl);
+  font-size: 17px; /* 17px = iOS body size, also stops focus-zoom */
+}
 .btn {
   min-height: 50px;
-  padding: 0;
-  border-radius: 12px;
+  border-radius: var(--ios-radius-ctl);
   font-size: 16px;
   font-weight: 600;
 }
-.btn-primary {
-  background: var(--gold);
-  color: var(--on-accent);
-  box-shadow: none;
+.sheet {
+  border-radius: 28px 28px 0 0;
 }
-.btn-danger {
-  background: var(--coral);
-  color: #fff;
-}
-.btn-ghost {
-  background: var(--paper-2);
-  box-shadow: none;
-}
-.field input,
-.field select,
-.expense-search input,
-.search-sheet-input-wrap input,
-.salary-input-wrap,
-.tag-input-wrap,
-.budget-input-wrap {
-  background: var(--paper-2);
-  border-radius: 10px;
-  box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  font-size: 17px; /* 16px+ also stops iOS zooming on focus */
-}
-.field input:focus,
-.field select:focus {
-  box-shadow: none;
-}
-.cat-opt,
-.cat-opt.selected {
-  box-shadow: none;
-  background-image: none;
-}
-.cat-opt {
-  background: var(--paper-2);
-}
-.cat-opt.selected {
-  background: color-mix(in srgb, var(--gold) 16%, var(--paper-2));
+.sheet h3 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
 }
 
-.icon-btn,
-.month-nav button {
-  background: var(--paper);
-  border: 0;
-  box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+/* ── Floating + button: squircle → true circle, above the tab bar ── */
+.fab {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
 }
-.icon-btn-account {
-  background: var(--gold);
-  color: var(--on-accent);
-  box-shadow: none;
-}
-.icon-btn-account.has-avatar {
-  background: var(--paper-2);
-}
-
-/* The Overview sub-tabs become plain pill chips (a 6-way segmented control
-   doesn't fit a phone). */
-.tabs {
-  background: none;
-  border: 0;
-  box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  padding: 0;
-  margin: 6px 0 16px 0;
-  gap: 8px;
-}
-.tab-btn {
-  background: var(--paper);
-  color: var(--ink-soft);
-  border-radius: 999px;
-  padding: 8px 15px;
-  font-size: 14px;
-  font-weight: 500;
-}
-.tab-btn.active {
-  background: var(--gold);
-  color: var(--on-accent);
-  font-weight: 600;
-  box-shadow: none;
+@media (max-width: 859px) {
+  .fab {
+    left: auto;
+    right: 22px;
+    transform: none;
+  }
+  .fab:active {
+    transform: scale(0.94);
+  }
 }
 
-/* ── 3. Tab bar ── */
+/* ── Bottom tab bar: full-width frosted bar like UITabBar ── */
 .bottom-nav {
   left: 0;
   right: 0;
   bottom: 0;
   max-width: none;
   margin: 0;
-  border: 0;
-  border-top: var(--hairline);
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)) 8px;
   border-radius: 0;
-  padding: 6px 8px calc(2px + env(safe-area-inset-bottom, 0px)) 8px;
-  background: var(--material);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
+  border: none;
+  border-top: 1px solid var(--ios-hair);
+  background: color-mix(in srgb, var(--bg) 62%, transparent);
+  -webkit-backdrop-filter: blur(32px) saturate(190%);
+  backdrop-filter: blur(32px) saturate(190%);
   box-shadow: none;
 }
 .bottom-nav-btn {
-  gap: 2px;
-  padding: 4px 4px;
-  min-height: 44px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.1px;
-  color: var(--muted);
-  background: none;
-  border-radius: 0;
+  gap: 4px;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 .bottom-nav-btn.active {
   color: var(--gold);
-  background: none;
-  box-shadow: none;
+}
+.bottom-nav-btn svg {
+  stroke-width: 1.8;
 }
 
-/* ── + button: bottom-right, above the tab bar ── */
-@media (max-width: 859px) {
-  .fab {
-    left: auto;
-    right: 18px;
-    transform: none;
-    bottom: calc(var(--tabbar-h) + 18px + env(safe-area-inset-bottom, 0px));
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: var(--gold);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-  }
-  .fab:active {
-    transform: scale(0.94);
-  }
-}
-.toast-banner {
-  bottom: calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom, 0px));
-  background: var(--material);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  box-shadow: none;
-  border: var(--hairline);
+/* Room for the taller bar */
+body {
+  padding-bottom: 150px;
 }
 
-/* ── 4. Large titles ── */
-header.nav-bar {
-  display: block;
-  padding: 0;
-  margin: 0;
-}
-header.nav-bar.nav-hidden {
-  display: none; /* Profile has its own back header (below) */
-}
-.nav-large {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 56px;
-  padding: 10px 4px 12px 4px;
-}
-.nav-large-text {
-  min-width: 0;
-}
-.nav-title {
-  margin: 0;
-  font-size: 34px;
-  line-height: 1.1;
-  font-weight: 700;
-  letter-spacing: 0.37px;
-  color: var(--cream);
-}
-.nav-large .household-badge {
-  margin-top: 6px;
-}
-.nav-large .header-actions {
-  gap: 10px;
-  padding-bottom: 2px;
-}
-
-/* The page's own first heading repeats the large title on most screens. */
-.app:has(> header[data-dup="1"]) .content-panel > .section-title:first-child {
-  display: none;
-}
-
-/* Small centered title that fades in once the large one has scrolled away. */
-.nav-compact {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 46;
-  height: calc(env(safe-area-inset-top, 0px) + 44px);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 12px;
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--cream);
-  background: var(--material);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  border-bottom: var(--hairline);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.18s ease;
-}
-html.nav-collapsed .nav-compact {
-  opacity: 1;
-}
-
-/* ── 5. Back header (Profile) ── */
-.pp-top {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0;
-  margin: 0 0 8px -8px;
-  padding-top: 4px;
-}
-.pp-back {
-  min-height: 44px;
-  font-size: 17px;
-  font-weight: 400;
-  color: var(--gold);
-}
-.pp-top .section-title {
-  display: block;
-  font-size: 34px;
-  line-height: 1.1;
-  letter-spacing: 0.37px;
-  margin: 0 0 6px 8px;
-}
-
-/* ── Sheets: iOS modal sheets ── */
-.sheet {
-  background: color-mix(in srgb, var(--paper) 94%, transparent);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  backdrop-filter: blur(30px) saturate(180%);
-  border: 0;
-  border-top: var(--hairline);
-  border-radius: 20px 20px 0 0;
-  box-shadow: none;
-}
-.sheet .grabber {
-  background: rgba(255, 255, 255, 0.3);
-}
-.sheet h3 {
-  text-align: center;
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 0;
-}
-.sheet .sheet-head h3 {
-  text-align: left;
-}
-@media (min-width: 640px) {
-  .sheet {
-    border: var(--hairline);
-    border-radius: 14px;
-  }
-}
-.scrim {
-  background: rgba(0, 0, 0, 0.45);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
-
-/* ── Desktop: the tab bar stays full width, content stays centered ── */
-@media (min-width: 860px) {
-  body {
-    padding-bottom: calc(var(--tabbar-h) + 40px);
-  }
-  header.nav-bar {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .nav-compact {
-    transition: none;
+@media (prefers-reduced-transparency: reduce) {
+  .bottom-nav,
+  .tab-btn,
+  .icon-btn,
+  .list,
+  .ov-card,
+  .empty-state {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--paper);
   }
 }
