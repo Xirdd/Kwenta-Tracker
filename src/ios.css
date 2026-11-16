@@ -147,12 +147,19 @@ header {
   font-weight: 600;
 }
 
-/* ── Sub-tabs: one clean, swipeable segmented row ── */
+/* ── Sub-tabs: swipeable glass pills ── */
+.tabs,
+.tabs.has-more,
+.tabs.has-less,
+.tabs.has-more.has-less {
+  -webkit-mask-image: none;
+  mask-image: none; /* no half-faded pills at the edges */
+}
 .tabs {
   flex-wrap: nowrap;
-  gap: 6px;
-  margin: 18px -18px 16px -18px; /* bleeds to screen edges so it reads as swipeable */
-  padding: 4px 18px;
+  gap: 8px;
+  margin: 16px -18px 14px -18px;
+  padding: 2px 18px 6px 18px;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -161,25 +168,24 @@ header {
   scroll-padding: 0 18px;
 }
 .tab-btn {
-  min-height: 40px;
-  padding: 0 18px;
+  min-height: 38px;
+  padding: 0 16px;
   border-radius: 999px;
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--ink-soft);
-  background: var(--ios-fill);
+  background: rgba(255, 255, 255, 0.07);
   border: 1px solid var(--ios-hair);
-  -webkit-backdrop-filter: var(--ios-blur);
-  backdrop-filter: var(--ios-blur);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 .tab-btn.active {
-  color: var(--on-accent);
-  background: var(--gradient-accent);
-  border-color: transparent;
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 20%, rgba(255, 255, 255, 0.04));
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 8px 20px -10px color-mix(in srgb, var(--gold) 80%, transparent);
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 6px 18px -10px color-mix(in srgb, var(--gold) 70%, transparent);
 }
 
 /* ── Section titles ── */
@@ -290,10 +296,56 @@ header {
   letter-spacing: -0.025em;
 }
 
-/* ── Floating + button: squircle → true circle, above the tab bar ── */
+/* ── Bottom nav: floating glass capsule ── */
+.bottom-nav {
+  left: 14px;
+  right: 14px;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 6px;
+  gap: 2px;
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.14),
+      rgba(255, 255, 255, 0.03)
+    ),
+    color-mix(in srgb, var(--paper) 55%, transparent);
+  -webkit-backdrop-filter: blur(34px) saturate(200%);
+  backdrop-filter: blur(34px) saturate(200%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 18px 40px -14px rgba(0, 0, 0, 0.8);
+}
+.bottom-nav-btn {
+  min-height: 54px;
+  padding: 6px 4px;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  border-radius: 26px;
+  color: var(--ink-soft);
+  box-shadow: none;
+}
+.bottom-nav-btn svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.8;
+}
+.bottom-nav-btn.active {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 18%, rgba(255, 255, 255, 0.05));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* + button sits just above the capsule, right side */
 .fab {
-  width: 58px;
-  height: 58px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   bottom: calc(96px + env(safe-area-inset-bottom, 0px));
 }
@@ -308,39 +360,9 @@ header {
   }
 }
 
-/* ── Bottom tab bar: full-width frosted bar like UITabBar ── */
-.bottom-nav {
-  left: 0;
-  right: 0;
-  bottom: 0;
-  max-width: none;
-  margin: 0;
-  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)) 8px;
-  border-radius: 0;
-  border: none;
-  border-top: 1px solid var(--ios-hair);
-  background: color-mix(in srgb, var(--bg) 62%, transparent);
-  -webkit-backdrop-filter: blur(32px) saturate(190%);
-  backdrop-filter: blur(32px) saturate(190%);
-  box-shadow: none;
-}
-.bottom-nav-btn {
-  font-size: 11px;
-  font-weight: 500;
-  gap: 4px;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-.bottom-nav-btn.active {
-  color: var(--gold);
-}
-.bottom-nav-btn svg {
-  stroke-width: 1.8;
-}
-
-/* Room for the taller bar */
+/* Room for the nav so the last card never hides behind it */
 body {
-  padding-bottom: 150px;
+  padding-bottom: 170px;
 }
 
 @media (prefers-reduced-transparency: reduce) {
