@@ -31,8 +31,8 @@ textarea,
 .field select,
 .bottom-nav-btn,
 .empty-state .glyph,
-.brand h1,
-.brand p {
+.ios-title,
+.ios-tagline {
   font-family: var(--ios-font);
 }
 .balance-amount,
@@ -55,20 +55,40 @@ textarea,
 }
 
 /* ── Large title header (iOS navigation style) ── */
-header {
+.ios-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
   padding: 22px 4px 14px 4px;
-  align-items: center;
 }
-.brand h1 {
+.ios-header-text {
+  flex: 1;
+  min-width: 0;
+}
+.ios-title {
+  margin: 0;
+  font-family: var(--ios-font);
   font-size: 34px;
   font-weight: 700;
   letter-spacing: -0.035em;
-  line-height: 1.05;
+  line-height: 1.08;
+  color: var(--cream);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.brand p {
+.ios-tagline {
+  margin: 4px 0 0 0;
   font-size: 13px;
-  color: var(--ink-soft);
   font-weight: 500;
+  color: var(--ink-soft);
+}
+.ios-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 .household-badge {
   margin-top: 8px;
@@ -80,19 +100,12 @@ header {
   font-size: 12.5px;
   font-weight: 600;
 }
-.header-actions {
-  gap: 10px;
-}
 .icon-btn {
   background: var(--ios-fill-strong);
   border: 1px solid var(--ios-hair);
   -webkit-backdrop-filter: var(--ios-blur);
   backdrop-filter: var(--ios-blur);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-}
-/* The corner app icon duplicated the brand; the photo + search are enough. */
-.header-actions .app-icon {
-  display: none;
 }
 
 /* ── Period switcher ── */
