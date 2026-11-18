@@ -3,9 +3,8 @@
    Pure restyle: no layout structure changes. Delete the import to revert. */
 
 :root {
-  --ios-font:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter",
-    system-ui, sans-serif;
+  --ios-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Inter", system-ui, sans-serif;
   --ios-radius-card: 24px;
   --ios-radius-ctl: 16px;
   --ios-hair: rgba(255, 255, 255, 0.1);
@@ -18,38 +17,15 @@
 }
 
 /* ── Type: SF everywhere, numbers stay tabular ── */
-body,
-button,
-input,
-select,
-textarea,
-.section-title,
-.section-title .sub,
-.tab-btn,
-.btn,
-.field input,
-.field select,
-.bottom-nav-btn,
-.empty-state .glyph,
-.ios-title,
-.ios-tagline {
+body, button, input, select, textarea,
+.section-title, .section-title .sub, .tab-btn, .btn, .field input, .field select,
+.bottom-nav-btn, .empty-state .glyph, .ios-title, .ios-tagline {
   font-family: var(--ios-font);
 }
-.balance-amount,
-.balance-hero .balance-amount,
-.hero-stat-inline .amt,
-.row .amt,
-.bill-amount,
-.goal-saved,
-.stat-chip .value,
-.ov-trend-stat .value,
-.month-label,
-.budget-summary > span:last-child,
-.donut-total,
-.pp-stat .value,
-.salary-input-wrap input,
-.salary-input-wrap .sym,
-.budget-input-wrap input {
+.balance-amount, .balance-hero .balance-amount, .hero-stat-inline .amt,
+.row .amt, .bill-amount, .goal-saved, .stat-chip .value, .ov-trend-stat .value,
+.month-label, .budget-summary > span:last-child, .donut-total, .pp-stat .value,
+.salary-input-wrap input, .salary-input-wrap .sym, .budget-input-wrap input {
   font-family: var(--ios-font);
   font-variant-numeric: tabular-nums;
 }
@@ -62,10 +38,7 @@ textarea,
   gap: 12px;
   padding: 22px 4px 14px 4px;
 }
-.ios-header-text {
-  flex: 1;
-  min-width: 0;
-}
+.ios-header-text { flex: 1; min-width: 0; }
 .ios-title {
   margin: 0;
   font-family: var(--ios-font);
@@ -109,12 +82,9 @@ textarea,
 }
 
 /* ── Period switcher ── */
-.month-nav {
-  padding: 2px 2px 16px 2px;
-}
+.month-nav { padding: 2px 2px 16px 2px; }
 .month-nav button {
-  width: 40px;
-  height: 40px;
+  width: 40px; height: 40px;
   background: var(--ios-fill-strong);
   font-size: 18px;
   font-weight: 600;
@@ -155,24 +125,17 @@ textarea,
   letter-spacing: 0;
   text-transform: none;
 }
-.hero-stat-inline .amt {
-  font-size: 18px;
-  font-weight: 600;
-}
+.hero-stat-inline .amt { font-size: 18px; font-weight: 600; }
 
 /* ── Sub-tabs: swipeable glass pills ── */
-.tabs,
-.tabs.has-more,
-.tabs.has-less,
-.tabs.has-more.has-less {
-  -webkit-mask-image: none;
-  mask-image: none; /* no half-faded pills at the edges */
+.tabs, .tabs.has-more, .tabs.has-less, .tabs.has-more.has-less {
+  -webkit-mask-image: none; mask-image: none;   /* no half-faded pills at the edges */
 }
 .tabs {
   flex-wrap: nowrap;
   gap: 8px;
   margin: 16px -18px 14px -18px;
-  padding: 2px 18px 6px 18px;
+  padding: 2px 18px 2px 18px;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -196,9 +159,10 @@ textarea,
   color: var(--gold);
   background: color-mix(in srgb, var(--gold) 20%, rgba(255, 255, 255, 0.04));
   border-color: color-mix(in srgb, var(--gold) 55%, transparent);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 6px 18px -10px color-mix(in srgb, var(--gold) 70%, transparent);
+  /* Inset only: an outer shadow gets clipped by the scrolling row and shows
+     up as a rectangle behind the pill. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+  filter: none;
 }
 
 /* ── Section titles ── */
@@ -208,27 +172,12 @@ textarea,
   letter-spacing: -0.025em;
   margin: 24px 4px 12px 4px;
 }
-.section-title .sub {
-  font-size: 13px;
-  font-weight: 500;
-}
+.section-title .sub { font-size: 13px; font-weight: 500; }
 
 /* ── Cards & lists: frosted, soft edge, no heavy shadows ── */
-.list,
-.salary-card,
-.goal-card,
-.loan-card,
-.budget-summary,
-.goals-summary-banner,
-.ov-card,
-.bars,
-.ins-tile,
-.profile-card,
-.settings-card,
-.stat-chip,
-.pp-hero,
-.pp-stat,
-.empty-state {
+.list, .salary-card, .goal-card, .loan-card, .budget-summary,
+.goals-summary-banner, .ov-card, .bars, .ins-tile, .profile-card,
+.settings-card, .stat-chip, .pp-hero, .pp-stat, .empty-state {
   border-radius: var(--ios-radius-card) !important;
   border: 1px solid var(--ios-hair);
   -webkit-backdrop-filter: var(--ios-blur);
@@ -237,83 +186,40 @@ textarea,
     inset 0 1px 0 rgba(255, 255, 255, 0.16),
     0 14px 34px -22px rgba(0, 0, 0, 0.75);
 }
-.row,
-.bill-row {
-  padding: 14px 18px;
-  min-height: 64px;
-}
-.row:active,
-.bill-row:active,
-.settings-row:active {
-  background: rgba(255, 255, 255, 0.07);
-}
-.row .desc,
-.bill-row .desc {
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-.row .meta,
-.bill-row .meta {
-  font-size: 13px;
-}
-.row .amt {
-  font-size: 16px;
-}
+.row, .bill-row { padding: 14px 18px; min-height: 64px; }
+.row:active, .bill-row:active, .settings-row:active { background: rgba(255, 255, 255, 0.07); }
+.row .desc, .bill-row .desc { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.row .meta, .bill-row .meta { font-size: 13px; }
+.row .amt { font-size: 16px; }
 
 /* Empty state: calmer, centred, with a glass icon tile */
-.empty-state {
-  padding: 40px 28px;
-}
+.empty-state { padding: 40px 28px; }
 .empty-state .glyph {
-  width: 56px;
-  height: 56px;
+  width: 56px; height: 56px;
   margin: 0 auto 14px auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   border-radius: 18px;
-  font-size: 26px;
-  font-weight: 700;
+  font-size: 26px; font-weight: 700;
   color: var(--gold);
   background: color-mix(in srgb, var(--gold) 16%, transparent);
   border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent);
 }
-.empty-state p {
-  font-size: 15px;
-  line-height: 1.45;
-  max-width: 26ch;
-  margin: 0 auto;
-}
+.empty-state p { font-size: 15px; line-height: 1.45; max-width: 26ch; margin: 0 auto; }
 
 /* ── Controls ── */
-.field input,
-.field select,
-.expense-search input {
+.field input, .field select, .expense-search input {
   min-height: 48px;
   border-radius: var(--ios-radius-ctl);
-  font-size: 17px; /* 17px = iOS body size, also stops focus-zoom */
+  font-size: 17px;   /* 17px = iOS body size, also stops focus-zoom */
 }
-.btn {
-  min-height: 50px;
-  border-radius: var(--ios-radius-ctl);
-  font-size: 16px;
-  font-weight: 600;
-}
-.sheet {
-  border-radius: 28px 28px 0 0;
-}
-.sheet h3 {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-}
+.btn { min-height: 50px; border-radius: var(--ios-radius-ctl); font-size: 16px; font-weight: 600; }
+.sheet { border-radius: 28px 28px 0 0; }
+.sheet h3 { font-size: 22px; font-weight: 700; letter-spacing: -0.025em; }
 
 /* ── Bottom nav: floating glass capsule ── */
 .bottom-nav {
-  left: 14px;
-  right: 14px;
-  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  left: 12px; right: 12px;
+  bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) - 22px));
   max-width: 440px;
   margin: 0 auto;
   padding: 6px;
@@ -321,11 +227,7 @@ textarea,
   border-radius: 32px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.14),
-      rgba(255, 255, 255, 0.03)
-    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03)),
     color-mix(in srgb, var(--paper) 55%, transparent);
   -webkit-backdrop-filter: blur(34px) saturate(200%);
   backdrop-filter: blur(34px) saturate(200%);
@@ -344,11 +246,7 @@ textarea,
   color: var(--ink-soft);
   box-shadow: none;
 }
-.bottom-nav-btn svg {
-  width: 24px;
-  height: 24px;
-  stroke-width: 1.8;
-}
+.bottom-nav-btn svg { width: 24px; height: 24px; stroke-width: 1.8; }
 .bottom-nav-btn.active {
   color: var(--gold);
   background: color-mix(in srgb, var(--gold) 18%, rgba(255, 255, 255, 0.05));
@@ -357,36 +255,41 @@ textarea,
 
 /* + button sits just above the capsule, right side */
 .fab {
-  width: 56px;
-  height: 56px;
+  width: 56px; height: 56px;
   border-radius: 50%;
-  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(max(8px, calc(env(safe-area-inset-bottom, 0px) - 22px)) + 80px);
 }
 @media (max-width: 859px) {
-  .fab {
-    left: auto;
-    right: 22px;
-    transform: none;
-  }
-  .fab:active {
-    transform: scale(0.94);
-  }
+  .fab { left: auto; right: 22px; transform: none; }
+  .fab:active { transform: scale(0.94); }
 }
 
 /* Room for the nav so the last card never hides behind it */
-body {
-  padding-bottom: 170px;
-}
+body { padding-bottom: 130px; }
 
 @media (prefers-reduced-transparency: reduce) {
-  .bottom-nav,
-  .tab-btn,
-  .icon-btn,
-  .list,
-  .ov-card,
-  .empty-state {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
+  .bottom-nav, .tab-btn, .icon-btn, .list, .ov-card, .empty-state {
+    -webkit-backdrop-filter: none; backdrop-filter: none;
     background: var(--paper);
   }
+}
+
+/* ── Status bar area: no black band ──
+   theme.js injects #statusBarFill (a solid --bg gradient) that painted a dark
+   strip behind the clock. Hide it and use a light frosted fade instead, so the
+   background shows through edge to edge and scrolling content still blurs
+   under the clock. */
+#statusBarFill { display: none !important; }
+body::after {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: calc(env(safe-area-inset-top, 0px) + 6px);
+  z-index: 45;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.02);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-mask-image: linear-gradient(#000 55%, transparent);
+  mask-image: linear-gradient(#000 55%, transparent);
 }
