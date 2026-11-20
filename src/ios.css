@@ -378,7 +378,7 @@ textarea,
 
 /* Room for the nav so the last card never hides behind it */
 body {
-  padding-bottom: 130px;
+  padding-bottom: 160px;
 }
 
 @media (prefers-reduced-transparency: reduce) {
@@ -548,4 +548,319 @@ body::after {
 }
 .goal-stack {
   gap: 12px;
+}
+
+/* ── No repeated titles ──
+   The big header title already names the screen, so the first in-page title
+   ("Goals", "Utang", "Wallets"…) is hidden. Its small right-hand note
+   ("1 tracked", "GCash, banks…") stays. header.js sets html[data-screen]. */
+html:is(
+    [data-screen="expenses"],
+    [data-screen="budgets"],
+    [data-screen="bills"],
+    [data-screen="wallets"],
+    [data-screen="installments"],
+    [data-screen="goals"],
+    [data-screen="loans"]
+  )
+  .content-panel
+  > .section-title:first-child {
+  font-size: 0;
+  justify-content: flex-end;
+  margin: 2px 4px 12px 4px;
+}
+html[data-screen="settings"] .content-panel > .section-title:first-child {
+  display: none;
+}
+html[data-screen="profile"] .pp-top .section-title {
+  display: none;
+}
+
+/* ── Numbers: SF everywhere (some component CSS was winning for these) ── */
+.goals-summary-amount,
+.pp-stat .value,
+.goal-saved,
+.amt,
+.bill-amount,
+.budget-summary > span:last-child,
+.stat-chip .value,
+.donut-total,
+.icon-btn-account,
+.pp-avatar,
+.profile-avatar {
+  font-family: var(--ios-font) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Utang: initials bubble (its inline colour was an invalid "var(--gold)26") ── */
+.loan-avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+  background: color-mix(in srgb, var(--gold) 18%, transparent) !important;
+  color: var(--gold) !important;
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent);
+}
+.loan-person {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.loan-badge {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ── Profile ── */
+.pp-hero-actions .btn {
+  min-height: 44px;
+  border-radius: 14px;
+  font-size: 15px;
+}
+.pp-hero-actions .btn-quiet {
+  background: var(--ios-fill);
+  border: 1px solid var(--ios-hair);
+  box-shadow: none;
+}
+.pp-stat {
+  border-radius: 20px !important;
+}
+.settings-row-end {
+  max-width: 68%;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+/* ── Settings ── */
+.signout-btn {
+  min-height: 52px;
+  border-radius: 18px;
+  font-size: 16px;
+}
+.settings-row-label {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.settings-row-value {
+  font-size: 13px;
+}
+.settings-section-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* ── Touch feedback: quick, springy press states ── */
+.btn,
+.tab-btn,
+.icon-btn,
+.month-nav button,
+.bottom-nav-btn,
+.fab,
+.sort-btn,
+.expense-cat-btn,
+.budget-customize-btn,
+.cc-preset,
+.quick-add-chip,
+.household-badge,
+.btn-undo,
+.cat-opt,
+.opt-row {
+  transition:
+    transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1),
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    opacity 0.18s ease;
+  will-change: transform;
+}
+.btn:active,
+.tab-btn:active,
+.sort-btn:active,
+.expense-cat-btn:active,
+.budget-customize-btn:active,
+.cc-preset:active,
+.quick-add-chip:active,
+.household-badge:active,
+.btn-undo:active {
+  transform: scale(0.96);
+}
+.icon-btn:active,
+.month-nav button:active {
+  transform: scale(0.92);
+}
+.bottom-nav-btn:active {
+  transform: scale(0.94);
+}
+.fab:active {
+  transform: scale(0.92) !important;
+}
+.cat-opt:active {
+  transform: scale(0.97);
+}
+.loan-card:active,
+.goal-card:active {
+  transform: scale(0.985);
+}
+
+/* ── Tap targets: at least 44px ── */
+.month-nav button {
+  width: 44px;
+  height: 44px;
+}
+.btn-copy {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+}
+.tag-remove {
+  min-width: 28px;
+  min-height: 28px;
+}
+.sheet .grabber {
+  height: 5px;
+  width: 40px;
+}
+
+/* ── Smoother scrolling and no tap flash ── */
+.content-panel,
+.sheet,
+.opt-list,
+.pick-list,
+.tabs {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* ── Respect "Reduce Motion" ── */
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .tab-btn,
+  .icon-btn,
+  .month-nav button,
+  .bottom-nav-btn,
+  .fab,
+  .sort-btn,
+  .expense-cat-btn,
+  .budget-customize-btn,
+  .cc-preset,
+  .quick-add-chip,
+  .household-badge,
+  .btn-undo,
+  .cat-opt,
+  .opt-row {
+    transition: none;
+  }
+  .btn:active,
+  .tab-btn:active,
+  .icon-btn:active,
+  .bottom-nav-btn:active,
+  .loan-card:active,
+  .goal-card:active {
+    transform: none;
+  }
+}
+
+/* ── Press feedback: iOS-style quick scale + dim on tap ── */
+.row,
+.bill-row,
+.settings-row,
+.goal-card,
+.loan-card,
+.opt-row,
+.cat-opt,
+.budget-header,
+.search-result-row,
+.ov-bill-row {
+  transition:
+    transform 0.14s ease,
+    background-color 0.14s ease,
+    opacity 0.14s ease;
+}
+.goal-card:active,
+.loan-card:active {
+  transform: scale(0.985);
+}
+.row:active,
+.bill-row:active,
+.settings-row:active,
+.opt-row:active,
+.search-result-row:active,
+.ov-bill-row:active {
+  opacity: 0.85;
+}
+.cat-opt:active {
+  transform: scale(0.97);
+}
+
+.btn,
+.tab-btn,
+.icon-btn,
+.fab,
+.bottom-nav-btn,
+.sort-btn,
+.expense-cat-btn,
+.budget-customize-btn,
+.month-nav button {
+  transition:
+    transform 0.14s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+.btn:active,
+.tab-btn:active,
+.sort-btn:active,
+.expense-cat-btn:active,
+.budget-customize-btn:active {
+  transform: scale(0.96);
+}
+.bottom-nav-btn:active {
+  transform: scale(0.94);
+}
+
+/* Sheets and the nav's active pill ease in instead of snapping */
+.sheet {
+  transition:
+    transform 0.32s cubic-bezier(0.2, 0.9, 0.3, 1),
+    opacity 0.2s ease;
+}
+.bottom-nav-btn {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.14s ease;
+}
+
+/* Respect the iPhone "Reduce Motion" setting */
+@media (prefers-reduced-motion: reduce) {
+  .row,
+  .bill-row,
+  .settings-row,
+  .goal-card,
+  .loan-card,
+  .opt-row,
+  .cat-opt,
+  .btn,
+  .tab-btn,
+  .icon-btn,
+  .fab,
+  .bottom-nav-btn,
+  .sheet,
+  .sort-btn,
+  .expense-cat-btn,
+  .budget-customize-btn {
+    transition: none;
+  }
+  .goal-card:active,
+  .loan-card:active,
+  .btn:active,
+  .tab-btn:active,
+  .cat-opt:active,
+  .bottom-nav-btn:active {
+    transform: none;
+  }
 }

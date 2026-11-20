@@ -40,7 +40,15 @@ function profileButton(user) {
     </button>`;
 }
 
+// Lets ios.css know which screen is showing, so it can hide the in-page title
+// that would repeat the big header title ("Goals" twice, etc.).
+function markScreen() {
+  const screen = state.section === "overview" ? state.tab : state.section;
+  document.documentElement.setAttribute("data-screen", screen);
+}
+
 export function renderHeader(user, household) {
+  markScreen();
   return `
   <header class="ios-header">
     <div class="ios-header-text">
