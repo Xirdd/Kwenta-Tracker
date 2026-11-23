@@ -110,7 +110,9 @@ export function openInstallmentForm(plan) {
 
   $("inCancelBtn").onclick = closeModal;
 
+  let saving = false;
   $("inSaveBtn").onclick = () => {
+    if (saving) return;
     const name = $("inName").value.trim();
     const totalAmount = Number($("inTotal").value);
     const monthlyAmount = Number($("inMonthly").value);
@@ -139,6 +141,8 @@ export function openInstallmentForm(plan) {
       remainingMonths,
       dueRule,
     };
+    saving = true;
+    $("inSaveBtn").disabled = true;
     if (plan) updateInstallment(plan, fields);
     else createInstallment(fields);
     closeModal();
@@ -238,10 +242,14 @@ export function openInstallmentDetail(plan) {
 
   const payBtn = document.getElementById("inPayBtn");
   if (payBtn) {
+    let paying = false;
     payBtn.onclick = () => {
+      if (paying) return;
       const amount = Number(document.getElementById("inPayAmount").value);
       const date = document.getElementById("inPayDate").value || dueDate;
       if (!(amount > 0)) return flash("inPayAmount");
+      paying = true;
+      payBtn.disabled = true;
       const walletEl = document.getElementById("inPayWallet");
       markInstallmentPaid(plan, {
         amount,

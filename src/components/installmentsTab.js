@@ -1,4 +1,3 @@
-import { DATA } from "../state.js";
 import { catInfo, categoryIconBadge } from "../categories.js";
 import { fmt, escapeHtml } from "../format.js";
 import { sortList } from "../sorting.js";
@@ -12,6 +11,7 @@ import {
   dueRuleLabel,
   monthlyDues,
   installmentTotals,
+  uniquePlans,
 } from "../installments.js";
 
 // Badge for this month's payment: Paid / Overdue / Due today / Due in Nd.
@@ -25,7 +25,7 @@ function dueBadge(due) {
 
 // ── The Installments tab ────────────────────────────────────────────────
 export function renderInstallmentsTab() {
-  const plans = DATA.installments;
+  const plans = uniquePlans();
 
   if (plans.length === 0) {
     return `

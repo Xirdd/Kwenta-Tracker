@@ -36,6 +36,17 @@ export function getInstallment(id) {
   return DATA.installments.find((p) => p.id === id);
 }
 
+// Every list and total reads plans through here. If the same plan ever ends up
+// in DATA twice (a double tap on Save, or a sync echo), it is shown once.
+export function uniquePlans() {
+  const seen = new Set();
+  return DATA.installments.filter((p) => {
+    if (seen.has(p.id)) return false;
+    seen.add(p.id);
+    return true;
+  });
+}
+
 // ── Due dates ───────────────────────────────────────────────────────────
 const pad = (n) => String(n).padStart(2, "0");
 
@@ -97,7 +108,19 @@ function normalize(f) {
 }
 
 export function createInstallment(fields) {
-  const plan = { id: uid("ins"), ...normalize(fields), active: true };
+  const clean = normalize(fields);
+  // A second tap on Save a moment later would otherwise add the same plan again.
+  const twin = DATA.installments.find(
+    (p) =>
+      Date.now() - Number(String(p.id).slice(3, 16)) < 5000 &&
+      p.name === clean.name &&
+      p.totalAmount === clean.totalAmount &&
+      p.monthlyAmount === clean.monthlyAmount &&
+      p.totalMonths === clean.totalMonths &&
+      p.dueRule === clean.dueRule,
+  );
+  if (twin) return twin;
+  const plan = { id: uid("ins"), ...clean, active: true };
   DATA.installments.push(plan);
   saveData();
   if (isCloudMode())
@@ -163,6 +186,10 @@ export function findPayment(planId, monthKey) {
 }
 
 export function markInstallmentPaid(plan, { amount, date, walletId }) {
+  // One payment per plan per month: a double tap on "Mark as paid" must not
+  // record a second expense (that doubled the totals) or use up two months.
+  const already = findPayment(plan.id, String(date).slice(0, 7));
+  if (already) return already;
   const tx = {
     id: uid(),
     type: "expense",
@@ -199,7 +226,7 @@ export function undoInstallmentPayment(tx) {
 // Plans that matter for a calendar month: still running, or paid that month.
 // Sorted by due date. `daysLeft` is negative once overdue.
 export function monthlyDues(monthKey = currentRealMonthKey()) {
-  return DATA.installments
+  return uniquePlans()
     .filter((p) => p.active !== false)
     .map((plan) => ({
       plan,
@@ -226,7 +253,7 @@ export function installmentTotals(monthKey = currentRealMonthKey()) {
     paidTotal: sumPesos(paid, (d) => d.paidTx.amount),
     toPayTotal: sumPesos(unpaid, (d) => d.plan.monthlyAmount),
     balance: sumPesos(
-      DATA.installments.filter((p) => p.active !== false),
+      uniquePlans().filter((p) => p.active !== false),
       (p) => remainingBalance(p),
     ),
   };
