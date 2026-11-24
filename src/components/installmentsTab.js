@@ -95,7 +95,17 @@ export function renderInstallmentsTab() {
 // already inside the Overview totals and the "Installments / SPayLater"
 // budget category — this card is for what is still to come.) Rows carry
 // data-installment, so main.js opens the same detail sheet from here.
+// Safety net: if a screen ever calls this twice while building one page (the
+// card then appeared twice in Overview), only the first call draws anything.
+// The flag clears as soon as the current render finishes.
+let drawnThisRender = false;
+
 export function renderInstallmentsDue() {
+  if (drawnThisRender) return "";
+  drawnThisRender = true;
+  queueMicrotask(() => {
+    drawnThisRender = false;
+  });
   const dues = monthlyDues();
   if (dues.length === 0) return "";
   const t = installmentTotals();
